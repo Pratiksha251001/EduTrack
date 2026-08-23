@@ -1,0 +1,86 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --radius: 0.75rem;
+    --background: 120 15% 98.5%;
+    --foreground: 155 30% 18%;
+    --card: 0 0% 100%;
+    --card-foreground: 155 30% 18%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 155 30% 18%;
+    --primary: 158 45% 32%;
+    --primary-foreground: 120 20% 98%;
+    --secondary: 140 25% 92%;
+    --secondary-foreground: 158 40% 25%;
+    --muted: 130 15% 94%;
+    --muted-foreground: 150 15% 45%;
+    --accent: 78 80% 50%;
+    --accent-foreground: 70 80% 15%;
+    --destructive: 0 75% 55%;
+    --destructive-foreground: 0 0% 100%;
+    --success: 155 65% 40%;
+    --success-foreground: 0 0% 100%;
+    --warning: 38 92% 50%;
+    --warning-foreground: 38 92% 15%;
+    --border: 140 15% 88%;
+    --input: 140 15% 88%;
+    --ring: 158 45% 32%;
+    
+    --sidebar: 158 45% 20%;
+    --sidebar-foreground: 130 20% 95%;
+    --sidebar-primary: 78 80% 50%;
+    --sidebar-primary-foreground: 70 80% 15%;
+    --sidebar-accent: 158 40% 26%;
+    --sidebar-accent-foreground: 120 20% 98%;
+    --sidebar-border: 158 35% 28%;
+  }
+
+  .dark {
+    --background: 158 25% 12%;
+    --foreground: 130 15% 95%;
+    --card: 158 25% 15%;
+    --card-foreground: 130 15% 95%;
+    --popover: 158 25% 15%;
+    --popover-foreground: 130 15% 95%;
+    --primary: 158 60% 55%;
+    --primary-foreground: 158 80% 10%;
+    --secondary: 158 20% 22%;
+    --secondary-foreground: 130 15% 95%;
+    --muted: 158 20% 20%;
+    --muted-foreground: 140 15% 65%;
+    --accent: 78 80% 55%;
+    --accent-foreground: 70 80% 15%;
+    --destructive: 0 65% 60%;
+    --destructive-foreground: 0 0% 100%;
+    --success: 155 60% 50%;
+    --success-foreground: 158 80% 10%;
+    --warning: 38 90% 55%;
+    --warning-foreground: 38 90% 15%;
+    --border: 158 20% 22%;
+    --input: 158 20% 22%;
+    --ring: 158 60% 55%;
+
+    --sidebar: 158 30% 10%;
+    --sidebar-foreground: 130 15% 93%;
+    --sidebar-primary: 78 80% 55%;
+    --sidebar-primary-foreground: 70 80% 15%;
+    --sidebar-accent: 158 25% 16%;
+    --sidebar-accent-foreground: 120 20% 98%;
+    --sidebar-border: 158 20% 18%;
+  }
+}
+
+body {
+  font-family: 'Plus Jakarta Sans', sans-serif;
+}
+
+h1, h2, h3, h4, .font-display {
+  font-family: 'Outfit', sans-serif;
+}
+
+.surface-panel {
+  @apply rounded-xl border border-border bg-card p-6 shadow-sm transition-all;
+}
