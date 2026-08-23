@@ -59,24 +59,157 @@ EduTrack aims to make attendance management smarter, reduce manual work, and ens
         └── SmsLogs.tsx
 # EduTrack
 
-## Next steps
+## 🚀 Getting Started
 
-### 1. Install dependencies
+Follow these steps to get a local copy of **EduTrack** and start working on it.
+
+### 1. Fork the repository
+
+Open the EduTrack GitHub repository and click the **Fork** button in the top-right corner.
+
+This creates your own copy of the repository under your GitHub account.
+
+### 2. Clone the repository
+
+Open your terminal or PowerShell and run:
 
 ```powershell
-cd H:\APA
+git clone https://github.com/Pratiksha251001/EduTrack.git
+```
+
+### 3. Open the project folder
+
+Move into the cloned project:
+
+```powershell
+cd EduTrack
+```
+
+Or, if you want to open it directly in VS Code:
+
+```powershell
+code .
+```
+
+### 4. Install dependencies
+
+Install all required packages:
+
+```powershell
 npm install
 ```
 
-### 2. Start the development server
+### 5. Start the development server
+
+Run:
 
 ```powershell
 npm run dev
 ```
 
-The app should be reachable at:
+The application should be available at:
 
-`http://localhost:5173`
+```text
+http://localhost:5173
+```
+
+### 6. Edit the project
+
+Open the **EduTrack** folder in VS Code and make your changes.
+
+The main source code is located inside:
+
+```text
+src/
+```
+
+After making changes, save the files and check the application in your browser.
+
+### 7. Check your changes
+
+Run:
+
+```powershell
+git status
+```
+
+Review the files you changed.
+
+### 8. Commit your changes
+
+```powershell
+git add .
+git commit -m "Update EduTrack features"
+```
+
+### 9. Push your changes
+
+```powershell
+git push
+```
+
+Your changes will be uploaded to your GitHub repository.
+
+---
+
+## 📁 Project Structure
+
+```text
+EduTrack/
+├── src/
+│   ├── components/
+│   ├── context/
+│   ├── lib/
+│   ├── pages/
+│   ├── App.tsx
+│   └── main.tsx
+├── public/
+├── package.json
+├── package-lock.json
+├── supabase_schema.sql
+├── tailwind.config.js
+├── tsconfig.json
+├── vite.config.ts
+└── .gitignore
+```
+
+## 🛠️ Tech Stack
+
+* React
+* TypeScript
+* Vite
+* Tailwind CSS
+* Supabase
+* JavaScript / TypeScript
+* PDF Generation
+
+## 📌 Important
+
+Do not commit sensitive environment variables or API keys.
+
+Make sure files such as `.env` are included in `.gitignore`.
+
+## 👥 Contributing
+
+If you want to contribute:
+
+1. Fork the repository.
+2. Clone your fork.
+3. Create a new branch.
+4. Make your changes.
+5. Commit your changes.
+6. Push the branch to GitHub.
+7. Create a Pull Request.
+
+Example:
+
+```powershell
+git checkout -b feature/your-feature
+git add .
+git commit -m "Add new feature"
+git push -u origin feature/your-feature
+```
+
 
 
 Optional: If you prefer to run with the built‑in mock data (no Supabase backend), the app works out‑of‑the‑box. To connect to a Supabase instance, update the connection details in src/lib/supabase.ts.
