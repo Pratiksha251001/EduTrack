@@ -57,22 +57,27 @@ EduTrack aims to make attendance management smarter, reduce manual work, and ens
         ├── Students.tsx
         ├── Reports.tsx
         └── SmsLogs.tsx
+# EduTrack
 
-Next steps
-Install dependencies
+## Next steps
 
-powershell
+### 1. Install dependencies
 
-
-cd h:\APA
+```powershell
+cd H:\APA
 npm install
-Start the development server
+```
 
-powershell
+### 2. Start the development server
 
-
+```powershell
 npm run dev
-The app should be reachable at http://localhost:5173.
+```
+
+The app should be reachable at:
+
+`http://localhost:5173`
+
 
 Optional: If you prefer to run with the built‑in mock data (no Supabase backend), the app works out‑of‑the‑box. To connect to a Supabase instance, update the connection details in src/lib/supabase.ts.
 
