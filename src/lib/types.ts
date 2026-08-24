@@ -1,7 +1,17 @@
+export type UserRoleType =
+  | "admin"
+  | "hod"
+  | "teacher"
+  | "class_coordinator"
+  | "student";
+
 export interface Department {
   id: string;
   name: string;
   code: string;
+  hod_id?: string | null;
+  institution_name?: string | null;
+  status: "active" | "inactive";
   created_at?: string;
 }
 
@@ -13,6 +23,10 @@ export interface Teacher {
   mobile?: string | null;
   department_id?: string | null;
   user_id?: string | null;
+  is_class_coordinator?: boolean;
+  assigned_semester?: number | null;
+  role: "hod" | "class_coordinator" | "lecturer";
+  status: "active" | "inactive";
   created_at?: string;
 }
 
@@ -23,7 +37,24 @@ export interface Subject {
   department_id?: string | null;
   semester: number;
   credits: number;
-  teacher_id?: string | null;
+  created_at?: string;
+}
+
+export interface AcademicClass {
+  id: string;
+  name: string;
+  department_id: string;
+  semester: number;
+  coordinator_teacher_id?: string | null;
+  status: "active" | "inactive";
+  created_at?: string;
+}
+
+export interface TeacherSubject {
+  id: string;
+  teacher_id: string;
+  subject_id: string;
+  class_name?: string | null;
   created_at?: string;
 }
 
@@ -39,7 +70,11 @@ export interface Student {
   student_mobile?: string | null;
   email?: string | null;
   photo_url?: string | null;
-  status: 'active' | 'inactive';
+  user_id?: string | null;
+  address?: string | null;
+  date_of_birth?: string | null;
+  gender?: "male" | "female" | "other" | null;
+  status: "active" | "inactive";
   created_at?: string;
 }
 
@@ -48,7 +83,7 @@ export interface AttendanceRecord {
   student_id: string;
   subject_id: string;
   date: string;
-  status: 'present' | 'absent';
+  status: "present" | "absent";
   marked_by?: string | null;
   created_at?: string;
 }
@@ -60,11 +95,40 @@ export interface SmsLog {
   student_name: string;
   parent_mobile?: string | null;
   message: string;
-  status: 'sent' | 'failed';
+  status: "sent" | "failed";
   attendance_date: string;
   sent_at: string;
 }
 
+export interface ClassCoordinatorAssignment {
+  id: string;
+  teacher_id: string;
+  department_id: string;
+  semester: number;
+  assigned_by: string;
+  created_at?: string;
+}
+
 export interface UserRole {
-  role: 'admin' | 'teacher';
+  role: UserRoleType;
+}
+
+export interface UserAccount {
+  id: string;
+  full_name: string;
+  email: string;
+  role: UserRoleType;
+  department_id?: string | null;
+  teacher_id?: string | null;
+  status: "active" | "inactive";
+  created_at?: string;
+}
+
+export interface Notice {
+  id: string;
+  title: string;
+  message: string;
+  audience: "all" | "teachers" | "students" | "parents";
+  status: "published" | "draft";
+  created_at?: string;
 }

@@ -1,12 +1,12 @@
-import React, { useMemo } from 'react';
+import React, { useMemo } from "react";
 import {
   GraduationCap,
   ClipboardCheck,
   MessageSquare,
   AlertTriangle,
   TrendingUp,
-  ShieldAlert
-} from 'lucide-react';
+  ShieldAlert,
+} from "lucide-react";
 import {
   XAxis,
   YAxis,
@@ -14,51 +14,70 @@ import {
   Tooltip,
   ResponsiveContainer,
   LineChart,
-  Line
-} from 'recharts';
-import { localDb } from '../lib/supabase';
-import { college } from '../lib/college';
-import { Card, CardHeader, CardTitle, CardContent } from '../components/ui/card';
-import { Badge } from '../components/ui/badge';
+  Line,
+} from "recharts";
+import { localDb } from "../lib/supabase";
+import { college } from "../lib/college";
+import {
+  Card,
+  CardHeader,
+  CardTitle,
+  CardContent,
+} from "../components/ui/card";
+import { Badge } from "../components/ui/badge";
+import { useAuth } from "../context/AuthContext";
 
 export const Dashboard: React.FC = () => {
+  const { role } = useAuth();
+  const departments = localDb.departments;
+  const teachers = localDb.teachers;
+  const coordinators = localDb.class_coordinator_assignments;
   const students = localDb.students;
   const subjects = localDb.subjects;
   const attendance = localDb.attendance;
   const smsLogs = localDb.sms_logs;
 
-  const totalStudents = students.filter(s => s.status === 'active').length;
+  const totalStudents = students.filter((s) => s.status === "active").length;
 
-  const todayStr = new Date().toISOString().split('T')[0];
-  const todayRecords = attendance.filter(a => a.date === todayStr);
-  const todayPresent = todayRecords.filter(a => a.status === 'present').length;
-  const todayPercentage = todayRecords.length > 0 ? Math.round((todayPresent / todayRecords.length) * 100) : 88;
+  const todayStr = new Date().toISOString().split("T")[0];
+  const todayRecords = attendance.filter((a) => a.date === todayStr);
+  const todayPresent = todayRecords.filter(
+    (a) => a.status === "present",
+  ).length;
+  const todayPercentage =
+    todayRecords.length > 0
+      ? Math.round((todayPresent / todayRecords.length) * 100)
+      : 88;
 
   const studentStats = useMemo(() => {
-    return students.map(st => {
-      const records = attendance.filter(a => a.student_id === st.id);
+    return students.map((st) => {
+      const records = attendance.filter((a) => a.student_id === st.id);
       const total = records.length;
-      const present = records.filter(a => a.status === 'present').length;
+      const present = records.filter((a) => a.status === "present").length;
       const pct = total > 0 ? Math.round((present / total) * 100) : 100;
       return { ...st, total, present, pct };
     });
   }, [students, attendance]);
 
-  const defaulters = studentStats.filter(s => s.pct < college.minAttendance);
+  const defaulters = studentStats.filter((s) => s.pct < college.minAttendance);
 
   const trendData = useMemo(() => {
     const dates: Record<string, { total: number; present: number }> = {};
-    attendance.forEach(a => {
+    attendance.forEach((a) => {
       if (!dates[a.date]) dates[a.date] = { total: 0, present: 0 };
       dates[a.date].total += 1;
-      if (a.status === 'present') dates[a.date].present += 1;
+      if (a.status === "present") dates[a.date].present += 1;
     });
 
     return Object.entries(dates)
       .sort(([a], [b]) => a.localeCompare(b))
       .slice(-7)
       .map(([date, d]) => ({
-        date: new Date(date).toLocaleDateString('en-US', { weekday: 'short', month: 'numeric', day: 'numeric' }),
+        date: new Date(date).toLocaleDateString("en-US", {
+          weekday: "short",
+          month: "numeric",
+          day: "numeric",
+        }),
         rate: Math.round((d.present / d.total) * 100),
       }));
   }, [attendance]);
@@ -66,9 +85,13 @@ export const Dashboard: React.FC = () => {
   return (
     <div className="space-y-8">
       <div>
-        <h2 className="font-display text-3xl font-bold tracking-tight">Academic Overview</h2>
+        <h2 className="font-display text-3xl font-bold tracking-tight">
+          {role === "admin" ? "Institution Overview" : "Academic Overview"}
+        </h2>
         <p className="text-sm text-muted-foreground">
-          Live statistics, attendance compliance, and parent communication metrics.
+          {role === "admin"
+            ? `${college.name} · Institution-wide administration and attendance statistics.`
+            : "Live statistics, attendance compliance, and parent communication metrics."}
         </p>
       </div>
 
@@ -81,8 +104,12 @@ export const Dashboard: React.FC = () => {
             <GraduationCap className="h-5 w-5 text-primary" />
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-display font-extrabold">{totalStudents}</div>
-            <p className="text-xs text-muted-foreground mt-1">Across all departments & sems</p>
+            <div className="text-3xl font-display font-extrabold">
+              {totalStudents}
+            </div>
+            <p className="text-xs text-muted-foreground mt-1">
+              Across all departments & sems
+            </p>
           </CardContent>
         </Card>
 
@@ -94,8 +121,12 @@ export const Dashboard: React.FC = () => {
             <ClipboardCheck className="h-5 w-5 text-emerald-600" />
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-display font-extrabold text-emerald-600">{todayPercentage}%</div>
-            <p className="text-xs text-muted-foreground mt-1">Daily institution-wide average</p>
+            <div className="text-3xl font-display font-extrabold text-emerald-600">
+              {todayPercentage}%
+            </div>
+            <p className="text-xs text-muted-foreground mt-1">
+              Daily institution-wide average
+            </p>
           </CardContent>
         </Card>
 
@@ -107,8 +138,12 @@ export const Dashboard: React.FC = () => {
             <AlertTriangle className="h-5 w-5 text-amber-500" />
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-display font-extrabold text-amber-600">{defaulters.length}</div>
-            <p className="text-xs text-muted-foreground mt-1">Students below threshold</p>
+            <div className="text-3xl font-display font-extrabold text-amber-600">
+              {defaulters.length}
+            </div>
+            <p className="text-xs text-muted-foreground mt-1">
+              Students below threshold
+            </p>
           </CardContent>
         </Card>
 
@@ -120,17 +155,79 @@ export const Dashboard: React.FC = () => {
             <MessageSquare className="h-5 w-5 text-blue-500" />
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-display font-extrabold">{smsLogs.length}</div>
-            <p className="text-xs text-muted-foreground mt-1">Total absentee SMS delivered</p>
+            <div className="text-3xl font-display font-extrabold">
+              {smsLogs.length}
+            </div>
+            <p className="text-xs text-muted-foreground mt-1">
+              Total absentee SMS delivered
+            </p>
           </CardContent>
         </Card>
       </div>
+
+      {role === "admin" && (
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <Card className="border-l-4 border-l-cyan-500">
+            <CardContent className="pt-5">
+              <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                Departments
+              </p>
+              <div className="text-3xl font-display font-extrabold">
+                {departments.filter((d) => d.status === "active").length}
+              </div>
+              <p className="text-xs text-muted-foreground">
+                {departments.length} total, including inactive
+              </p>
+            </CardContent>
+          </Card>
+          <Card className="border-l-4 border-l-violet-500">
+            <CardContent className="pt-5">
+              <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                Teachers
+              </p>
+              <div className="text-3xl font-display font-extrabold">
+                {teachers.filter((t) => t.status === "active").length}
+              </div>
+              <p className="text-xs text-muted-foreground">
+                {teachers.length} total faculty
+              </p>
+            </CardContent>
+          </Card>
+          <Card className="border-l-4 border-l-emerald-500">
+            <CardContent className="pt-5">
+              <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                Class Coordinators
+              </p>
+              <div className="text-3xl font-display font-extrabold">
+                {coordinators.length}
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Across all departments
+              </p>
+            </CardContent>
+          </Card>
+          <Card className="border-l-4 border-l-amber-500">
+            <CardContent className="pt-5">
+              <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                Institution
+              </p>
+              <div className="text-base font-display font-extrabold mt-2">
+                {college.shortName}
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Single institution administrator
+              </p>
+            </CardContent>
+          </Card>
+        </div>
+      )}
 
       <div className="grid gap-6 lg:grid-cols-3">
         <Card className="lg:col-span-2">
           <CardHeader>
             <CardTitle className="text-base font-bold flex items-center gap-2">
-              <TrendingUp className="h-4 w-4 text-primary" /> Daily Attendance Trend (%)
+              <TrendingUp className="h-4 w-4 text-primary" /> Daily Attendance
+              Trend (%)
             </CardTitle>
           </CardHeader>
           <CardContent className="h-72">
@@ -139,8 +236,16 @@ export const Dashboard: React.FC = () => {
                 <CartesianGrid strokeDasharray="3 3" opacity={0.3} />
                 <XAxis dataKey="date" fontSize={12} />
                 <YAxis domain={[50, 100]} fontSize={12} unit="%" />
-                <Tooltip formatter={(value: any) => [`${value}%`, 'Attendance']} />
-                <Line type="monotone" dataKey="rate" stroke="oklch(42% 0.09 158)" strokeWidth={3} dot={{ r: 4 }} />
+                <Tooltip
+                  formatter={(value: any) => [`${value}%`, "Attendance"]}
+                />
+                <Line
+                  type="monotone"
+                  dataKey="rate"
+                  stroke="oklch(42% 0.09 158)"
+                  strokeWidth={3}
+                  dot={{ r: 4 }}
+                />
               </LineChart>
             </ResponsiveContainer>
           </CardContent>
@@ -149,19 +254,27 @@ export const Dashboard: React.FC = () => {
         <Card>
           <CardHeader>
             <CardTitle className="text-base font-bold flex items-center gap-2 text-destructive">
-              <ShieldAlert className="h-4 w-4" /> Attendance Defaulters (&lt;75%)
+              <ShieldAlert className="h-4 w-4" /> Attendance Defaulters
+              (&lt;75%)
             </CardTitle>
           </CardHeader>
           <CardContent>
             {defaulters.length === 0 ? (
-              <p className="text-sm text-muted-foreground py-8 text-center">All students meet attendance criteria.</p>
+              <p className="text-sm text-muted-foreground py-8 text-center">
+                All students meet attendance criteria.
+              </p>
             ) : (
               <div className="space-y-3 max-h-60 overflow-y-auto pr-1">
                 {defaulters.map((st) => (
-                  <div key={st.id} className="flex items-center justify-between rounded-lg border border-border p-2.5">
+                  <div
+                    key={st.id}
+                    className="flex items-center justify-between rounded-lg border border-border p-2.5"
+                  >
                     <div>
                       <p className="text-sm font-semibold">{st.full_name}</p>
-                      <p className="text-xs text-muted-foreground">Roll: {st.roll_number}</p>
+                      <p className="text-xs text-muted-foreground">
+                        Roll: {st.roll_number}
+                      </p>
                     </div>
                     <Badge variant="destructive">{st.pct}%</Badge>
                   </div>
