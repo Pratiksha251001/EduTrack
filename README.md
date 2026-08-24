@@ -210,6 +210,9 @@ git commit -m "Add new feature"
 git push -u origin feature/your-feature
 ```
 
+## you can run this comand on your terminal then it will psh your code on using your branch
+git fetch origin
+git checkout -b <apna-name> origin/<apna-name>
 
 
 Optional: If you prefer to run with the built‑in mock data (no Supabase backend), the app works out‑of‑the‑box. To connect to a Supabase instance, update the connection details in src/lib/supabase.ts.
