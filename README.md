@@ -20,43 +20,44 @@ EduTrack aims to make attendance management smarter, reduce manual work, and ens
 ├── index.html
 ├── supabase_schema.sql
 └── src/
-    ├── main.tsx
-    ├── App.tsx
-    ├── index.css
-    ├── lib/
-    │   ├── types.ts
-    │   ├── college.ts
-    │   ├── utils.ts
-    │   ├── supabase.ts
-    │   ├── mockData.ts
-    │   └── pdfExport.ts
-    ├── context/
-    │   ├── AuthContext.tsx
-    │   └── ThemeContext.tsx
-    ├── components/
-    │   ├── AppShell.tsx
-    │   ├── CrudPage.tsx
-    │   └── ui/
-    │       ├── button.tsx
-    │       ├── input.tsx
-    │       ├── select.tsx
-    │       ├── table.tsx
-    │       ├── card.tsx
-    │       ├── badge.tsx
-    │       ├── tabs.tsx
-    │       ├── dialog.tsx
-    │       ├── alert-dialog.tsx
-    │       └── skeleton.tsx
-    └── pages/
-        ├── LandingAuth.tsx
-        ├── Dashboard.tsx
-        ├── Attendance.tsx
-        ├── Departments.tsx
-        ├── Teachers.tsx
-        ├── Subjects.tsx
-        ├── Students.tsx
-        ├── Reports.tsx
-        └── SmsLogs.tsx
+├── main.tsx
+├── App.tsx
+├── index.css
+├── lib/
+│ ├── types.ts
+│ ├── college.ts
+│ ├── utils.ts
+│ ├── supabase.ts
+│ ├── mockData.ts
+│ └── pdfExport.ts
+├── context/
+│ ├── AuthContext.tsx
+│ └── ThemeContext.tsx
+├── components/
+│ ├── AppShell.tsx
+│ ├── CrudPage.tsx
+│ └── ui/
+│ ├── button.tsx
+│ ├── input.tsx
+│ ├── select.tsx
+│ ├── table.tsx
+│ ├── card.tsx
+│ ├── badge.tsx
+│ ├── tabs.tsx
+│ ├── dialog.tsx
+│ ├── alert-dialog.tsx
+│ └── skeleton.tsx
+└── pages/
+├── LandingAuth.tsx
+├── Dashboard.tsx
+├── Attendance.tsx
+├── Departments.tsx
+├── Teachers.tsx
+├── Subjects.tsx
+├── Students.tsx
+├── Reports.tsx
+└── SmsLogs.tsx
+
 # EduTrack
 
 ## 🚀 Getting Started
@@ -175,13 +176,13 @@ EduTrack/
 
 ## 🛠️ Tech Stack
 
-* React
-* TypeScript
-* Vite
-* Tailwind CSS
-* Supabase
-* JavaScript / TypeScript
-* PDF Generation
+- React
+- TypeScript
+- Vite
+- Tailwind CSS
+- Supabase
+- JavaScript / TypeScript
+- PDF Generation
 
 ## 📌 Important
 
@@ -210,9 +211,4 @@ git commit -m "Add new feature"
 git push -u origin feature/your-feature
 ```
 
-
-
 Optional: If you prefer to run with the built‑in mock data (no Supabase backend), the app works out‑of‑the‑box. To connect to a Supabase instance, update the connection details in src/lib/supabase.ts.
-
-
-        
