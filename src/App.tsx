@@ -23,6 +23,8 @@ import { StudentProfile } from "./pages/StudentProfile";
 import { HODStaff } from "./pages/HODStaff";
 import { HODClasses } from "./pages/HODClasses";
 import { HODStudents } from "./pages/HODStudents";
+import { ClassTeacherLogin } from "./pages/ClassTeacherLogin";
+import { ClassTeacherDashboard } from "./pages/ClassTeacherDashboard";
 
 const ProtectedRoute: React.FC<{
   children: React.ReactNode;
@@ -98,6 +100,7 @@ export const App: React.FC = () => {
         <BrowserRouter>
           <Routes>
             <Route path="/" element={<AccessHub />} />
+            <Route path="/teacher/login" element={<ClassTeacherLogin />} />
 
             <Route
               element={
@@ -107,6 +110,7 @@ export const App: React.FC = () => {
               }
             >
               <Route path="/dashboard" element={<RoleDashboard />} />
+            <Route path="/teacher/dashboard" element={<ProtectedRoute roleOnly="teacher"><ClassTeacherDashboard /></ProtectedRoute>} />
               <Route
                 path="/hod/teachers"
                 element={
