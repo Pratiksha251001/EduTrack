@@ -2,6 +2,7 @@ import React, { useMemo, useState } from "react";
 import { GraduationCap, Plus, Search, Trash2 } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import { localDb } from "../lib/supabase";
+import { saveCredential } from "../lib/authUtils";
 import { Button } from "../components/ui/button";
 import { Card } from "../components/ui/card";
 import { Input } from "../components/ui/input";
@@ -29,6 +30,7 @@ export const HODStudents: React.FC = () => {
     parent_name: "",
     parent_mobile: "",
     email: "",
+    password: "",
   });
   const filtered = useMemo(
     () =>
@@ -66,7 +68,7 @@ export const HODStudents: React.FC = () => {
       alert("This roll number already exists.");
       return;
     }
-    await localDb.insert("students", [
+    const inserted = await localDb.insert("students", [
       {
         roll_number: form.roll_number.trim(),
         full_name: form.full_name.trim(),
@@ -78,6 +80,33 @@ export const HODStudents: React.FC = () => {
         status: "active",
       },
     ]);
+
+    const student = inserted[0];
+    if (student) {
+      const accountId = `student-user-${student.id}`;
+      await localDb.insert("users", [
+        {
+          id: accountId,
+          full_name: student.full_name,
+          email: student.email || `${student.roll_number.toLowerCase()}@student.edutrack.edu`,
+          role: "student",
+          department_id: departmentId,
+          student_id: student.id,
+          status: "active",
+        },
+      ]);
+      const effectivePwd = form.password.trim() || student.roll_number || "123";
+      saveCredential(
+        [
+          accountId,
+          student.id,
+          student.roll_number,
+          student.email,
+        ],
+        effectivePwd,
+      );
+    }
+
     setForm({
       roll_number: "",
       full_name: "",
@@ -85,6 +114,7 @@ export const HODStudents: React.FC = () => {
       parent_name: "",
       parent_mobile: "",
       email: "",
+      password: "",
     });
     setOpen(false);
     refresh();
@@ -170,13 +200,25 @@ export const HODStudents: React.FC = () => {
                 setForm({ ...form, email: event.target.value })
               }
             />
+            <div className="space-y-1 sm:col-span-2">
+              <Input
+                type="password"
+                placeholder="Login Password (default: Roll Number)"
+                value={form.password}
+                onChange={(event) =>
+                  setForm({ ...form, password: event.target.value })
+                }
+              />
+              <p className="text-[11px] text-muted-foreground">
+                Students can log in with their Roll Number and password (default is their Roll Number).
+              </p>
+            </div>
           </div>
           <div className="mt-4 flex justify-end">
             <Button onClick={save}>Save Student</Button>
           </div>
         </Card>
       )}
-      +{" "}
       <Card className="p-5">
         <div className="relative mb-4 max-w-md">
           <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />

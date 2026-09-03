@@ -37,9 +37,7 @@ export const AppShell: React.FC = () => {
 
   const navItems = [
     { label: "Dashboard", path: "/dashboard", icon: LayoutDashboard },
-    ...(role === "student"
-      ? [{ label: "My Profile", path: "/profile", icon: UserCog }]
-      : []),
+    { label: "My Profile", path: "/profile", icon: UserCog },
     ...(role === "hod"
       ? [
           { label: "Teachers", path: "/hod/teachers", icon: Users },
@@ -98,7 +96,12 @@ export const AppShell: React.FC = () => {
             <X className="h-5 w-5" />
           </button>
         </div>
-        <div className="mx-4 my-4 rounded-xl bg-[hsl(var(--sidebar-accent))] p-3 border border-[hsl(var(--sidebar-border))]">
+        <Link
+          to="/profile"
+          onClick={() => setMobileOpen(false)}
+          className="mx-4 my-4 block rounded-xl bg-[hsl(var(--sidebar-accent))] p-3 border border-[hsl(var(--sidebar-border))] hover:opacity-90 transition-opacity"
+          title="View My Profile & Credentials"
+        >
           <div className="flex items-center justify-between">
             <div className="min-w-0 flex-1">
               <p className="truncate text-xs font-semibold">
@@ -110,10 +113,10 @@ export const AppShell: React.FC = () => {
               variant="default"
               className="bg-[hsl(var(--sidebar-primary))]/20 text-[hsl(var(--sidebar-primary))] border-[hsl(var(--sidebar-primary))]/30 text-[10px] uppercase font-bold tracking-wider"
             >
-              {role}
+              {role?.replace("_", " ")}
             </Badge>
           </div>
-        </div>
+        </Link>
         <nav className="flex-1 space-y-1.5 px-4 overflow-hidden">
           {navItems.map((item) => {
             const active = location.pathname === item.path;

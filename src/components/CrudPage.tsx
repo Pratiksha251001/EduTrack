@@ -1,6 +1,7 @@
 import React, { useState, useMemo } from "react";
 import { Search, Plus, Edit, Trash2, Loader2 } from "lucide-react";
 import { localDb } from "../lib/supabase";
+import { saveCredential } from "../lib/authUtils";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { Select } from "./ui/select";
@@ -101,6 +102,7 @@ export function CrudPage<T extends { id: string }>({
       setSaving(false);
       return;
     }
+
     const saveData =
       table === "teachers" && formData.role
         ? {
@@ -108,10 +110,12 @@ export function CrudPage<T extends { id: string }>({
             is_class_coordinator: formData.role === "class_coordinator",
           }
         : formData;
-    const teacherPassword =
-      table === "teachers" ? formData.password : undefined;
-    if (table === "teachers" && "password" in saveData)
+
+    const rawPassword = formData.password?.trim();
+    if ("password" in saveData) {
       delete saveData.password;
+    }
+
     if (table === "users" && formData.role === "admin") {
       const existingAdmin = (localDb.users || []).find(
         (user: any) => user.role === "admin" && user.id !== editingItem?.id,
@@ -122,92 +126,165 @@ export function CrudPage<T extends { id: string }>({
         return;
       }
     }
+
     if (editingItem) {
       await localDb.update(table, editingItem.id, saveData);
-      if (table === "teachers" && saveData.role === "hod") {
-        const account = localDb.users.find(
+
+      // 1. UPDATE TEACHER
+      if (table === "teachers") {
+        const userRole = saveData.role === "hod" ? "hod" : saveData.role === "class_coordinator" ? "class_coordinator" : "teacher";
+        const defaultPwd = saveData.role === "hod" ? "HOD@123" : saveData.role === "class_coordinator" ? "CC@123" : "Teacher@123";
+        const effectivePwd = rawPassword || defaultPwd;
+
+        let account = localDb.users.find(
           (user: any) => user.teacher_id === editingItem.id,
         );
-        if (teacherPassword) {
-          if (account) {
-            localStorage.setItem(
-              `edutrack_password_${account.id}`,
-              teacherPassword,
-            );
-            localStorage.setItem(
-              `smit_password_${account.id}`,
-              teacherPassword,
-            );
-          } else if (saveData.email) {
-            const accountId = `teacher-user-${editingItem.id}`;
-            await localDb.insert("users", [
-              {
-                id: accountId,
-                full_name: saveData.full_name,
-                email: saveData.email.trim().toLowerCase(),
-                role: "hod",
-                department_id: saveData.department_id,
-                teacher_id: editingItem.id,
-                status: "active",
-              },
-            ]);
-            localStorage.setItem(`edutrack_password_${accountId}`, teacherPassword);
-            localStorage.setItem(`smit_password_${accountId}`, teacherPassword);
-            await localDb.update("teachers", editingItem.id, {
-              user_id: accountId,
-            });
-          }
-          localStorage.setItem(
-            `edutrack_hod_password_${editingItem.id}`,
-            teacherPassword,
-          );
-          localStorage.setItem(
-            `smit_hod_password_${editingItem.id}`,
-            teacherPassword,
-          );
-        }
+
         if (account) {
           await localDb.update("users", account.id, {
             full_name: saveData.full_name,
-            email: saveData.email?.trim().toLowerCase(),
+            email: saveData.email?.trim().toLowerCase() || account.email,
+            role: userRole,
+            department_id: saveData.department_id,
+            status: saveData.status || "active",
+          });
+        } else if (saveData.email || saveData.employee_id) {
+          const accountId = `teacher-user-${editingItem.id}`;
+          await localDb.insert("users", [
+            {
+              id: accountId,
+              full_name: saveData.full_name,
+              email: saveData.email ? saveData.email.trim().toLowerCase() : `${saveData.employee_id.toLowerCase()}@edutrack.edu`,
+              role: userRole,
+              department_id: saveData.department_id,
+              teacher_id: editingItem.id,
+              status: saveData.status || "active",
+            },
+          ]);
+          await localDb.update("teachers", editingItem.id, { user_id: accountId });
+        }
+
+        saveCredential(
+          [
+            editingItem.id,
+            account?.id,
+            `teacher-user-${editingItem.id}`,
+            saveData.email,
+            saveData.employee_id,
+            `hod_${editingItem.id}`,
+          ],
+          effectivePwd,
+        );
+
+        if (saveData.role === "hod" && saveData.department_id) {
+          await localDb.update("departments", saveData.department_id, {
+            hod_id: editingItem.id,
+          });
+        }
+      }
+
+      // 2. UPDATE STUDENT
+      if (table === "students") {
+        const effectivePwd = rawPassword || saveData.roll_number || "123";
+        let account = localDb.users.find(
+          (user: any) => user.student_id === editingItem.id,
+        );
+
+        if (account) {
+          await localDb.update("users", account.id, {
+            full_name: saveData.full_name,
+            email: saveData.email?.trim().toLowerCase() || account.email,
             department_id: saveData.department_id,
             status: saveData.status || "active",
           });
         }
+
+        saveCredential(
+          [
+            editingItem.id,
+            account?.id,
+            `student-user-${editingItem.id}`,
+            saveData.roll_number,
+            saveData.reg_number,
+            saveData.email,
+          ],
+          effectivePwd,
+        );
       }
     } else {
+      // INSERT NEW RECORD
       const inserted = await localDb.insert(table, saveData);
-      if (table === "teachers" && saveData.role === "hod" && inserted[0]) {
+
+      // 1. INSERT TEACHER (HOD, Teacher, Class Coordinator)
+      if (table === "teachers" && inserted[0]) {
         const teacher = inserted[0];
+        const userRole = teacher.role === "hod" ? "hod" : teacher.role === "class_coordinator" ? "class_coordinator" : "teacher";
+        const defaultPwd = teacher.role === "hod" ? "HOD@123" : teacher.role === "class_coordinator" ? "CC@123" : "Teacher@123";
+        const effectivePwd = rawPassword || defaultPwd;
+
         const accountId = `teacher-user-${teacher.id}`;
         await localDb.insert("users", [
           {
             id: accountId,
             full_name: teacher.full_name,
-            email: teacher.email?.trim().toLowerCase(),
-            role: "hod",
+            email: teacher.email ? teacher.email.trim().toLowerCase() : `${teacher.employee_id?.toLowerCase()}@edutrack.edu`,
+            role: userRole,
             department_id: teacher.department_id,
             teacher_id: teacher.id,
             status: "active",
           },
         ]);
-        localStorage.setItem(`edutrack_password_${accountId}`, teacherPassword);
-        localStorage.setItem(`smit_password_${accountId}`, teacherPassword);
-        localStorage.setItem(
-          `edutrack_hod_password_${teacher.id}`,
-          teacherPassword,
+
+        saveCredential(
+          [
+            accountId,
+            teacher.id,
+            teacher.email,
+            teacher.employee_id,
+            `hod_${teacher.id}`,
+          ],
+          effectivePwd,
         );
-        localStorage.setItem(
-          `smit_hod_password_${teacher.id}`,
-          teacherPassword,
-        );
-        if (teacher.department_id)
+
+        if (teacher.role === "hod" && teacher.department_id) {
           await localDb.update("departments", teacher.department_id, {
             hod_id: teacher.id,
           });
+        }
         await localDb.update("teachers", teacher.id, { user_id: accountId });
       }
+
+      // 2. INSERT STUDENT
+      if (table === "students" && inserted[0]) {
+        const student = inserted[0];
+        const effectivePwd = rawPassword || student.roll_number || "123";
+        const accountId = `student-user-${student.id}`;
+
+        await localDb.insert("users", [
+          {
+            id: accountId,
+            full_name: student.full_name,
+            email: student.email ? student.email.trim().toLowerCase() : `${student.roll_number.toLowerCase()}@student.edutrack.edu`,
+            role: "student",
+            department_id: student.department_id,
+            student_id: student.id,
+            status: "active",
+          },
+        ]);
+
+        saveCredential(
+          [
+            accountId,
+            student.id,
+            student.roll_number,
+            student.reg_number,
+            student.email,
+          ],
+          effectivePwd,
+        );
+      }
     }
+
     const updated = await localDb.get(table);
     setData([...updated]);
     setSaving(false);

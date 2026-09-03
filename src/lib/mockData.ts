@@ -34,6 +34,7 @@ export const mockUsers: UserAccount[] = [
     email: "cc@edutrack.edu",
     role: "class_coordinator",
     department_id: "dept-1",
+    teacher_id: "t-4",
     status: "active",
   },
 ];

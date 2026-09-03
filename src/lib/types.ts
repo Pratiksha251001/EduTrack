@@ -120,6 +120,7 @@ export interface UserAccount {
   role: UserRoleType;
   department_id?: string | null;
   teacher_id?: string | null;
+  student_id?: string | null;
   status: "active" | "inactive";
   created_at?: string;
 }

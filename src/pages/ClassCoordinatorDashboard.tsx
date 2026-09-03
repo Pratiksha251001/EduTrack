@@ -18,6 +18,7 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { localDb } from '../lib/supabase';
+import { saveCredential } from '../lib/authUtils';
 import { Student } from '../lib/types';
 import { college } from '../lib/college';
 import { Button } from '../components/ui/button';
@@ -94,21 +95,30 @@ export const ClassCoordinatorDashboard: React.FC = () => {
     address: '',
     date_of_birth: '',
     gender: '' as '' | 'male' | 'female' | 'other',
+    password: '',
   });
 
   const departments = localDb.departments;
   const students = localDb.students;
   const teachers = localDb.teachers;
 
-  const me = teachers.find(t => t.id === user?.teacher_id);
-  const myAssignedSemester = me?.assigned_semester;
+  const me = teachers.find(
+    t =>
+      t.id === user?.teacher_id ||
+      (user?.email && t.email?.toLowerCase() === user.email.toLowerCase()) ||
+      (user?.employee_id && t.employee_id === user.employee_id) ||
+      (t.is_class_coordinator && t.department_id === (user?.department_id || 'dept-1'))
+  );
+  const myDepartmentId = user?.department_id || me?.department_id || 'dept-1';
+  const myAssignedSemester = me?.assigned_semester || 5;
 
   const myStudents = useMemo(() => {
-    let list = students.filter(s => s.department_id === user?.department_id);
-    if (myAssignedSemester) {
-      list = list.filter(s => s.semester === myAssignedSemester);
-    }
-    if (semesterFilter !== 'all') {
+    let list = students.filter(s => !myDepartmentId || s.department_id === myDepartmentId);
+    if (myAssignedSemester && semesterFilter === 'all') {
+      // Prioritize assigned semester if coordinator has one, but show all if none found
+      const semList = list.filter(s => s.semester === myAssignedSemester);
+      if (semList.length > 0) list = semList;
+    } else if (semesterFilter !== 'all') {
       list = list.filter(s => s.semester === Number(semesterFilter));
     }
     if (search) {
@@ -121,14 +131,14 @@ export const ClassCoordinatorDashboard: React.FC = () => {
       );
     }
     return list;
-  }, [students, user?.department_id, myAssignedSemester, semesterFilter, search]);
+  }, [students, myDepartmentId, myAssignedSemester, semesterFilter, search]);
 
   const statsSemesters = useMemo(() => {
-    const all = students.filter(s => s.department_id === user?.department_id);
+    const all = students.filter(s => !myDepartmentId || s.department_id === myDepartmentId);
     const my = myAssignedSemester ? all.filter(s => s.semester === myAssignedSemester) : all;
     const active = my.filter(s => s.status === 'active').length;
     return { total: my.length, active, inactive: my.length - active, sem: myAssignedSemester };
-  }, [students, user?.department_id, myAssignedSemester]);
+  }, [students, myDepartmentId, myAssignedSemester]);
 
   const handleAddStudent = () => {
     setEditingStudent(null);
@@ -144,6 +154,7 @@ export const ClassCoordinatorDashboard: React.FC = () => {
       address: '',
       date_of_birth: '',
       gender: '',
+      password: '',
     });
     setStudentDialogOpen(true);
   };
@@ -162,6 +173,7 @@ export const ClassCoordinatorDashboard: React.FC = () => {
       address: s.address || '',
       date_of_birth: s.date_of_birth || '',
       gender: (s.gender as '' | 'male' | 'female' | 'other') || '',
+      password: '',
     });
     setStudentDialogOpen(true);
   };
@@ -186,25 +198,72 @@ export const ClassCoordinatorDashboard: React.FC = () => {
     }
 
     const data = {
-      roll_number: studentForm.roll_number,
-      reg_number: studentForm.reg_number || null,
-      full_name: studentForm.full_name,
+      roll_number: studentForm.roll_number.trim(),
+      reg_number: studentForm.reg_number?.trim() || null,
+      full_name: studentForm.full_name.trim(),
       department_id: user?.department_id,
       semester: Number(studentForm.semester),
-      parent_name: studentForm.parent_name || null,
-      parent_mobile: studentForm.parent_mobile,
-      student_mobile: studentForm.student_mobile || null,
-      email: studentForm.email || null,
-      address: studentForm.address || null,
+      parent_name: studentForm.parent_name?.trim() || null,
+      parent_mobile: studentForm.parent_mobile.trim(),
+      student_mobile: studentForm.student_mobile?.trim() || null,
+      email: studentForm.email?.trim() || null,
+      address: studentForm.address?.trim() || null,
       date_of_birth: studentForm.date_of_birth || null,
       gender: studentForm.gender || null,
       status: 'active' as const,
     };
 
+    const effectivePwd = studentForm.password.trim() || data.roll_number || '123';
+
     if (editingStudent) {
       await localDb.update('students', editingStudent.id, data);
+      const account = localDb.users.find(u => u.student_id === editingStudent.id);
+      if (account) {
+        await localDb.update('users', account.id, {
+          full_name: data.full_name,
+          email: data.email || account.email,
+        });
+      }
+      if (studentForm.password.trim() || !account) {
+        saveCredential(
+          [
+            editingStudent.id,
+            account?.id,
+            `student-user-${editingStudent.id}`,
+            data.roll_number,
+            data.reg_number,
+            data.email,
+          ],
+          effectivePwd,
+        );
+      }
     } else {
-      await localDb.insert('students', [data]);
+      const inserted = await localDb.insert('students', [data]);
+      const student = inserted[0];
+      if (student) {
+        const accountId = `student-user-${student.id}`;
+        await localDb.insert('users', [
+          {
+            id: accountId,
+            full_name: student.full_name,
+            email: student.email || `${student.roll_number.toLowerCase()}@student.edutrack.edu`,
+            role: 'student',
+            department_id: user?.department_id,
+            student_id: student.id,
+            status: 'active',
+          },
+        ]);
+        saveCredential(
+          [
+            accountId,
+            student.id,
+            student.roll_number,
+            student.reg_number,
+            student.email,
+          ],
+          effectivePwd,
+        );
+      }
     }
 
     setStudentDialogOpen(false);
@@ -311,23 +370,47 @@ export const ClassCoordinatorDashboard: React.FC = () => {
     );
 
     const toInsert = validRows.map(r => ({
-      roll_number: r.roll_number,
-      reg_number: r.reg_number || null,
-      full_name: r.full_name,
+      roll_number: r.roll_number.trim(),
+      reg_number: r.reg_number?.trim() || null,
+      full_name: r.full_name.trim(),
       department_id: user?.department_id,
       semester: r.semester || myAssignedSemester || 1,
-      parent_name: r.parent_name || null,
-      parent_mobile: r.parent_mobile,
-      student_mobile: r.student_mobile || null,
-      email: r.email || null,
-      address: r.address || null,
+      parent_name: r.parent_name?.trim() || null,
+      parent_mobile: r.parent_mobile.trim(),
+      student_mobile: r.student_mobile?.trim() || null,
+      email: r.email?.trim() || null,
+      address: r.address?.trim() || null,
       date_of_birth: r.date_of_birth || null,
       gender: (r.gender as 'male' | 'female' | 'other') || null,
       status: 'active' as const,
     }));
 
     if (toInsert.length > 0) {
-      await localDb.insert('students', toInsert);
+      const inserted = await localDb.insert('students', toInsert);
+      for (const s of inserted) {
+        const accountId = `student-user-${s.id}`;
+        await localDb.insert('users', [
+          {
+            id: accountId,
+            full_name: s.full_name,
+            email: s.email || `${s.roll_number.toLowerCase()}@student.edutrack.edu`,
+            role: 'student',
+            department_id: user?.department_id,
+            student_id: s.id,
+            status: 'active',
+          },
+        ]);
+        saveCredential(
+          [
+            accountId,
+            s.id,
+            s.roll_number,
+            s.reg_number,
+            s.email,
+          ],
+          s.roll_number || '123',
+        );
+      }
     }
 
     alert(`Successfully imported ${toInsert.length} student(s). ${importErrors.length} row(s) skipped due to errors.`);
@@ -359,10 +442,38 @@ export const ClassCoordinatorDashboard: React.FC = () => {
   };
 
   const statCards = [
-    { label: myAssignedSemester ? `Semester ${myAssignedSemester} Students` : 'Dept Students', value: String(statsSemesters.total), sub: 'Total Enrolled', icon: GraduationCap, color: 'from-cyan-500/20 to-cyan-500/5 text-cyan-400 border-cyan-500/20' },
-    { label: 'Active Students', value: String(statsSemesters.active), sub: 'Currently Enrolled', icon: CheckCircle2, color: 'from-emerald-500/20 to-emerald-500/5 text-emerald-400 border-emerald-500/20' },
-    { label: 'Inactive', value: String(statsSemesters.inactive), sub: 'On Leave / Dropped', icon: XCircle, color: 'from-rose-500/20 to-rose-500/5 text-rose-400 border-rose-500/20' },
-    { label: 'My Class', value: myAssignedSemester ? `Sem ${myAssignedSemester}` : 'All', sub: 'Assigned Semester', icon: UserCog, color: 'from-violet-500/20 to-violet-500/5 text-violet-400 border-violet-500/20' },
+    {
+      label: myAssignedSemester ? `Semester ${myAssignedSemester} Students` : 'Dept Students',
+      value: String(statsSemesters.total),
+      sub: 'Total Enrolled',
+      icon: GraduationCap,
+      border: 'border-cyan-500/20',
+      iconBg: 'bg-cyan-500/10 text-cyan-600 dark:text-cyan-400',
+    },
+    {
+      label: 'Active Students',
+      value: String(statsSemesters.active),
+      sub: 'Currently Enrolled',
+      icon: CheckCircle2,
+      border: 'border-emerald-500/20',
+      iconBg: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400',
+    },
+    {
+      label: 'Inactive',
+      value: String(statsSemesters.inactive),
+      sub: 'On Leave / Dropped',
+      icon: XCircle,
+      border: 'border-rose-500/20',
+      iconBg: 'bg-rose-500/10 text-rose-600 dark:text-rose-400',
+    },
+    {
+      label: 'My Class',
+      value: myAssignedSemester ? `Sem ${myAssignedSemester}` : 'All',
+      sub: 'Assigned Semester',
+      icon: UserCog,
+      border: 'border-violet-500/20',
+      iconBg: 'bg-violet-500/10 text-violet-600 dark:text-violet-400',
+    },
   ];
 
   return (
@@ -380,10 +491,9 @@ export const ClassCoordinatorDashboard: React.FC = () => {
         {statCards.map((s, i) => {
           const Icon = s.icon;
           return (
-            <Card key={i} className={`border ${s.color.split(' ').slice(-1)[0]} p-5 relative overflow-hidden`}>
-              <div className={`absolute top-0 right-0 h-20 w-20 rounded-bl-full bg-gradient-to-br ${s.color.split(' text')[0]} opacity-60 -mr-10 -mt-10`} />
+            <Card key={i} className={`border ${s.border} p-5 relative overflow-hidden`}>
               <div className="relative">
-                <div className={`h-10 w-10 rounded-lg flex items-center justify-center mb-3 bg-gradient-to-br ${s.color.split(' text')[0]} ${s.color.split('border ')[1].split(' ')[0]}`}>
+                <div className={`h-10 w-10 rounded-lg flex items-center justify-center mb-3 ${s.iconBg}`}>
                   <Icon className="h-5 w-5" />
                 </div>
                 <div className="text-2xl font-black text-foreground">{s.value}</div>
@@ -488,6 +598,18 @@ export const ClassCoordinatorDashboard: React.FC = () => {
                   <div className="col-span-2">
                     <label className="text-xs font-semibold text-muted-foreground mb-1 block">Address</label>
                     <Input value={studentForm.address} onChange={e => setStudentForm({ ...studentForm, address: e.target.value })} placeholder="123 College Ave" />
+                  </div>
+                  <div className="col-span-2">
+                    <label className="text-xs font-semibold text-muted-foreground mb-1 block">Login Password</label>
+                    <Input
+                      type="password"
+                      value={studentForm.password}
+                      onChange={e => setStudentForm({ ...studentForm, password: e.target.value })}
+                      placeholder={editingStudent ? "Leave blank to keep current password" : "Default: Student's Roll Number"}
+                    />
+                    <p className="text-[11px] text-muted-foreground mt-1">
+                      Students can log in to their student portal using their Roll Number and password.
+                    </p>
                   </div>
                 </div>
                 <DialogFooter>

@@ -159,7 +159,7 @@ export const AccessHub: React.FC = () => {
     setLoading(true);
     await loginAsDemo(role);
     setLoading(false);
-    navigate(role === "student" ? "/profile" : "/dashboard", { replace: true });
+    navigate("/dashboard", { replace: true });
   };
 
   const handleLoginSubmit = async (e: React.FormEvent) => {
@@ -186,50 +186,25 @@ export const AccessHub: React.FC = () => {
       return;
     }
 
-    if (selectedRole === "admin") {
-      setLoading(true);
-      const result = await loginWithCredentials("admin", email, password);
-      setLoading(false);
-      if (!result.ok) {
-        alert(result.message);
-        return;
-      }
-      navigate("/dashboard", { replace: true });
-      return;
-    }
-
-    if (selectedRole === "hod") {
-      if (!departmentId) {
-        alert("Select your assigned department.");
-        return;
-      }
-      setLoading(true);
-      const result = await loginWithCredentials(
-        "hod",
-        email,
-        password,
-        departmentId,
-      );
-      setLoading(false);
-      if (!result.ok) {
-        alert(result.message);
-        return;
-      }
-      navigate("/dashboard", { replace: true });
-      return;
-    }
-
-    if (selectedRole === "student" && password !== "123") {
-      alert("Student default password is the enrollment number: 123");
-      return;
-    }
-
     setLoading(true);
-    await loginAsDemo(selectedRole);
+    const result = await loginWithCredentials(
+      selectedRole,
+      email,
+      password,
+      departmentId || undefined,
+    );
     setLoading(false);
-    navigate(selectedRole === "student" ? "/profile" : "/dashboard", {
-      replace: true,
-    });
+
+    if (!result.ok) {
+      alert(result.message || "Authentication failed. Please check credentials.");
+      return;
+    }
+
+    if (selectedRole === "teacher") {
+      navigate("/teacher/dashboard", { replace: true });
+    } else {
+      navigate("/dashboard", { replace: true });
+    }
   };
 
   const closeModal = () => {
@@ -591,16 +566,18 @@ export const AccessHub: React.FC = () => {
 
               {selectedRole === "hod" && (
                 <div className="space-y-1.5">
-                  <label className="text-xs font-semibold text-foreground">
-                    Assigned Department
-                  </label>
+                  <div className="flex items-center justify-between">
+                    <label className="text-xs font-semibold text-foreground">
+                      Assigned Department
+                    </label>
+                    <span className="text-[10px] text-muted-foreground">Auto-detected if unselected</span>
+                  </div>
                   <select
-                    required
                     value={departmentId}
                     onChange={(e) => setDepartmentId(e.target.value)}
                     className="flex h-9 w-full rounded-lg border border-input bg-background px-3 py-1 text-sm text-foreground focus:outline-hidden focus:ring-2 focus:ring-primary/20"
                   >
-                    <option value="">Select your department...</option>
+                    <option value="">Auto-detect or select department...</option>
                     {localDb.departments
                       .filter((department) => department.status === "active")
                       .map((department) => (
@@ -615,18 +592,30 @@ export const AccessHub: React.FC = () => {
               <div className="space-y-1.5">
                 <label className="text-xs font-semibold text-foreground">
                   {selectedRole === "student"
-                    ? "Student Email or Enrollment"
+                    ? "Student Roll Number or Email"
+                    : selectedRole === "hod"
+                    ? "HOD Email or Employee ID"
+                    : selectedRole === "teacher"
+                    ? "Teacher Email or Employee ID"
+                    : selectedRole === "class_coordinator"
+                    ? "Coordinator Email or Employee ID"
                     : "Official Email Address"}
                 </label>
                 <div className="relative">
                   <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                   <Input
                     required
-                    type={selectedRole === "student" ? "text" : "email"}
+                    type="text"
                     placeholder={
                       selectedRole === "student"
-                        ? "alex.h@student.edutrack.edu"
-                        : "faculty@edutrack.edu"
+                        ? "e.g. 101 or alex.h@student.edutrack.edu"
+                        : selectedRole === "hod"
+                        ? "e.g. hod.cse@edutrack.edu or EMP-CSE-01"
+                        : selectedRole === "teacher"
+                        ? "e.g. teacher@edutrack.edu or EMP-CSE-02"
+                        : selectedRole === "class_coordinator"
+                        ? "e.g. cc@edutrack.edu or EMP-CSE-04"
+                        : "admin@edutrack.com"
                     }
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
@@ -652,8 +641,22 @@ export const AccessHub: React.FC = () => {
                 </div>
                 {selectedRole === "student" && (
                   <p className="mt-1 text-[11px] text-muted-foreground">
-                    Initial student password is enrollment number:{" "}
-                    <span className="font-semibold text-primary">123</span>
+                    Default student password is your <span className="font-semibold text-primary">Roll Number</span> (e.g. 101 or 123)
+                  </p>
+                )}
+                {selectedRole === "hod" && (
+                  <p className="mt-1 text-[11px] text-muted-foreground">
+                    Default HOD password is <span className="font-semibold text-primary">HOD@123</span> or your Employee ID
+                  </p>
+                )}
+                {selectedRole === "teacher" && (
+                  <p className="mt-1 text-[11px] text-muted-foreground">
+                    Default teacher password is <span className="font-semibold text-primary">Teacher@123</span> or your Employee ID
+                  </p>
+                )}
+                {selectedRole === "class_coordinator" && (
+                  <p className="mt-1 text-[11px] text-muted-foreground">
+                    Default coordinator password is <span className="font-semibold text-primary">CC@123</span> or your Employee ID
                   </p>
                 )}
               </div>

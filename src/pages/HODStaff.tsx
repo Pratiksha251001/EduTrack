@@ -10,6 +10,7 @@ import {
 } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import { localDb } from "../lib/supabase";
+import { saveCredential } from "../lib/authUtils";
 import { Teacher } from "../lib/types";
 import { college } from "../lib/college";
 import { Badge } from "../components/ui/badge";
@@ -40,6 +41,7 @@ export const HODStaff: React.FC<HODStaffProps> = ({ mode }) => {
     full_name: "",
     email: "",
     mobile: "",
+    password: "",
     role: "lecturer" as Teacher["role"],
   });
 
@@ -75,6 +77,7 @@ export const HODStaff: React.FC<HODStaffProps> = ({ mode }) => {
       full_name: "",
       email: "",
       mobile: "",
+      password: "",
       role: mode === "coordinators" ? "class_coordinator" : "lecturer",
     });
     setFormOpen(true);
@@ -86,6 +89,7 @@ export const HODStaff: React.FC<HODStaffProps> = ({ mode }) => {
       full_name: teacher.full_name,
       email: teacher.email || "",
       mobile: teacher.mobile || "",
+      password: "",
       role: teacher.role,
     });
     setFormOpen(true);
@@ -95,18 +99,100 @@ export const HODStaff: React.FC<HODStaffProps> = ({ mode }) => {
       alert("Employee ID, full name, and department are required.");
       return;
     }
+    const isCoordinator = form.role === "class_coordinator";
     const data = {
-      ...form,
       employee_id: form.employee_id.trim(),
       full_name: form.full_name.trim(),
       email: form.email.trim() || null,
       mobile: form.mobile.trim() || null,
+      role: form.role,
       department_id: departmentId,
-      is_class_coordinator: form.role === "class_coordinator",
+      is_class_coordinator: isCoordinator,
       status: "active" as const,
     };
-    if (editing) await localDb.update("teachers", editing.id, data);
-    else await localDb.insert("teachers", [data]);
+
+    const userRole = isCoordinator ? "class_coordinator" : "teacher";
+    const defaultPwd = isCoordinator ? "CC@123" : "Teacher@123";
+    const effectivePwd = form.password.trim() || form.employee_id.trim() || defaultPwd;
+
+    if (editing) {
+      await localDb.update("teachers", editing.id, data);
+      const account = localDb.users.find((u: any) => u.teacher_id === editing.id);
+      if (account) {
+        await localDb.update("users", account.id, {
+          full_name: data.full_name,
+          email: data.email || account.email,
+          role: userRole,
+          department_id: departmentId,
+        });
+      } else if (data.email || data.employee_id) {
+        const accountId = `teacher-user-${editing.id}`;
+        await localDb.insert("users", [
+          {
+            id: accountId,
+            full_name: data.full_name,
+            email: data.email || `${data.employee_id.toLowerCase()}@edutrack.edu`,
+            role: userRole,
+            department_id: departmentId,
+            teacher_id: editing.id,
+            status: "active",
+          },
+        ]);
+        await localDb.update("teachers", editing.id, { user_id: accountId });
+      }
+
+      if (form.password.trim() || !account) {
+        saveCredential(
+          [
+            editing.id,
+            account?.id,
+            `teacher-user-${editing.id}`,
+            data.email,
+            data.employee_id,
+          ],
+          effectivePwd,
+        );
+      }
+    } else {
+      const inserted = await localDb.insert("teachers", [data]);
+      const teacher = inserted[0];
+      if (teacher) {
+        const accountId = `teacher-user-${teacher.id}`;
+        await localDb.insert("users", [
+          {
+            id: accountId,
+            full_name: teacher.full_name,
+            email: teacher.email || `${teacher.employee_id.toLowerCase()}@edutrack.edu`,
+            role: userRole,
+            department_id: departmentId,
+            teacher_id: teacher.id,
+            status: "active",
+          },
+        ]);
+        await localDb.update("teachers", teacher.id, { user_id: accountId });
+
+        saveCredential(
+          [
+            accountId,
+            teacher.id,
+            teacher.email,
+            teacher.employee_id,
+          ],
+          effectivePwd,
+        );
+
+        if (isCoordinator) {
+          await localDb.insert("class_coordinator_assignments", [
+            {
+              teacher_id: teacher.id,
+              department_id: departmentId,
+              semester: 1,
+              assigned_by: user?.id,
+            },
+          ]);
+        }
+      }
+    }
     setFormOpen(false);
     window.location.reload();
   };
@@ -194,10 +280,29 @@ export const HODStaff: React.FC<HODStaffProps> = ({ mode }) => {
                 })
               }
               options={[
-                { value: "lecturer", label: "Lecturer" },
+                { value: "lecturer", label: "Lecturer / Faculty" },
                 { value: "class_coordinator", label: "Class Coordinator" },
               ]}
             />
+            <div className="space-y-1">
+              <Input
+                type="password"
+                placeholder={
+                  editing
+                    ? "Update Login Password (leave blank to keep current)"
+                    : form.role === "class_coordinator"
+                    ? "Login Password (default: CC@123 or Emp ID)"
+                    : "Login Password (default: Teacher@123 or Emp ID)"
+                }
+                value={form.password}
+                onChange={(event) =>
+                  setForm({ ...form, password: event.target.value })
+                }
+              />
+              <p className="text-[11px] text-muted-foreground">
+                Staff can log in using their Employee ID or Email.
+              </p>
+            </div>
           </div>
           <div className="mt-4 flex justify-end">
             <Button onClick={save}>

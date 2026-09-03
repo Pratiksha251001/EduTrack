@@ -20,11 +20,13 @@ import { Users } from "./pages/Users";
 import { Notices } from "./pages/Notices";
 import { StudentDashboard } from "./pages/StudentDashboard";
 import { StudentProfile } from "./pages/StudentProfile";
+import { UserProfile } from "./pages/UserProfile";
 import { HODStaff } from "./pages/HODStaff";
 import { HODClasses } from "./pages/HODClasses";
 import { HODStudents } from "./pages/HODStudents";
 import { ClassTeacherLogin } from "./pages/ClassTeacherLogin";
 import { ClassTeacherDashboard } from "./pages/ClassTeacherDashboard";
+import { ForcePasswordChangeModal } from "./components/ForcePasswordChangeModal";
 
 const ProtectedRoute: React.FC<{
   children: React.ReactNode;
@@ -98,6 +100,7 @@ export const App: React.FC = () => {
     <ThemeProvider>
       <AuthProvider>
         <BrowserRouter>
+          <ForcePasswordChangeModal />
           <Routes>
             <Route path="/" element={<AccessHub />} />
             <Route path="/teacher/login" element={<ClassTeacherLogin />} />
@@ -215,17 +218,22 @@ export const App: React.FC = () => {
                   </ProtectedRoute>
                 }
               />
+              <Route path="/profile" element={<UserProfile />} />
+              <Route path="/student/profile" element={<Navigate to="/profile" replace />} />
+              <Route
+                path="/coordinator/dashboard"
+                element={
+                  <ProtectedRoute roleOnly="class_coordinator">
+                    <ClassCoordinatorDashboard />
+                  </ProtectedRoute>
+                }
+              />
+              <Route path="/cc/dashboard" element={<Navigate to="/dashboard" replace />} />
+              <Route path="/coordinator" element={<Navigate to="/dashboard" replace />} />
+              <Route path="/cc" element={<Navigate to="/dashboard" replace />} />
             </Route>
 
             <Route path="*" element={<Navigate to="/" replace />} />
-            <Route
-              path="/profile"
-              element={
-                <ProtectedRoute studentOnly>
-                  <StudentProfile />
-                </ProtectedRoute>
-              }
-            />
           </Routes>
         </BrowserRouter>
       </AuthProvider>
