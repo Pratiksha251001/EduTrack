@@ -7,6 +7,15 @@ import { Button } from "../components/ui/button";
 import { Card } from "../components/ui/card";
 import { Input } from "../components/ui/input";
 import { Select } from "../components/ui/select";
+import {
+  sanitizeMobileInput,
+  getMobileValidationError,
+  isValid10DigitMobile,
+  cleanMobile,
+  isValidEmail,
+  getRollNumberValidationError,
+  getNameValidationError,
+} from "../lib/validation";
 
 export const HODStudents: React.FC = () => {
   const { user } = useAuth();
@@ -49,32 +58,44 @@ export const HODStudents: React.FC = () => {
       localDb.students.filter((item) => item.department_id === departmentId),
     );
   const save = async () => {
-    if (
-      !form.roll_number.trim() ||
-      !form.full_name.trim() ||
-      !form.parent_mobile.trim() ||
-      !departmentId
-    ) {
-      alert(
-        "Roll number, full name, parent mobile, and department are required.",
-      );
-      return;
-    }
+    const errs: string[] = [];
+    const rollErr = getRollNumberValidationError(form.roll_number);
+    if (rollErr) errs.push(rollErr);
+
     if (
       localDb.students.some(
-        (student) => student.roll_number === form.roll_number.trim(),
+        (student) => student.roll_number.toLowerCase() === form.roll_number.trim().toLowerCase(),
       )
     ) {
-      alert("This roll number already exists.");
+      errs.push("This roll number already exists in institutional records.");
+    }
+
+    const nameErr = getNameValidationError(form.full_name);
+    if (nameErr) errs.push(nameErr);
+
+    const mobileErr = getMobileValidationError(form.parent_mobile, "Parent Mobile", true);
+    if (mobileErr) errs.push(mobileErr);
+
+    if (form.email && !isValidEmail(form.email)) {
+      errs.push("Please provide a valid email address.");
+    }
+
+    if (!departmentId) {
+      errs.push("Department assignment is required.");
+    }
+
+    if (errs.length > 0) {
+      alert(errs.join("\n"));
       return;
     }
+
     const inserted = await localDb.insert("students", [
       {
         roll_number: form.roll_number.trim(),
         full_name: form.full_name.trim(),
         semester: Number(form.semester),
         parent_name: form.parent_name.trim() || null,
-        parent_mobile: form.parent_mobile.trim(),
+        parent_mobile: cleanMobile(form.parent_mobile),
         email: form.email.trim() || null,
         department_id: departmentId,
         status: "active",
@@ -185,13 +206,25 @@ export const HODStudents: React.FC = () => {
                 setForm({ ...form, parent_name: event.target.value })
               }
             />
-            <Input
-              placeholder="Parent Mobile *"
-              value={form.parent_mobile}
-              onChange={(event) =>
-                setForm({ ...form, parent_mobile: event.target.value })
-              }
-            />
+            <div className="space-y-1">
+              <div className="flex justify-between items-center text-xs text-muted-foreground">
+                <span>Parent Mobile (10 Digits) *</span>
+                <span className={`font-mono ${form.parent_mobile.length === 10 ? "text-emerald-500 font-bold" : ""}`}>
+                  {form.parent_mobile.length}/10
+                </span>
+              </div>
+              <Input
+                maxLength={10}
+                inputMode="numeric"
+                pattern="[0-9]*"
+                placeholder="e.g. 9876543210"
+                value={form.parent_mobile}
+                onChange={(event) =>
+                  setForm({ ...form, parent_mobile: sanitizeMobileInput(event.target.value) })
+                }
+                className={form.parent_mobile && !isValid10DigitMobile(form.parent_mobile) ? "border-destructive" : ""}
+              />
+            </div>
             <Input
               type="email"
               placeholder="Student Email"

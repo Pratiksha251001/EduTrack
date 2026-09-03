@@ -1,13 +1,35 @@
 import React, { useState, useMemo } from "react";
-import { Check, X, Send, AlertCircle, Save, Loader2 } from "lucide-react";
+import {
+  Check,
+  X,
+  Send,
+  AlertCircle,
+  Save,
+  Loader2,
+  Globe,
+  Copy,
+  MessageSquare,
+} from "lucide-react";
 import { localDb } from "../lib/supabase";
 import { useAuth } from "../context/AuthContext";
-import { college, generateSmsMessage } from "../lib/college";
+import {
+  college,
+  generateSmsMessage,
+  SMS_LANGUAGES,
+  getParentWhatsAppUrl,
+} from "../lib/college";
+import { SmsLanguage } from "../lib/types";
 import { Button } from "../components/ui/button";
 import { Select } from "../components/ui/select";
 import { Input } from "../components/ui/input";
 import { Badge } from "../components/ui/badge";
-import { Dialog } from "../components/ui/dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "../components/ui/dialog";
 
 export const Attendance: React.FC = () => {
   const { user, role } = useAuth();
@@ -24,6 +46,8 @@ export const Attendance: React.FC = () => {
   );
   const [selectedDate, setSelectedDate] = useState<string>(todayStr);
   const [searchQuery, setSearchQuery] = useState("");
+  const [smsLanguage, setSmsLanguage] = useState<SmsLanguage>("trilingual");
+  const [copiedPreview, setCopiedPreview] = useState(false);
   const [attendanceState, setAttendanceState] = useState<
     Record<string, "present" | "absent">
   >({});
@@ -97,20 +121,40 @@ export const Attendance: React.FC = () => {
           st.full_name,
           selectedDate,
           selectedSubject.name,
+          smsLanguage,
         ),
         status: (st.parent_mobile ? "sent" : "failed") as "sent" | "failed",
         attendance_date: selectedDate,
         sent_at: new Date().toISOString(),
+        language: smsLanguage,
       }));
       await localDb.insert("sms_logs", smsEntries);
     }
 
+    const currentLang = SMS_LANGUAGES.find((l) => l.id === smsLanguage);
     setSaving(false);
     setConfirmOpen(false);
     setSuccessMsg(
-      `Attendance saved successfully! ${absentees.length} Parent SMS alerts dispatched.`,
+      `Attendance saved! ${absentees.length} Parent SMS alert(s) dispatched in ${currentLang?.label || smsLanguage}.`,
     );
     setTimeout(() => setSuccessMsg(""), 6000);
+  };
+
+  const sampleAbsentStudent = absentees[0] || eligibleStudents[0];
+  const previewMessage = sampleAbsentStudent
+    ? generateSmsMessage(
+        sampleAbsentStudent.full_name,
+        selectedDate,
+        selectedSubject?.name || "Subject Lecture",
+        smsLanguage,
+      )
+    : "";
+
+  const handleCopyPreview = () => {
+    if (!previewMessage) return;
+    navigator.clipboard.writeText(previewMessage);
+    setCopiedPreview(true);
+    setTimeout(() => setCopiedPreview(false), 2000);
   };
 
   return (
@@ -120,8 +164,7 @@ export const Attendance: React.FC = () => {
           Mark Subject Attendance
         </h2>
         <p className="text-sm text-muted-foreground">
-          One daily record per student per subject. Absentees automatically
-          queue parent SMS alerts.
+          One daily record per student per subject. Absentees automatically receive multilingual parent SMS alerts in English, मराठी, or हिंदी.
         </p>
       </div>
 
@@ -131,7 +174,7 @@ export const Attendance: React.FC = () => {
         </div>
       )}
 
-      <div className="surface-panel grid gap-4 md:grid-cols-3">
+      <div className="surface-panel grid gap-4 md:grid-cols-4">
         <div className="space-y-1.5">
           <label className="text-xs font-semibold text-muted-foreground">
             Select Subject
@@ -155,6 +198,21 @@ export const Attendance: React.FC = () => {
             max={todayStr}
             value={selectedDate}
             onChange={(e) => setSelectedDate(e.target.value)}
+          />
+        </div>
+
+        <div className="space-y-1.5">
+          <label className="text-xs font-semibold text-muted-foreground flex items-center gap-1">
+            <Globe className="h-3 w-3 text-primary" />
+            Parent SMS Language
+          </label>
+          <Select
+            value={smsLanguage}
+            onChange={(e) => setSmsLanguage(e.target.value as SmsLanguage)}
+            options={SMS_LANGUAGES.map((l) => ({
+              value: l.id,
+              label: `${l.flag} ${l.label} (${l.subLabel})`,
+            }))}
           />
         </div>
 
@@ -264,51 +322,213 @@ export const Attendance: React.FC = () => {
         )}
       </div>
 
+      {/* Multilingual Confirm & Parent SMS Dispatch Dialog */}
       <Dialog open={confirmOpen} onOpenChange={setConfirmOpen}>
-        <div className="space-y-4">
-          <div className="flex items-center gap-3 text-amber-600">
-            <AlertCircle className="h-6 w-6" />
-            <h3 className="font-display text-lg font-bold">
-              Confirm Attendance & Parent SMS
-            </h3>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <div className="flex items-center gap-2">
+              <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-amber-500/10 text-amber-600 dark:text-amber-400">
+                <AlertCircle className="h-5 w-5" />
+              </div>
+              <div>
+                <DialogTitle className="text-base sm:text-lg">
+                  Confirm Attendance & Parent Alerts
+                </DialogTitle>
+                <p className="text-xs text-muted-foreground">
+                  {selectedSubject?.name} • {selectedDate}
+                </p>
+              </div>
+            </div>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            {/* Quick Stats Grid */}
+            <div className="grid grid-cols-3 gap-2 text-center">
+              <div className="rounded-xl border border-border bg-muted/40 p-2.5">
+                <span className="text-[11px] text-muted-foreground block">Total Students</span>
+                <span className="text-lg font-bold text-foreground">{eligibleStudents.length}</span>
+              </div>
+              <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/5 p-2.5">
+                <span className="text-[11px] text-emerald-700 dark:text-emerald-400 block">Present</span>
+                <span className="text-lg font-bold text-emerald-600 dark:text-emerald-400">
+                  {eligibleStudents.length - absentees.length}
+                </span>
+              </div>
+              <div className="rounded-xl border border-destructive/20 bg-destructive/5 p-2.5">
+                <span className="text-[11px] text-destructive block">Absent (Alerted)</span>
+                <span className="text-lg font-bold text-destructive">{absentees.length}</span>
+              </div>
+            </div>
+
+            {absentees.length > 0 ? (
+              <div className="space-y-3 pt-1">
+                {/* Language Selection Header */}
+                <div>
+                  <div className="flex items-center justify-between mb-1.5">
+                    <label className="text-xs font-semibold text-foreground flex items-center gap-1.5">
+                      <Globe className="h-3.5 w-3.5 text-primary" />
+                      Parent Message Language / संदेशाची भाषा:
+                    </label>
+                    <span className="text-[11px] text-muted-foreground">
+                      Easy for parents to read & understand
+                    </span>
+                  </div>
+
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-1.5">
+                    {SMS_LANGUAGES.map((lang) => {
+                      const isSelected = smsLanguage === lang.id;
+                      return (
+                        <button
+                          key={lang.id}
+                          type="button"
+                          onClick={() => setSmsLanguage(lang.id)}
+                          className={`flex items-center gap-1.5 px-2.5 py-2 rounded-lg border text-left text-xs transition-all ${
+                            isSelected
+                              ? "border-primary bg-primary/10 text-primary font-bold shadow-xs ring-1 ring-primary/20"
+                              : "border-border bg-card hover:bg-muted text-muted-foreground hover:text-foreground"
+                          }`}
+                        >
+                          <span className="text-sm">{lang.flag}</span>
+                          <div className="truncate">
+                            <span className="block truncate">{lang.label}</span>
+                            <span className="text-[9px] text-muted-foreground font-normal block truncate">
+                              {lang.subLabel}
+                            </span>
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* Live Message Preview */}
+                <div className="rounded-xl border border-border/80 bg-muted/30 p-3 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[11px] font-semibold text-muted-foreground">
+                      Live Message Preview (Sample: {sampleAbsentStudent?.full_name})
+                    </span>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={handleCopyPreview}
+                      className="h-6 px-2 text-[11px] text-muted-foreground hover:text-foreground"
+                    >
+                      {copiedPreview ? (
+                        <>
+                          <Check className="h-3 w-3 mr-1 text-emerald-500" /> Copied
+                        </>
+                      ) : (
+                        <>
+                          <Copy className="h-3 w-3 mr-1" /> Copy
+                        </>
+                      )}
+                    </Button>
+                  </div>
+                  <div className="p-2.5 rounded-lg bg-card border border-border/60 text-xs font-sans text-foreground whitespace-pre-line leading-relaxed max-h-36 overflow-y-auto">
+                    {previewMessage}
+                  </div>
+                </div>
+
+                {/* Absentee Student Parent List */}
+                <div className="space-y-1.5">
+                  <span className="text-xs font-semibold text-muted-foreground block">
+                    Absentees Receiving Notification ({absentees.length}):
+                  </span>
+                  <div className="max-h-40 overflow-y-auto space-y-1 rounded-lg border border-border/60 p-1.5">
+                    {absentees.map((st) => {
+                      const stMsg = generateSmsMessage(
+                        st.full_name,
+                        selectedDate,
+                        selectedSubject?.name || "Subject",
+                        smsLanguage,
+                      );
+                      const waUrl = st.parent_mobile
+                        ? getParentWhatsAppUrl(st.parent_mobile, stMsg)
+                        : null;
+
+                      return (
+                        <div
+                          key={st.id}
+                          className="flex items-center justify-between text-xs p-2 rounded-md bg-card border border-border/40 hover:bg-muted/40 transition-colors"
+                        >
+                          <div className="flex items-center gap-2 truncate">
+                            <span className="font-mono text-[11px] font-bold text-muted-foreground shrink-0">
+                              {st.roll_number}
+                            </span>
+                            <span className="font-medium text-foreground truncate">
+                              {st.full_name}
+                            </span>
+                            <span className="text-muted-foreground text-[11px] shrink-0">
+                              ({st.parent_name || "Guardian"})
+                            </span>
+                          </div>
+
+                          <div className="flex items-center gap-2 shrink-0 ml-2">
+                            {st.parent_mobile ? (
+                              <>
+                                <span className="font-mono text-[11px] text-emerald-600 dark:text-emerald-400 font-semibold">
+                                  {st.parent_mobile}
+                                </span>
+                                {waUrl && (
+                                  <a
+                                    href={waUrl}
+                                    target="_blank"
+                                    rel="noreferrer"
+                                    className="p-1 rounded bg-emerald-500/10 text-emerald-600 hover:bg-emerald-500/20 transition-colors"
+                                    title="Open WhatsApp with message"
+                                  >
+                                    <MessageSquare className="h-3.5 w-3.5" />
+                                  </a>
+                                )}
+                              </>
+                            ) : (
+                              <Badge variant="destructive" className="text-[9px]">
+                                Missing Phone
+                              </Badge>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/5 p-4 text-center text-xs text-emerald-700 dark:text-emerald-400 font-medium">
+                🎉 Excellent! All {eligibleStudents.length} students are marked PRESENT. No parent absence alerts need to be dispatched.
+              </div>
+            )}
           </div>
-          <p className="text-sm text-muted-foreground">
-            You are saving attendance for{" "}
-            <strong>{selectedSubject?.name}</strong> on{" "}
-            <strong>{selectedDate}</strong>.
-          </p>
-          <div className="rounded-lg bg-muted p-3 text-xs space-y-1">
-            <p>
-              <strong>Total Marked:</strong> {eligibleStudents.length} students
-            </p>
-            <p>
-              <strong>Present:</strong>{" "}
-              {eligibleStudents.length - absentees.length}
-            </p>
-            <p className="text-destructive font-semibold">
-              <strong>Absent:</strong> {absentees.length} students
-            </p>
-          </div>
-          {absentees.length > 0 && (
-            <p className="text-xs text-muted-foreground">
-              An automated SMS alert will be recorded and dispatched to{" "}
-              {absentees.length} parent(s).
-            </p>
-          )}
-          <div className="flex justify-end gap-2 pt-2">
-            <Button variant="outline" onClick={() => setConfirmOpen(false)}>
+
+          <DialogFooter className="flex flex-col sm:flex-row gap-2 mt-4">
+            <Button
+              variant="outline"
+              onClick={() => setConfirmOpen(false)}
+              className="w-full sm:w-auto"
+            >
               Cancel
             </Button>
-            <Button onClick={handleSaveAndSendAlerts} disabled={saving}>
+            <Button
+              onClick={handleSaveAndSendAlerts}
+              disabled={saving}
+              className="w-full sm:w-auto"
+            >
               {saving ? (
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Saving & Dispatching...
+                </>
               ) : (
-                <Send className="mr-2 h-4 w-4" />
+                <>
+                  <Send className="mr-2 h-4 w-4" />
+                  {absentees.length > 0
+                    ? `Save & Trigger ${absentees.length} SMS (${SMS_LANGUAGES.find((l) => l.id === smsLanguage)?.label})`
+                    : "Save Attendance Record"}
+                </>
               )}
-              Save & Trigger Alerts
             </Button>
-          </div>
-        </div>
+          </DialogFooter>
+        </DialogContent>
       </Dialog>
     </div>
   );

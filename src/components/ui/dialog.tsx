@@ -40,19 +40,19 @@ export const DialogContent: React.FC<DialogPartProps> = ({
 }) => {
   const { onOpenChange } = useContext(DialogContext) || {};
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center">
+    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
       <div
-        className="fixed inset-0 bg-black/50 backdrop-blur-xs"
+        className="fixed inset-0 bg-black/60 backdrop-blur-xs transition-opacity"
         onClick={() => onOpenChange?.(false)}
       />
       <div
         {...props}
-        className={`relative z-50 w-full max-w-lg rounded-xl border border-border bg-card p-6 shadow-lg ${className}`}
+        className={`relative z-[101] w-full max-w-lg rounded-xl border border-border bg-card p-6 shadow-2xl transition-all ${className}`}
       >
         {children}
         <button
           onClick={() => onOpenChange?.(false)}
-          className="absolute right-4 top-4 rounded-sm opacity-70 hover:opacity-100 focus:outline-none"
+          className="absolute right-4 top-4 rounded-sm text-muted-foreground opacity-70 hover:opacity-100 hover:text-foreground focus:outline-none transition-opacity"
         >
           <X className="h-4 w-4" />
         </button>

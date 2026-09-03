@@ -21,6 +21,10 @@ import {
   Eye,
   EyeOff,
   Sparkles,
+  LogOut,
+  Briefcase,
+  Clock,
+  Hash,
 } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import { localDb } from "../lib/supabase";
@@ -30,9 +34,16 @@ import { Input } from "../components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card";
 import { Badge } from "../components/ui/badge";
 import { hasCustomPassword, isDefaultPassword } from "../lib/authUtils";
+import {
+  sanitizeMobileInput,
+  getMobileValidationError,
+  isValid10DigitMobile,
+  cleanMobile,
+  isValidEmail,
+} from "../lib/validation";
 
 export const UserProfile: React.FC = () => {
-  const { user, role, updateUserPassword } = useAuth();
+  const { user, role, updateUserPassword, openLogoutConfirm } = useAuth();
   const fileRef = useRef<HTMLInputElement>(null);
 
   // Student specific data
@@ -152,7 +163,26 @@ export const UserProfile: React.FC = () => {
   // Student profile update
   const handleSaveStudentProfile = async () => {
     if (!student) return;
-    await localDb.update("students", student.id, studentForm);
+
+    if (studentForm.student_mobile) {
+      const mobErr = getMobileValidationError(studentForm.student_mobile, "Student Mobile", false);
+      if (mobErr) {
+        alert(mobErr);
+        return;
+      }
+    }
+
+    if (studentForm.email && !isValidEmail(studentForm.email)) {
+      alert("Please provide a valid email address.");
+      return;
+    }
+
+    await localDb.update("students", student.id, {
+      ...studentForm,
+      student_mobile: cleanMobile(studentForm.student_mobile) || null,
+      email: studentForm.email?.trim() || null,
+      address: studentForm.address?.trim() || null,
+    });
     alert("Student profile updated successfully.");
     setRerender((v) => v + 1);
   };
@@ -160,24 +190,40 @@ export const UserProfile: React.FC = () => {
   // Teacher contact update
   const handleSaveTeacherContact = async () => {
     if (!teacher) return;
-    await localDb.update("teachers", teacher.id, { mobile: teacherMobile });
+
+    if (teacherMobile) {
+      const mobErr = getMobileValidationError(teacherMobile, "Faculty Mobile", false);
+      if (mobErr) {
+        alert(mobErr);
+        return;
+      }
+    }
+
+    await localDb.update("teachers", teacher.id, { mobile: cleanMobile(teacherMobile) || null });
     alert("Faculty contact details updated successfully.");
     setRerender((v) => v + 1);
   };
 
-  // Student photo upload
+  // Photo upload (students & faculty)
   const handleUploadPhoto = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
-    if (!file || !student) return;
+    if (!file) return;
     if (!file.type.startsWith("image/")) {
       alert("Please upload a valid image file.");
       return;
     }
     const reader = new FileReader();
     reader.onload = async () => {
-      await localDb.update("students", student.id, {
-        photo_url: reader.result as string,
-      });
+      const dataUrl = reader.result as string;
+      if (role === "student" && student) {
+        await localDb.update("students", student.id, {
+          photo_url: dataUrl,
+        });
+      } else if (teacher) {
+        await localDb.update("teachers", teacher.id, {
+          photo_url: dataUrl,
+        });
+      }
       setRerender((v) => v + 1);
     };
     reader.readAsDataURL(file);
@@ -281,6 +327,12 @@ export const UserProfile: React.FC = () => {
                   alt={student.full_name}
                   className="h-full w-full object-cover"
                 />
+              ) : teacher?.photo_url ? (
+                <img
+                  src={teacher.photo_url}
+                  alt={teacher.full_name}
+                  className="h-full w-full object-cover"
+                />
               ) : role === "admin" ? (
                 <Shield className="h-10 w-10" />
               ) : role === "hod" ? (
@@ -294,7 +346,7 @@ export const UserProfile: React.FC = () => {
               )}
             </div>
 
-            {role === "student" && (
+            {(role === "student" || teacher) && (
               <>
                 <button
                   onClick={() => fileRef.current?.click()}
@@ -420,9 +472,21 @@ export const UserProfile: React.FC = () => {
                 </CardTitle>
               </CardHeader>
               <CardContent className="p-0 space-y-4 text-xs">
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3.5">
                   <div className="rounded-xl border border-border p-3.5 bg-muted/30">
-                    <p className="text-muted-foreground text-[11px]">Assigned Department</p>
+                    <p className="text-muted-foreground text-[11px] font-medium flex items-center gap-1">
+                      <Briefcase className="h-3.5 w-3.5 text-primary" /> Academic Designation
+                    </p>
+                    <p className="font-bold text-foreground text-sm mt-0.5">
+                      {teacher?.designation || "Professor & Head of Department"}
+                    </p>
+                    <p className="text-muted-foreground text-[11px] mt-0.5">Leadership appointment</p>
+                  </div>
+
+                  <div className="rounded-xl border border-border p-3.5 bg-muted/30">
+                    <p className="text-muted-foreground text-[11px] font-medium flex items-center gap-1">
+                      <Building2 className="h-3.5 w-3.5 text-primary" /> Assigned Department
+                    </p>
                     <p className="font-bold text-foreground text-sm mt-0.5">
                       {department?.name || "Computer Science & Engineering"}
                     </p>
@@ -430,28 +494,68 @@ export const UserProfile: React.FC = () => {
                   </div>
 
                   <div className="rounded-xl border border-border p-3.5 bg-muted/30">
-                    <p className="text-muted-foreground text-[11px]">Employee ID</p>
+                    <p className="text-muted-foreground text-[11px] font-medium flex items-center gap-1">
+                      <GraduationCap className="h-3.5 w-3.5 text-primary" /> Highest Qualification
+                    </p>
+                    <p className="font-bold text-foreground text-sm mt-0.5">
+                      {teacher?.qualification || "Ph.D in Engineering"}
+                    </p>
+                    <p className="text-muted-foreground text-[11px] mt-0.5">Verified qualification</p>
+                  </div>
+
+                  <div className="rounded-xl border border-border p-3.5 bg-muted/30">
+                    <p className="text-muted-foreground text-[11px] font-medium flex items-center gap-1">
+                      <Hash className="h-3.5 w-3.5 text-primary" /> College Emp ID Ref No
+                    </p>
                     <p className="font-bold font-mono text-foreground text-sm mt-0.5">
                       {teacher?.employee_id || user?.employee_id || "EMP-HOD-01"}
                     </p>
-                    <p className="text-muted-foreground text-[11px] mt-0.5">Status: Active Faculty</p>
+                    <p className="text-muted-foreground text-[11px] mt-0.5">Primary institutional key</p>
+                  </div>
+
+                  <div className="rounded-xl border border-border p-3.5 bg-muted/30">
+                    <p className="text-muted-foreground text-[11px] font-medium flex items-center gap-1">
+                      <Calendar className="h-3.5 w-3.5 text-primary" /> Date of Birth
+                    </p>
+                    <p className="font-bold text-foreground text-sm mt-0.5">
+                      {teacher?.date_of_birth || "Recorded in Registry"}
+                    </p>
+                    <p className="text-muted-foreground text-[11px] mt-0.5">Official birth record</p>
+                  </div>
+
+                  <div className="rounded-xl border border-border p-3.5 bg-muted/30">
+                    <p className="text-muted-foreground text-[11px] font-medium flex items-center gap-1">
+                      <Clock className="h-3.5 w-3.5 text-primary" /> Years of Experience
+                    </p>
+                    <p className="font-bold text-foreground text-sm mt-0.5">
+                      {teacher?.experience_years
+                        ? String(teacher.experience_years).includes("Year")
+                          ? teacher.experience_years
+                          : `${teacher.experience_years} Years`
+                        : "15+ Years"}
+                    </p>
+                    <p className="text-muted-foreground text-[11px] mt-0.5">Academic & research tenure</p>
                   </div>
                 </div>
 
-                <div>
-                  <label className="text-xs font-semibold text-muted-foreground mb-1 block">
-                    Contact Phone / Mobile
+                <div className="rounded-xl border border-border p-4 bg-muted/20">
+                  <label className="text-xs font-semibold text-foreground mb-1.5 flex items-center gap-1.5">
+                    <Phone className="h-4 w-4 text-primary" />
+                    Contact Phone / Mobile (Option to set manually)
                   </label>
-                  <div className="flex gap-2">
+                  <div className="flex gap-2 max-w-md">
                     <Input
                       value={teacherMobile}
                       onChange={(e) => setTeacherMobile(e.target.value)}
-                      placeholder="+1 (555) 019-2834"
+                      placeholder="+91 98765 43210 or (555) 019-2834"
                     />
                     <Button size="sm" onClick={handleSaveTeacherContact}>
                       <Save className="h-4 w-4 mr-1.5" /> Save
                     </Button>
                   </div>
+                  <p className="text-[11px] text-muted-foreground mt-1">
+                    Official phone number used for institutional notifications and departmental staff alerts.
+                  </p>
                 </div>
               </CardContent>
             </Card>
@@ -463,7 +567,7 @@ export const UserProfile: React.FC = () => {
               <CardHeader className="p-0 pb-4">
                 <CardTitle className="text-base font-bold flex items-center gap-2">
                   <UserCog className="h-5 w-5 text-lime-600 dark:text-lime-400" />
-                  Class Coordinator Scope & Class Assignment
+                  Class Coordinator Scope & Faculty Profile
                 </CardTitle>
               </CardHeader>
               <CardContent className="p-0 space-y-4 text-xs">
@@ -488,15 +592,87 @@ export const UserProfile: React.FC = () => {
                   </div>
                 </div>
 
-                <div>
-                  <label className="text-xs font-semibold text-muted-foreground mb-1 block">
-                    Official Mobile Contact
-                  </label>
-                  <div className="flex gap-2">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3.5 pt-1">
+                  <div className="rounded-xl border border-border p-3.5 bg-muted/30">
+                    <p className="text-muted-foreground text-[11px] font-medium flex items-center gap-1">
+                      <Briefcase className="h-3.5 w-3.5 text-primary" /> Designation
+                    </p>
+                    <p className="font-bold text-foreground text-sm mt-0.5">
+                      {teacher?.designation || "Assistant Professor & Coordinator"}
+                    </p>
+                  </div>
+
+                  <div className="rounded-xl border border-border p-3.5 bg-muted/30">
+                    <p className="text-muted-foreground text-[11px] font-medium flex items-center gap-1">
+                      <Building2 className="h-3.5 w-3.5 text-primary" /> Department
+                    </p>
+                    <p className="font-bold text-foreground text-sm mt-0.5">
+                      {department?.name || "Computer Science"} ({department?.code || "CSE"})
+                    </p>
+                  </div>
+
+                  <div className="rounded-xl border border-border p-3.5 bg-muted/30">
+                    <p className="text-muted-foreground text-[11px] font-medium flex items-center gap-1">
+                      <GraduationCap className="h-3.5 w-3.5 text-primary" /> Qualification
+                    </p>
+                    <p className="font-bold text-foreground text-sm mt-0.5">
+                      {teacher?.qualification || "M.Tech in Engineering"}
+                    </p>
+                  </div>
+
+                  <div className="rounded-xl border border-border p-3.5 bg-muted/30">
+                    <p className="text-muted-foreground text-[11px] font-medium flex items-center gap-1">
+                      <Hash className="h-3.5 w-3.5 text-primary" /> College Emp ID Ref No
+                    </p>
+                    <p className="font-bold font-mono text-foreground text-sm mt-0.5">
+                      {teacher?.employee_id || user?.employee_id || "EMP-CC-01"}
+                    </p>
+                  </div>
+
+                  <div className="rounded-xl border border-border p-3.5 bg-muted/30">
+                    <p className="text-muted-foreground text-[11px] font-medium flex items-center gap-1">
+                      <Calendar className="h-3.5 w-3.5 text-primary" /> Date of Birth
+                    </p>
+                    <p className="font-bold text-foreground text-sm mt-0.5">
+                      {teacher?.date_of_birth || "On File"}
+                    </p>
+                  </div>
+
+                  <div className="rounded-xl border border-border p-3.5 bg-muted/30">
+                    <p className="text-muted-foreground text-[11px] font-medium flex items-center gap-1">
+                      <Clock className="h-3.5 w-3.5 text-primary" /> Experience
+                    </p>
+                    <p className="font-bold text-foreground text-sm mt-0.5">
+                      {teacher?.experience_years
+                        ? String(teacher.experience_years).includes("Year")
+                          ? teacher.experience_years
+                          : `${teacher.experience_years} Years`
+                        : "7 Years"}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="rounded-xl border border-border p-4 bg-muted/20">
+                  <div className="flex justify-between items-center mb-1.5">
+                    <label className="text-xs font-semibold text-foreground flex items-center gap-1.5">
+                      <Phone className="h-4 w-4 text-primary" />
+                      Official Mobile Contact (10 Digits)
+                    </label>
+                    {teacherMobile && (
+                      <span className={`text-[10px] font-mono ${teacherMobile.length === 10 ? "text-emerald-500 font-bold" : "text-muted-foreground"}`}>
+                        {teacherMobile.length}/10 digits
+                      </span>
+                    )}
+                  </div>
+                  <div className="flex gap-2 max-w-md">
                     <Input
                       value={teacherMobile}
-                      onChange={(e) => setTeacherMobile(e.target.value)}
-                      placeholder="+1 (555) 020-1122"
+                      maxLength={10}
+                      inputMode="numeric"
+                      pattern="[0-9]*"
+                      onChange={(e) => setTeacherMobile(sanitizeMobileInput(e.target.value))}
+                      placeholder="9876543210 (10 digits)"
+                      className={teacherMobile && !isValid10DigitMobile(teacherMobile) ? "border-destructive" : ""}
                     />
                     <Button size="sm" onClick={handleSaveTeacherContact}>
                       <Save className="h-4 w-4 mr-1.5" /> Update
@@ -513,39 +689,99 @@ export const UserProfile: React.FC = () => {
               <CardHeader className="p-0 pb-4">
                 <CardTitle className="text-base font-bold flex items-center gap-2">
                   <Users className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
-                  Faculty Teaching Profile
+                  Faculty Teaching Profile Dossier
                 </CardTitle>
               </CardHeader>
               <CardContent className="p-0 space-y-4 text-xs">
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3.5">
                   <div className="rounded-xl border border-border p-3.5 bg-muted/30">
-                    <p className="text-muted-foreground text-[11px]">Department</p>
+                    <p className="text-muted-foreground text-[11px] font-medium flex items-center gap-1">
+                      <Briefcase className="h-3.5 w-3.5 text-primary" /> Academic Designation
+                    </p>
                     <p className="font-bold text-foreground text-sm mt-0.5">
-                      {department?.name || "Engineering"}
+                      {teacher?.designation || "Assistant Professor"}
                     </p>
                   </div>
+
                   <div className="rounded-xl border border-border p-3.5 bg-muted/30">
-                    <p className="text-muted-foreground text-[11px]">Employee ID</p>
+                    <p className="text-muted-foreground text-[11px] font-medium flex items-center gap-1">
+                      <Building2 className="h-3.5 w-3.5 text-primary" /> Department
+                    </p>
+                    <p className="font-bold text-foreground text-sm mt-0.5">
+                      {department?.name || "Engineering"} ({department?.code || "DEPT"})
+                    </p>
+                  </div>
+
+                  <div className="rounded-xl border border-border p-3.5 bg-muted/30">
+                    <p className="text-muted-foreground text-[11px] font-medium flex items-center gap-1">
+                      <GraduationCap className="h-3.5 w-3.5 text-primary" /> Highest Qualification
+                    </p>
+                    <p className="font-bold text-foreground text-sm mt-0.5">
+                      {teacher?.qualification || "M.Tech / Postgraduate"}
+                    </p>
+                  </div>
+
+                  <div className="rounded-xl border border-border p-3.5 bg-muted/30">
+                    <p className="text-muted-foreground text-[11px] font-medium flex items-center gap-1">
+                      <Hash className="h-3.5 w-3.5 text-primary" /> College Emp ID Ref No
+                    </p>
                     <p className="font-bold font-mono text-foreground text-sm mt-0.5">
                       {teacher?.employee_id || user?.employee_id || "EMP-102"}
                     </p>
                   </div>
+
+                  <div className="rounded-xl border border-border p-3.5 bg-muted/30">
+                    <p className="text-muted-foreground text-[11px] font-medium flex items-center gap-1">
+                      <Calendar className="h-3.5 w-3.5 text-primary" /> Date of Birth
+                    </p>
+                    <p className="font-bold text-foreground text-sm mt-0.5">
+                      {teacher?.date_of_birth || "On File"}
+                    </p>
+                  </div>
+
+                  <div className="rounded-xl border border-border p-3.5 bg-muted/30">
+                    <p className="text-muted-foreground text-[11px] font-medium flex items-center gap-1">
+                      <Clock className="h-3.5 w-3.5 text-primary" /> Years of Experience
+                    </p>
+                    <p className="font-bold text-foreground text-sm mt-0.5">
+                      {teacher?.experience_years
+                        ? String(teacher.experience_years).includes("Year")
+                          ? teacher.experience_years
+                          : `${teacher.experience_years} Years`
+                        : "5 Years"}
+                    </p>
+                  </div>
                 </div>
 
-                <div>
-                  <label className="text-xs font-semibold text-muted-foreground mb-1 block">
-                    Contact Mobile
-                  </label>
-                  <div className="flex gap-2">
+                <div className="rounded-xl border border-border p-4 bg-muted/20">
+                  <div className="flex justify-between items-center mb-1.5">
+                    <label className="text-xs font-semibold text-foreground flex items-center gap-1.5">
+                      <Phone className="h-4 w-4 text-primary" />
+                      Contact Mobile (10 Digits)
+                    </label>
+                    {teacherMobile && (
+                      <span className={`text-[10px] font-mono ${teacherMobile.length === 10 ? "text-emerald-500 font-bold" : "text-muted-foreground"}`}>
+                        {teacherMobile.length}/10 digits
+                      </span>
+                    )}
+                  </div>
+                  <div className="flex gap-2 max-w-md">
                     <Input
                       value={teacherMobile}
-                      onChange={(e) => setTeacherMobile(e.target.value)}
-                      placeholder="+1 (555) 014-9921"
+                      maxLength={10}
+                      inputMode="numeric"
+                      pattern="[0-9]*"
+                      onChange={(e) => setTeacherMobile(sanitizeMobileInput(e.target.value))}
+                      placeholder="9876543210 (10 digits)"
+                      className={teacherMobile && !isValid10DigitMobile(teacherMobile) ? "border-destructive" : ""}
                     />
                     <Button size="sm" onClick={handleSaveTeacherContact}>
                       <Save className="h-4 w-4 mr-1.5" /> Save
                     </Button>
                   </div>
+                  <p className="text-[11px] text-muted-foreground mt-1">
+                    Your personal mobile contact is accessible to department leadership for academic scheduling.
+                  </p>
                 </div>
 
                 {assignedSubjects.length > 0 && (
@@ -635,15 +871,26 @@ export const UserProfile: React.FC = () => {
                   <h4 className="font-semibold text-foreground text-xs">Self-Editable Contact Details</h4>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div>
-                      <label className="text-[11px] font-semibold text-muted-foreground mb-1 block">
-                        Student Mobile
-                      </label>
+                      <div className="flex justify-between items-center mb-1">
+                        <label className="text-[11px] font-semibold text-muted-foreground block">
+                          Student Mobile (10 Digits)
+                        </label>
+                        {studentForm.student_mobile && (
+                          <span className={`text-[10px] font-mono ${studentForm.student_mobile.length === 10 ? "text-emerald-500 font-bold" : "text-muted-foreground"}`}>
+                            {studentForm.student_mobile.length}/10 digits
+                          </span>
+                        )}
+                      </div>
                       <Input
                         value={studentForm.student_mobile}
+                        maxLength={10}
+                        inputMode="numeric"
+                        pattern="[0-9]*"
                         onChange={(e) =>
-                          setStudentForm({ ...studentForm, student_mobile: e.target.value })
+                          setStudentForm({ ...studentForm, student_mobile: sanitizeMobileInput(e.target.value) })
                         }
-                        placeholder="+1 (555) 000-0000"
+                        placeholder="9876543211 (Optional 10 digits)"
+                        className={studentForm.student_mobile && !isValid10DigitMobile(studentForm.student_mobile) ? "border-destructive" : ""}
                       />
                     </div>
                     <div>
@@ -808,6 +1055,39 @@ export const UserProfile: React.FC = () => {
                   {pwdLoading ? "Updating..." : "Save New Password"}
                 </Button>
               </form>
+            </CardContent>
+          </Card>
+
+          {/* Active Session & Sign Out Card */}
+          <Card className="border-border shadow-xs">
+            <CardHeader className="pb-3">
+              <div className="flex items-center gap-2.5">
+                <div className="h-8 w-8 rounded-lg bg-destructive/10 text-destructive flex items-center justify-center">
+                  <LogOut className="h-4 w-4" />
+                </div>
+                <div>
+                  <CardTitle className="text-base font-semibold">Active Session Security</CardTitle>
+                  <p className="text-xs text-muted-foreground">Manage your current login state and sign out securely.</p>
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 pt-1 border-t border-border/60">
+                <div className="text-xs text-muted-foreground">
+                  Signed in as <span className="font-semibold text-foreground">{user?.email || "User"}</span>
+                </div>
+                <Button
+                  id="profile-logout-btn"
+                  type="button"
+                  variant="destructive"
+                  size="sm"
+                  onClick={openLogoutConfirm}
+                  className="bg-destructive text-destructive-foreground hover:bg-destructive/90 text-xs shadow-xs"
+                >
+                  <LogOut className="h-3.5 w-3.5 mr-1.5" />
+                  Sign Out of Account
+                </Button>
+              </div>
             </CardContent>
           </Card>
         </div>

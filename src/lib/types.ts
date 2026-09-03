@@ -27,6 +27,11 @@ export interface Teacher {
   assigned_semester?: number | null;
   role: "hod" | "class_coordinator" | "lecturer";
   status: "active" | "inactive";
+  designation?: string | null;
+  qualification?: string | null;
+  date_of_birth?: string | null;
+  experience_years?: string | number | null;
+  photo_url?: string | null;
   created_at?: string;
 }
 
@@ -88,6 +93,8 @@ export interface AttendanceRecord {
   created_at?: string;
 }
 
+export type SmsLanguage = 'en' | 'mr' | 'hi' | 'trilingual' | 'bilingual_mr' | 'bilingual_hi';
+
 export interface SmsLog {
   id: string;
   student_id?: string | null;
@@ -98,6 +105,7 @@ export interface SmsLog {
   status: "sent" | "failed";
   attendance_date: string;
   sent_at: string;
+  language?: SmsLanguage | string;
 }
 
 export interface ClassCoordinatorAssignment {

@@ -105,6 +105,10 @@ export const mockTeachers: Teacher[] = [
     user_id: "hod-user-id",
     role: "hod",
     status: "active",
+    designation: "Professor & Head of Department",
+    qualification: "Ph.D in Computer Science & Engineering",
+    date_of_birth: "1978-06-15",
+    experience_years: "18 Years",
   },
   {
     id: "t-2",
@@ -118,6 +122,10 @@ export const mockTeachers: Teacher[] = [
     assigned_semester: 5,
     role: "class_coordinator",
     status: "active",
+    designation: "Associate Professor",
+    qualification: "M.Tech in Software Systems",
+    date_of_birth: "1985-09-24",
+    experience_years: "11 Years",
   },
   {
     id: "t-3",
@@ -129,6 +137,10 @@ export const mockTeachers: Teacher[] = [
     user_id: null,
     role: "hod",
     status: "active",
+    designation: "Professor & Head of Department",
+    qualification: "Ph.D in Artificial Intelligence",
+    date_of_birth: "1980-04-12",
+    experience_years: "15 Years",
   },
   {
     id: "t-4",
@@ -142,6 +154,10 @@ export const mockTeachers: Teacher[] = [
     assigned_semester: 6,
     role: "class_coordinator",
     status: "active",
+    designation: "Assistant Professor",
+    qualification: "M.Tech in Cyber Security",
+    date_of_birth: "1990-11-08",
+    experience_years: "7 Years",
   },
 ];
 

@@ -24,16 +24,11 @@ import { Badge } from "./ui/badge";
 import { EduTrackLogo } from "./EduTrackLogo";
 
 export const AppShell: React.FC = () => {
-  const { user, role, signOut } = useAuth();
+  const { user, role, openLogoutConfirm } = useAuth();
   const { theme, toggleTheme } = useTheme();
   const location = useLocation();
   const navigate = useNavigate();
   const [mobileOpen, setMobileOpen] = useState(false);
-
-  const handleSignOut = async () => {
-    await signOut();
-    navigate("/", { replace: true });
-  };
 
   const navItems = [
     { label: "Dashboard", path: "/dashboard", icon: LayoutDashboard },
@@ -90,7 +85,7 @@ export const AppShell: React.FC = () => {
       <aside
         className={`fixed inset-y-0 left-0 z-50 flex w-72 flex-col bg-[hsl(var(--sidebar))] text-[hsl(var(--sidebar-foreground))] transition-transform duration-300 ease-in-out lg:translate-x-0 ${mobileOpen ? "translate-x-0" : "-translate-x-full"}`}
       >
-        <div className="flex h-20 items-center justify-between border-b border-[hsl(var(--sidebar-border))] px-5">
+        <div className="flex h-20 shrink-0 items-center justify-between border-b border-[hsl(var(--sidebar-border))] px-5">
           <EduTrackLogo size="md" variant="horizontal" colorMode="onDark" />
           <button className="lg:hidden text-[hsl(var(--sidebar-foreground))] hover:opacity-80" onClick={() => setMobileOpen(false)}>
             <X className="h-5 w-5" />
@@ -99,7 +94,7 @@ export const AppShell: React.FC = () => {
         <Link
           to="/profile"
           onClick={() => setMobileOpen(false)}
-          className="mx-4 my-4 block rounded-xl bg-[hsl(var(--sidebar-accent))] p-3 border border-[hsl(var(--sidebar-border))] hover:opacity-90 transition-opacity"
+          className="mx-4 my-3 block shrink-0 rounded-xl bg-[hsl(var(--sidebar-accent))] p-3 border border-[hsl(var(--sidebar-border))] hover:opacity-90 transition-opacity"
           title="View My Profile & Credentials"
         >
           <div className="flex items-center justify-between">
@@ -111,13 +106,13 @@ export const AppShell: React.FC = () => {
             </div>
             <Badge
               variant="default"
-              className="bg-[hsl(var(--sidebar-primary))]/20 text-[hsl(var(--sidebar-primary))] border-[hsl(var(--sidebar-primary))]/30 text-[10px] uppercase font-bold tracking-wider"
+              className="bg-[hsl(var(--sidebar-primary))]/20 text-[hsl(var(--sidebar-primary))] border-[hsl(var(--sidebar-primary))]/30 text-[10px] uppercase font-bold tracking-wider ml-2 shrink-0"
             >
               {role?.replace("_", " ")}
             </Badge>
           </div>
         </Link>
-        <nav className="flex-1 space-y-1.5 px-4 overflow-hidden">
+        <nav className="flex-1 min-h-0 space-y-1.5 px-4 py-1 overflow-y-auto overscroll-contain custom-sidebar-scroll">
           {navItems.map((item) => {
             const active = location.pathname === item.path;
             const Icon = item.icon;
@@ -134,7 +129,7 @@ export const AppShell: React.FC = () => {
             );
           })}
         </nav>
-        <div className="border-t border-[hsl(var(--sidebar-border))] p-4 space-y-2">
+        <div className="shrink-0 border-t border-[hsl(var(--sidebar-border))] p-4 space-y-2">
           <Button
             variant="ghost"
             size="sm"
@@ -149,10 +144,14 @@ export const AppShell: React.FC = () => {
             {theme === "light" ? "Dark mode" : "Light mode"}
           </Button>
           <Button
+            id="sidebar-logout-btn"
             variant="destructive"
             size="sm"
-            onClick={handleSignOut}
-            className="w-full justify-start bg-red-500/20 text-red-300 hover:bg-red-500/30 border border-red-500/30"
+            onClick={() => {
+              setMobileOpen(false);
+              openLogoutConfirm();
+            }}
+            className="w-full justify-start bg-red-500/20 text-red-300 hover:bg-red-500/30 border border-red-500/30 font-medium transition-colors"
           >
             <LogOut className="h-4 w-4 mr-2" />
             Sign out
@@ -170,7 +169,21 @@ export const AppShell: React.FC = () => {
             </button>
             <EduTrackLogo size="sm" variant="horizontal" />
           </div>
-          <Badge variant="outline">{role}</Badge>
+          <div className="flex items-center gap-2">
+            <Badge variant="outline" className="capitalize text-xs font-semibold">
+              {role?.replace("_", " ")}
+            </Badge>
+            <Button
+              id="mobile-header-logout-btn"
+              variant="ghost"
+              size="sm"
+              onClick={openLogoutConfirm}
+              className="text-muted-foreground hover:text-destructive hover:bg-destructive/10 p-2 h-8 w-8 rounded-lg transition-colors"
+              title="Sign out"
+            >
+              <LogOut className="h-4 w-4" />
+            </Button>
+          </div>
         </header>
         <main className="flex-1 p-6 md:p-8 max-w-7xl mx-auto w-full">
           <Outlet />

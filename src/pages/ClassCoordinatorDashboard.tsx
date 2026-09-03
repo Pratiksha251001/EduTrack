@@ -1,26 +1,41 @@
-import React, { useState, useMemo, useRef } from 'react';
+import React, { useState, useMemo } from 'react';
 import {
   GraduationCap,
   Upload,
-  FileSpreadsheet,
   Search,
   Plus,
-  Download,
   Trash2,
   Edit3,
   Save,
-  AlertTriangle,
   CheckCircle2,
   XCircle,
   X,
   UserCog,
-  ClipboardList
+  ClipboardList,
+  KeyRound,
+  ShieldCheck,
+  MessageSquare,
+  Globe,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { localDb } from '../lib/supabase';
 import { saveCredential } from '../lib/authUtils';
 import { Student } from '../lib/types';
 import { college } from '../lib/college';
+import {
+  sanitizeMobileInput,
+  getMobileValidationError,
+  cleanMobile,
+  isValid10DigitMobile,
+  isValidEmail,
+  getEmailValidationError,
+  getNameValidationError,
+  getRollNumberValidationError,
+  validateDateOfBirth,
+} from '../lib/validation';
+import { StudentImportModal } from '../components/StudentImportModal';
+import { StudentPasswordModal } from '../components/StudentPasswordModal';
+import { ParentAlertModal } from '../components/ParentAlertModal';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { Card } from '../components/ui/card';
@@ -49,39 +64,18 @@ import {
   TableRow,
 } from '../components/ui/table';
 
-interface ImportError {
-  row: number;
-  field: string;
-  message: string;
-  value?: string;
-}
-
-interface ParsedStudent {
-  roll_number: string;
-  reg_number?: string;
-  full_name: string;
-  parent_name?: string;
-  parent_mobile: string;
-  student_mobile?: string;
-  email?: string;
-  address?: string;
-  date_of_birth?: string;
-  gender?: string;
-  semester?: number;
-  department_id?: string;
-}
-
 export const ClassCoordinatorDashboard: React.FC = () => {
   const { user } = useAuth();
-  const fileInputRef = useRef<HTMLInputElement>(null);
   const [search, setSearch] = useState('');
   const [semesterFilter, setSemesterFilter] = useState<string>('all');
   const [studentDialogOpen, setStudentDialogOpen] = useState(false);
-  const [importDialogOpen, setImportDialogOpen] = useState(false);
+  const [studentImportModalOpen, setStudentImportModalOpen] = useState(false);
+  const [passwordModalStudent, setPasswordModalStudent] = useState<Student | null>(null);
+  const [batchPasswordModalOpen, setBatchPasswordModalOpen] = useState(false);
+  const [alertStudent, setAlertStudent] = useState<Student | null>(null);
+  const [successToastMsg, setSuccessToastMsg] = useState<string | null>(null);
   const [editingStudent, setEditingStudent] = useState<Student | null>(null);
-  const [importPreview, setImportPreview] = useState<ParsedStudent[]>([]);
-  const [importErrors, setImportErrors] = useState<ImportError[]>([]);
-  const [importFileName, setImportFileName] = useState('');
+  const [version, setVersion] = useState(0);
 
   const [studentForm, setStudentForm] = useState({
     roll_number: '',
@@ -131,14 +125,14 @@ export const ClassCoordinatorDashboard: React.FC = () => {
       );
     }
     return list;
-  }, [students, myDepartmentId, myAssignedSemester, semesterFilter, search]);
+  }, [students, myDepartmentId, myAssignedSemester, semesterFilter, search, version]);
 
   const statsSemesters = useMemo(() => {
     const all = students.filter(s => !myDepartmentId || s.department_id === myDepartmentId);
     const my = myAssignedSemester ? all.filter(s => s.semester === myAssignedSemester) : all;
     const active = my.filter(s => s.status === 'active').length;
     return { total: my.length, active, inactive: my.length - active, sem: myAssignedSemester };
-  }, [students, myDepartmentId, myAssignedSemester]);
+  }, [students, myDepartmentId, myAssignedSemester, version]);
 
   const handleAddStudent = () => {
     setEditingStudent(null);
@@ -180,13 +174,50 @@ export const ClassCoordinatorDashboard: React.FC = () => {
 
   const validateStudentForm = (): string[] => {
     const errs: string[] = [];
-    if (!studentForm.roll_number.trim()) errs.push('Roll Number is required');
-    if (!studentForm.full_name.trim()) errs.push('Full Name is required');
-    if (!studentForm.parent_mobile.trim()) errs.push('Parent Mobile is mandatory for SMS alerts');
-    if (studentForm.parent_mobile && studentForm.student_mobile &&
-        studentForm.parent_mobile === studentForm.student_mobile) {
-      errs.push('Parent Mobile and Student Mobile cannot be the same');
+    const rollErr = getRollNumberValidationError(studentForm.roll_number);
+    if (rollErr) errs.push(rollErr);
+
+    // Uniqueness of roll number
+    const normRoll = studentForm.roll_number.trim().toLowerCase();
+    const duplicateStudent = localDb.students.find(
+      s => s.roll_number.trim().toLowerCase() === normRoll && (!editingStudent || s.id !== editingStudent.id)
+    );
+    if (duplicateStudent) {
+      errs.push(`Roll Number '${studentForm.roll_number}' already belongs to another student (${duplicateStudent.full_name}).`);
     }
+
+    const nameErr = getNameValidationError(studentForm.full_name);
+    if (nameErr) errs.push(nameErr);
+
+    // Parent mobile: strictly 10 digits required
+    const parentMobileErr = getMobileValidationError(studentForm.parent_mobile, 'Parent Mobile', true);
+    if (parentMobileErr) errs.push(parentMobileErr);
+
+    // Student mobile: strictly 10 digits if provided
+    if (studentForm.student_mobile) {
+      const studentMobileErr = getMobileValidationError(studentForm.student_mobile, 'Student Mobile', false);
+      if (studentMobileErr) errs.push(studentMobileErr);
+    }
+
+    // Must not be identical
+    const clParent = cleanMobile(studentForm.parent_mobile);
+    const clStudent = cleanMobile(studentForm.student_mobile);
+    if (clParent && clStudent && clParent === clStudent) {
+      errs.push('Parent Mobile and Student Mobile cannot be identical numbers.');
+    }
+
+    // Email format
+    if (studentForm.email) {
+      const emailErr = getEmailValidationError(studentForm.email);
+      if (emailErr) errs.push(emailErr);
+    }
+
+    // DOB
+    if (studentForm.date_of_birth) {
+      const dobErr = validateDateOfBirth(studentForm.date_of_birth);
+      if (dobErr) errs.push(dobErr);
+    }
+
     return errs;
   };
 
@@ -267,178 +298,13 @@ export const ClassCoordinatorDashboard: React.FC = () => {
     }
 
     setStudentDialogOpen(false);
+    setVersion(v => v + 1);
   };
 
   const handleDeleteStudent = async (id: string) => {
     if (!confirm('Delete this student? This action cannot be undone.')) return;
     await localDb.delete('students', id);
-  };
-
-  const parseCSV = (text: string): ParsedStudent[] => {
-    const lines = text.split(/\r?\n/).filter(l => l.trim());
-    if (lines.length < 2) return [];
-
-    const headers = lines[0].split(',').map(h => h.trim().toLowerCase().replace(/["']/g, ''));
-    const parsed: ParsedStudent[] = [];
-
-    for (let i = 1; i < lines.length; i++) {
-      const cols = lines[i].match(/("([^"]|"")*"|[^,]*)(,|$)/g) || [];
-      const values = cols.slice(0, headers.length).map(v =>
-        v.replace(/,$/, '').trim().replace(/^"|"$/g, '').replace(/""/g, '"')
-      );
-
-      const row: any = {};
-      headers.forEach((h, idx) => {
-        const val = values[idx] || '';
-        if (h.includes('roll') && h.includes('no')) row.roll_number = val;
-        else if (h === 'roll' || h === 'roll_number' || h === 'rollno') row.roll_number = val;
-        else if (h.includes('reg')) row.reg_number = val;
-        else if (h === 'name' || h.includes('full') || h === 'student_name' || h === 'studentname') row.full_name = val;
-        else if (h.includes('parent') && (h.includes('name') || h.includes('guardian'))) row.parent_name = val;
-        else if (h.includes('parent') && (h.includes('mobile') || h.includes('phone') || h.includes('contact'))) row.parent_mobile = val;
-        else if (h.includes('student') && (h.includes('mobile') || h.includes('phone') || h.includes('contact'))) row.student_mobile = val;
-        else if (h === 'mobile' || h === 'phone' || h === 'contact') row.student_mobile = val;
-        else if (h.includes('email')) row.email = val;
-        else if (h.includes('semester') || h === 'sem') row.semester = Number(val) || undefined;
-        else if (h.includes('address')) row.address = val;
-        else if (h.includes('dob') || h.includes('birth')) row.date_of_birth = val;
-        else if (h === 'gender') row.gender = val;
-      });
-
-      parsed.push(row as ParsedStudent);
-    }
-
-    return parsed;
-  };
-
-  const validateParsedData = (data: ParsedStudent[]): ImportError[] => {
-    const errs: ImportError[] = [];
-
-    data.forEach((row, idx) => {
-      const rowNum = idx + 2;
-      if (!row.roll_number) {
-        errs.push({ row: rowNum, field: 'roll_number', message: 'Roll number is required', value: row.roll_number });
-      } else {
-        const dupe = localDb.students.find(s => s.roll_number === row.roll_number);
-        if (dupe) {
-          errs.push({ row: rowNum, field: 'roll_number', message: 'Roll number already exists in system', value: row.roll_number });
-        }
-      }
-      if (!row.full_name) {
-        errs.push({ row: rowNum, field: 'full_name', message: 'Student full name is required', value: row.full_name });
-      }
-      if (!row.parent_mobile) {
-        errs.push({ row: rowNum, field: 'parent_mobile', message: 'Parent mobile is MANDATORY for SMS alerts', value: row.parent_mobile });
-      }
-      if (row.parent_mobile && row.student_mobile && row.parent_mobile === row.student_mobile) {
-        errs.push({ row: rowNum, field: 'student_mobile', message: 'Parent and Student mobile cannot be identical', value: row.student_mobile });
-      }
-    });
-
-    const seenRolls = new Set<string>();
-    data.forEach((row, idx) => {
-      if (row.roll_number) {
-        if (seenRolls.has(row.roll_number)) {
-          errs.push({ row: idx + 2, field: 'roll_number', message: 'Duplicate roll number in uploaded file', value: row.roll_number });
-        }
-        seenRolls.add(row.roll_number);
-      }
-    });
-
-    return errs;
-  };
-
-  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    setImportFileName(file.name);
-    const text = await file.text();
-    const parsed = parseCSV(text);
-    const errors = validateParsedData(parsed);
-
-    setImportPreview(parsed);
-    setImportErrors(errors);
-    setImportDialogOpen(true);
-
-    if (fileInputRef.current) fileInputRef.current.value = '';
-  };
-
-  const handleConfirmImport = async () => {
-    const validRows = importPreview.filter((_, idx) =>
-      !importErrors.some(e => e.row === idx + 2)
-    );
-
-    const toInsert = validRows.map(r => ({
-      roll_number: r.roll_number.trim(),
-      reg_number: r.reg_number?.trim() || null,
-      full_name: r.full_name.trim(),
-      department_id: user?.department_id,
-      semester: r.semester || myAssignedSemester || 1,
-      parent_name: r.parent_name?.trim() || null,
-      parent_mobile: r.parent_mobile.trim(),
-      student_mobile: r.student_mobile?.trim() || null,
-      email: r.email?.trim() || null,
-      address: r.address?.trim() || null,
-      date_of_birth: r.date_of_birth || null,
-      gender: (r.gender as 'male' | 'female' | 'other') || null,
-      status: 'active' as const,
-    }));
-
-    if (toInsert.length > 0) {
-      const inserted = await localDb.insert('students', toInsert);
-      for (const s of inserted) {
-        const accountId = `student-user-${s.id}`;
-        await localDb.insert('users', [
-          {
-            id: accountId,
-            full_name: s.full_name,
-            email: s.email || `${s.roll_number.toLowerCase()}@student.edutrack.edu`,
-            role: 'student',
-            department_id: user?.department_id,
-            student_id: s.id,
-            status: 'active',
-          },
-        ]);
-        saveCredential(
-          [
-            accountId,
-            s.id,
-            s.roll_number,
-            s.reg_number,
-            s.email,
-          ],
-          s.roll_number || '123',
-        );
-      }
-    }
-
-    alert(`Successfully imported ${toInsert.length} student(s). ${importErrors.length} row(s) skipped due to errors.`);
-    setImportDialogOpen(false);
-    setImportPreview([]);
-    setImportErrors([]);
-    setImportFileName('');
-  };
-
-  const downloadTemplate = () => {
-    const headers = [
-      'roll_number', 'reg_number', 'full_name', 'semester',
-      'parent_name', 'parent_mobile', 'student_mobile',
-      'email', 'address', 'date_of_birth', 'gender'
-    ];
-    const sampleRow = [
-      '21CS101', 'REG-2021-101', 'John Smith', '5',
-      'Mr. Smith', '+1 (555) 123-4567', '+1 (555) 123-4568',
-      'john@student.edu', '123 College Ave', '2003-05-15', 'male'
-    ];
-    const csv = [headers.join(','), sampleRow.join(',')].join('\n');
-    const blob = new Blob([csv], { type: 'text/csv' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = 'edutrack_student_template.csv';
-    a.click();
-    URL.revokeObjectURL(url);
+    setVersion(v => v + 1);
   };
 
   const statCards = [
@@ -478,6 +344,22 @@ export const ClassCoordinatorDashboard: React.FC = () => {
 
   return (
     <div className="space-y-6">
+      {/* Toast Alert */}
+      {successToastMsg && (
+        <div className="flex items-center justify-between p-3.5 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-700 dark:text-emerald-400 text-xs font-semibold animate-in fade-in">
+          <div className="flex items-center gap-2">
+            <CheckCircle2 className="h-4 w-4 shrink-0" />
+            <span>{successToastMsg}</span>
+          </div>
+          <button
+            onClick={() => setSuccessToastMsg(null)}
+            className="hover:opacity-75 p-0.5 rounded text-muted-foreground hover:text-foreground"
+          >
+            <X className="h-3.5 w-3.5" />
+          </button>
+        </div>
+      )}
+
       <div>
         <h1 className="font-display text-2xl font-bold tracking-tight text-foreground">
           Class Coordinator Dashboard
@@ -516,19 +398,23 @@ export const ClassCoordinatorDashboard: React.FC = () => {
               {myStudents.length} student{myStudents.length !== 1 ? 's' : ''} in your class
             </p>
           </div>
-          <div className="flex flex-wrap gap-2">
-            <Button size="sm" variant="outline" onClick={downloadTemplate}>
-              <Download className="h-4 w-4 mr-1.5" /> Template
+          <div className="flex flex-wrap items-center gap-2">
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => setBatchPasswordModalOpen(true)}
+              className="text-xs"
+              title="Set or reset portal login passwords for all students in class"
+            >
+              <KeyRound className="h-3.5 w-3.5 mr-1.5 text-primary" /> Batch Set Passwords
             </Button>
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept=".csv,.txt,.xlsx,.xls"
-              className="hidden"
-              onChange={handleFileUpload}
-            />
-            <Button size="sm" variant="secondary" onClick={() => fileInputRef.current?.click()}>
-              <Upload className="h-4 w-4 mr-1.5" /> Import CSV/Excel
+            <Button
+              size="sm"
+              variant="secondary"
+              onClick={() => setStudentImportModalOpen(true)}
+              className="text-xs font-medium"
+            >
+              <Upload className="h-3.5 w-3.5 mr-1.5" /> Import CSV/Excel
             </Button>
             <Dialog open={studentDialogOpen} onOpenChange={setStudentDialogOpen}>
               <DialogTrigger asChild>
@@ -578,14 +464,48 @@ export const ClassCoordinatorDashboard: React.FC = () => {
                     <Input value={studentForm.parent_name} onChange={e => setStudentForm({ ...studentForm, parent_name: e.target.value })} placeholder="Mr. Smith" />
                   </div>
                   <div>
-                    <label className="text-xs font-semibold text-muted-foreground mb-1 block">
-                      Parent Mobile * <Badge variant="default" className="text-[9px] ml-1 px-1 py-0">MANDATORY SMS</Badge>
-                    </label>
-                    <Input value={studentForm.parent_mobile} onChange={e => setStudentForm({ ...studentForm, parent_mobile: e.target.value })} placeholder="+1 (555) 000-0000" />
+                    <div className="flex items-center justify-between mb-1">
+                      <label className="text-xs font-semibold text-muted-foreground block">
+                        Parent Mobile * <Badge variant="default" className="text-[9px] ml-1 px-1 py-0">MANDATORY SMS</Badge>
+                      </label>
+                      <span className={`text-[10px] font-mono ${studentForm.parent_mobile.length === 10 ? 'text-emerald-500 font-bold' : 'text-muted-foreground'}`}>
+                        {studentForm.parent_mobile.length}/10 digits
+                      </span>
+                    </div>
+                    <Input
+                      value={studentForm.parent_mobile}
+                      maxLength={10}
+                      inputMode="numeric"
+                      pattern="[0-9]*"
+                      onChange={e => setStudentForm({ ...studentForm, parent_mobile: sanitizeMobileInput(e.target.value) })}
+                      placeholder="9876543210 (10 digits)"
+                      className={studentForm.parent_mobile && !isValid10DigitMobile(studentForm.parent_mobile) ? 'border-destructive focus-visible:ring-destructive' : ''}
+                    />
+                    <p className="text-[10px] text-muted-foreground mt-0.5">
+                      Must be strictly 10 digits for automated absentee SMS.
+                    </p>
                   </div>
                   <div>
-                    <label className="text-xs font-semibold text-muted-foreground mb-1 block">Student Mobile</label>
-                    <Input value={studentForm.student_mobile} onChange={e => setStudentForm({ ...studentForm, student_mobile: e.target.value })} placeholder="+1 (555) 000-0001" />
+                    <div className="flex items-center justify-between mb-1">
+                      <label className="text-xs font-semibold text-muted-foreground block">Student Mobile</label>
+                      {studentForm.student_mobile && (
+                        <span className={`text-[10px] font-mono ${studentForm.student_mobile.length === 10 ? 'text-emerald-500 font-bold' : 'text-muted-foreground'}`}>
+                          {studentForm.student_mobile.length}/10 digits
+                        </span>
+                      )}
+                    </div>
+                    <Input
+                      value={studentForm.student_mobile}
+                      maxLength={10}
+                      inputMode="numeric"
+                      pattern="[0-9]*"
+                      onChange={e => setStudentForm({ ...studentForm, student_mobile: sanitizeMobileInput(e.target.value) })}
+                      placeholder="9876543211 (Optional 10 digits)"
+                      className={studentForm.student_mobile && !isValid10DigitMobile(studentForm.student_mobile) ? 'border-destructive focus-visible:ring-destructive' : ''}
+                    />
+                    <p className="text-[10px] text-muted-foreground mt-0.5">
+                      Optional student personal phone.
+                    </p>
                   </div>
                   <div>
                     <label className="text-xs font-semibold text-muted-foreground mb-1 block">Student Email</label>
@@ -650,7 +570,7 @@ export const ClassCoordinatorDashboard: React.FC = () => {
                   <TableHead>Parent Contact</TableHead>
                   <TableHead>Student No</TableHead>
                   <TableHead>Status</TableHead>
-                  <TableHead className="text-right w-[100px]">Actions</TableHead>
+                  <TableHead className="text-right w-[115px]">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -689,10 +609,28 @@ export const ClassCoordinatorDashboard: React.FC = () => {
                     </TableCell>
                     <TableCell className="text-right">
                       <div className="flex justify-end gap-1">
-                        <Button variant="ghost" size="icon" onClick={() => handleEditStudent(s)} className="h-7 w-7">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => setAlertStudent(s)}
+                          className="h-7 w-7 text-muted-foreground hover:text-emerald-600 hover:bg-emerald-500/10"
+                          title="Send Parent Absentee Alert / SMS (English, मराठी, हिंदी)"
+                        >
+                          <MessageSquare className="h-3.5 w-3.5" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => setPasswordModalStudent(s)}
+                          className="h-7 w-7 text-muted-foreground hover:text-primary hover:bg-primary/10"
+                          title="Set / Reset Student Portal Password"
+                        >
+                          <KeyRound className="h-3.5 w-3.5" />
+                        </Button>
+                        <Button variant="ghost" size="icon" onClick={() => handleEditStudent(s)} className="h-7 w-7" title="Edit Student">
                           <Edit3 className="h-3.5 w-3.5" />
                         </Button>
-                        <Button variant="ghost" size="icon" onClick={() => handleDeleteStudent(s.id)} className="h-7 w-7 text-red-500 hover:text-red-500 hover:bg-red-500/10">
+                        <Button variant="ghost" size="icon" onClick={() => handleDeleteStudent(s.id)} className="h-7 w-7 text-red-500 hover:text-red-500 hover:bg-red-500/10" title="Delete Student">
                           <Trash2 className="h-3.5 w-3.5" />
                         </Button>
                       </div>
@@ -705,102 +643,64 @@ export const ClassCoordinatorDashboard: React.FC = () => {
         </div>
       </Card>
 
-      <Dialog open={importDialogOpen} onOpenChange={setImportDialogOpen}>
-        <DialogContent className="max-w-3xl max-h-[85vh] overflow-y-auto">
-          <DialogHeader className="flex-row items-start justify-between gap-4">
-            <div>
-              <DialogTitle className="flex items-center gap-2">
-                <FileSpreadsheet className="h-5 w-5 text-primary" />
-                Review Student Import
-              </DialogTitle>
-              <p className="text-xs text-muted-foreground mt-1">
-                File: <span className="font-mono">{importFileName}</span> • {importPreview.length} row(s) found
-              </p>
-            </div>
-            <button onClick={() => setImportDialogOpen(false)} className="p-1.5 rounded-lg hover:bg-muted">
-              <X className="h-4 w-4" />
-            </button>
-          </DialogHeader>
+      {/* Student Bulk Excel/CSV Import Modal */}
+      <StudentImportModal
+        open={studentImportModalOpen}
+        onOpenChange={setStudentImportModalOpen}
+        departmentId={myDepartmentId}
+        defaultSemester={myAssignedSemester || (semesterFilter !== 'all' ? Number(semesterFilter) : 1)}
+        onImportComplete={(count) => {
+          setVersion(v => v + 1);
+          setSuccessToastMsg(`Successfully imported ${count} students and generated portal accounts!`);
+          setTimeout(() => setSuccessToastMsg(null), 5000);
+        }}
+      />
 
-          {importErrors.length > 0 && (
-            <div className="rounded-lg border border-rose-500/20 bg-rose-500/5 p-4 space-y-2">
-              <div className="flex items-center gap-2 text-sm font-semibold text-rose-500">
-                <AlertTriangle className="h-4 w-4" />
-                {importErrors.length} Validation Error{importErrors.length !== 1 ? 's' : ''} — These rows will be SKIPPED
-              </div>
-              <ul className="text-xs space-y-1 max-h-32 overflow-y-auto">
-                {importErrors.map((e, i) => (
-                  <li key={i} className="flex gap-2 text-rose-500/90">
-                    <span className="font-bold shrink-0">Row {e.row}:</span>
-                    <span className="text-foreground/80">{e.message}</span>
-                    {e.value && <span className="text-muted-foreground font-mono">({e.value})</span>}
-                  </li>
-                ))}
-              </ul>
-            </div>
-          )}
+      {/* Individual Student Password Management Modal */}
+      <StudentPasswordModal
+        open={!!passwordModalStudent}
+        onOpenChange={(open) => {
+          if (!open) setPasswordModalStudent(null);
+        }}
+        student={passwordModalStudent}
+        onSuccess={(msg) => {
+          setVersion(v => v + 1);
+          setSuccessToastMsg(msg);
+          setTimeout(() => setSuccessToastMsg(null), 4000);
+        }}
+      />
 
-          <div className="rounded-lg border border-border overflow-hidden">
-            <div className="overflow-x-auto max-h-72">
-              <Table>
-                <TableHeader className="sticky top-0 bg-card z-10">
-                  <TableRow>
-                    <TableHead className="w-10">#</TableHead>
-                    <TableHead>Roll</TableHead>
-                    <TableHead>Name</TableHead>
-                    <TableHead>Sem</TableHead>
-                    <TableHead>Parent Mobile</TableHead>
-                    <TableHead>Student Mobile</TableHead>
-                    <TableHead>Status</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {importPreview.map((r, i) => {
-                    const hasErr = importErrors.some(e => e.row === i + 2);
-                    return (
-                      <TableRow key={i} className={hasErr ? 'bg-rose-500/5' : ''}>
-                        <TableCell className="text-xs text-muted-foreground">{i + 2}</TableCell>
-                        <TableCell className="font-mono text-xs font-bold">{r.roll_number}</TableCell>
-                        <TableCell className="text-xs">{r.full_name}</TableCell>
-                        <TableCell className="text-xs">{r.semester || '—'}</TableCell>
-                        <TableCell>
-                          <span className={`text-xs ${r.parent_mobile ? 'text-emerald-500' : 'text-rose-500 font-bold'}`}>
-                            {r.parent_mobile || 'MISSING!'}
-                          </span>
-                        </TableCell>
-                        <TableCell>
-                          <span className={`text-xs ${r.parent_mobile && r.student_mobile && r.parent_mobile === r.student_mobile ? 'text-rose-500 font-bold' : 'text-muted-foreground'}`}>
-                            {r.student_mobile || '—'}
-                            {r.parent_mobile && r.student_mobile && r.parent_mobile === r.student_mobile && ' ⚠'}
-                          </span>
-                        </TableCell>
-                        <TableCell>
-                          {hasErr ? (
-                            <Badge variant="destructive" className="text-[10px]">Skip</Badge>
-                          ) : (
-                            <Badge variant="success" className="text-[10px]">Import</Badge>
-                          )}
-                        </TableCell>
-                      </TableRow>
-                    );
-                  })}
-                </TableBody>
-              </Table>
-            </div>
-          </div>
+      {/* Class Batch Student Password Management Modal */}
+      <StudentPasswordModal
+        open={batchPasswordModalOpen}
+        onOpenChange={setBatchPasswordModalOpen}
+        isBatch={true}
+        studentsList={myStudents}
+        semesterName={`Semester ${myAssignedSemester || semesterFilter}`}
+        onSuccess={(msg) => {
+          setVersion(v => v + 1);
+          setSuccessToastMsg(msg);
+          setTimeout(() => setSuccessToastMsg(null), 4000);
+        }}
+      />
 
-          <DialogFooter>
-            <Button variant="ghost" onClick={() => setImportDialogOpen(false)}>Cancel</Button>
-            <Button
-              onClick={handleConfirmImport}
-              disabled={importPreview.length === 0 || importPreview.length === importErrors.length}
-            >
-              <CheckCircle2 className="h-4 w-4 mr-1.5" />
-              Confirm Import ({importPreview.length - importErrors.length})
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      {/* Multilingual Parent Alert Modal */}
+      <ParentAlertModal
+        open={!!alertStudent}
+        onOpenChange={(open) => {
+          if (!open) setAlertStudent(null);
+        }}
+        studentName={alertStudent?.full_name || ''}
+        parentMobile={alertStudent?.parent_mobile || ''}
+        parentName={alertStudent?.parent_name || 'Parent'}
+        date={new Date().toISOString().split('T')[0]}
+        initialLanguage="trilingual"
+        onSuccess={(msg) => {
+          setVersion(v => v + 1);
+          setSuccessToastMsg(msg);
+          setTimeout(() => setSuccessToastMsg(null), 4000);
+        }}
+      />
     </div>
   );
 };

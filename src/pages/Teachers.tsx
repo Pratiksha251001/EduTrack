@@ -18,10 +18,14 @@ export const Teachers: React.FC = () => {
         { hod: 0, class_coordinator: 1, lecturer: 2 }[b.role]
       }
       fields={[
-        { key: "employee_id", label: "Employee ID", required: true },
+        { key: "employee_id", label: "College Employee ID Ref No", required: true },
         { key: "full_name", label: "Full Name", required: true },
+        { key: "designation", label: "Academic Designation (e.g. Associate Professor)" },
+        { key: "qualification", label: "Highest Qualification (e.g. Ph.D, M.Tech)" },
+        { key: "date_of_birth", label: "Date of Birth (YYYY-MM-DD)", type: "text" },
+        { key: "experience_years", label: "Year of Experience (e.g. 8 Years)" },
         { key: "email", label: "Email Address", type: "email" },
-        { key: "mobile", label: "Mobile Number" },
+        { key: "mobile", label: "Mobile Number (Optional)" },
         {
           key: "password",
           label: "Login Password (required for HOD)",
@@ -58,14 +62,34 @@ export const Teachers: React.FC = () => {
       ]}
       columns={[
         {
-          header: "Employee ID",
+          header: "College Emp ID",
           render: (t) => (
             <span className="font-mono text-xs font-bold">{t.employee_id}</span>
           ),
         },
         {
           header: "Faculty Name",
-          render: (t) => <span className="font-semibold">{t.full_name}</span>,
+          render: (t) => (
+            <div>
+              <span className="font-semibold block">{t.full_name}</span>
+              {t.designation && (
+                <span className="text-[11px] text-muted-foreground">{t.designation}</span>
+              )}
+            </div>
+          ),
+        },
+        {
+          header: "Qualification",
+          render: (t) => t.qualification || "—",
+        },
+        {
+          header: "Experience",
+          render: (t) =>
+            t.experience_years
+              ? String(t.experience_years).includes("Year")
+                ? t.experience_years
+                : `${t.experience_years} Yrs`
+              : "—",
         },
         { header: "Email", render: (t) => t.email || "—" },
         { header: "Mobile", render: (t) => t.mobile || "—" },

@@ -19,7 +19,7 @@ import {
 import { isDefaultPassword } from "../lib/authUtils";
 
 export const ForcePasswordChangeModal: React.FC = () => {
-  const { user, role, mustChangePassword, updateUserPassword, signOut } = useAuth();
+  const { user, role, mustChangePassword, updateUserPassword, openLogoutConfirm } = useAuth();
 
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -90,8 +90,8 @@ export const ForcePasswordChangeModal: React.FC = () => {
     setSuccessMessage("Password set successfully! Unlocking your account...");
   };
 
-  const handleSignOut = async () => {
-    await signOut();
+  const handleSignOut = () => {
+    openLogoutConfirm();
   };
 
   return (

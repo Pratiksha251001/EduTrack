@@ -28,6 +28,11 @@ interface AuthContextType {
   mustChangePassword: boolean;
   loginAsDemo: (role: UserRoleType) => Promise<void>;
   signOut: () => Promise<void>;
+  isLogoutConfirmOpen: boolean;
+  isLoggingOut: boolean;
+  openLogoutConfirm: () => void;
+  closeLogoutConfirm: () => void;
+  confirmLogout: () => Promise<void>;
   setPassword: (password: string) => void;
   updateUserPassword: (newPassword: string) => Promise<{ ok: boolean; message?: string }>;
   registerAdmin: (
@@ -64,6 +69,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
   const [role, setRole] = useState<UserRoleType | null>(null);
   const [loading, setLoading] = useState(true);
   const [mustChangePassword, setMustChangePassword] = useState(false);
+  const [isLogoutConfirmOpen, setIsLogoutConfirmOpen] = useState(false);
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
+
+  const openLogoutConfirm = () => setIsLogoutConfirmOpen(true);
+  const closeLogoutConfirm = () => setIsLogoutConfirmOpen(false);
 
   useEffect(() => {
     const savedUser = getStorageItem("user");
@@ -187,6 +197,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     removeStorageItem("user");
     removeStorageItem("role");
     removeStorageItem("must_change_password");
+  };
+
+  const confirmLogout = async () => {
+    setIsLoggingOut(true);
+    try {
+      await signOut();
+    } finally {
+      setIsLoggingOut(false);
+      setIsLogoutConfirmOpen(false);
+    }
   };
 
   const setPassword = (password: string) => {
@@ -795,6 +815,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
         mustChangePassword,
         loginAsDemo,
         signOut,
+        isLogoutConfirmOpen,
+        isLoggingOut,
+        openLogoutConfirm,
+        closeLogoutConfirm,
+        confirmLogout,
         setPassword,
         updateUserPassword,
         registerAdmin,

@@ -26,6 +26,16 @@ import {
   AcademicClass,
 } from "../lib/types";
 import { college } from "../lib/college";
+import {
+  sanitizeMobileInput,
+  getMobileValidationError,
+  isValid10DigitMobile,
+  cleanMobile,
+  isValidEmail,
+  getRollNumberValidationError,
+  getNameValidationError,
+  getEmployeeIdValidationError,
+} from "../lib/validation";
 import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
 import { Card } from "../components/ui/card";
@@ -214,7 +224,26 @@ export const HODDashboard: React.FC = () => {
   };
 
   const handleTeacherSubmit = async () => {
-    if (!teacherForm.employee_id || !teacherForm.full_name) return;
+    const errs: string[] = [];
+    const empErr = getEmployeeIdValidationError(teacherForm.employee_id);
+    if (empErr) errs.push(empErr);
+
+    const nameErr = getNameValidationError(teacherForm.full_name, "Teacher Full Name");
+    if (nameErr) errs.push(nameErr);
+
+    if (teacherForm.mobile) {
+      const mobileErr = getMobileValidationError(teacherForm.mobile, "Faculty Mobile", false);
+      if (mobileErr) errs.push(mobileErr);
+    }
+
+    if (teacherForm.email && !isValidEmail(teacherForm.email)) {
+      errs.push("Please provide a valid email address for faculty.");
+    }
+
+    if (errs.length > 0) {
+      alert(errs.join("\n"));
+      return;
+    }
 
     const isCoordinator = teacherForm.role === "class_coordinator";
     const userRole = isCoordinator ? "class_coordinator" : "teacher";
@@ -226,7 +255,7 @@ export const HODDashboard: React.FC = () => {
         employee_id: teacherForm.employee_id.trim(),
         full_name: teacherForm.full_name.trim(),
         email: teacherForm.email?.trim() || null,
-        mobile: teacherForm.mobile?.trim() || null,
+        mobile: cleanMobile(teacherForm.mobile) || null,
         role: teacherForm.role,
         is_class_coordinator: isCoordinator,
       });
@@ -459,22 +488,33 @@ export const HODDashboard: React.FC = () => {
   };
 
   const handleStudentSubmit = async () => {
-    if (
-      !studentForm.roll_number.trim() ||
-      !studentForm.full_name.trim() ||
-      !studentForm.parent_mobile.trim()
-    ) {
-      alert("Roll number, full name, and parent mobile are required.");
-      return;
-    }
+    const errs: string[] = [];
+    const rollErr = getRollNumberValidationError(studentForm.roll_number);
+    if (rollErr) errs.push(rollErr);
+
     if (
       students.some(
-        (student) => student.roll_number === studentForm.roll_number.trim(),
+        (student) => student.roll_number.toLowerCase() === studentForm.roll_number.trim().toLowerCase(),
       )
     ) {
-      alert("A student with this roll number already exists.");
+      errs.push("A student with this roll number already exists.");
+    }
+
+    const nameErr = getNameValidationError(studentForm.full_name);
+    if (nameErr) errs.push(nameErr);
+
+    const mobileErr = getMobileValidationError(studentForm.parent_mobile, "Parent Mobile", true);
+    if (mobileErr) errs.push(mobileErr);
+
+    if (studentForm.email && !isValidEmail(studentForm.email)) {
+      errs.push("Please provide a valid email format.");
+    }
+
+    if (errs.length > 0) {
+      alert(errs.join("\n"));
       return;
     }
+
     const inserted = await localDb.insert("students", [
       {
         roll_number: studentForm.roll_number.trim(),
@@ -482,7 +522,7 @@ export const HODDashboard: React.FC = () => {
         department_id: user?.department_id,
         semester: Number(studentForm.semester),
         parent_name: studentForm.parent_name || null,
-        parent_mobile: studentForm.parent_mobile.trim(),
+        parent_mobile: cleanMobile(studentForm.parent_mobile),
         email: studentForm.email || null,
         status: "active",
       },
@@ -799,18 +839,29 @@ export const HODDashboard: React.FC = () => {
                     />
                   </div>
                   <div>
-                    <label className="text-xs font-semibold text-muted-foreground mb-1 block">
-                      Mobile
-                    </label>
+                    <div className="flex justify-between items-center mb-1">
+                      <label className="text-xs font-semibold text-muted-foreground block">
+                        Mobile
+                      </label>
+                      {teacherForm.mobile && (
+                        <span className={`text-[10px] font-mono ${teacherForm.mobile.length === 10 ? "text-emerald-500 font-bold" : "text-muted-foreground"}`}>
+                          {teacherForm.mobile.length}/10
+                        </span>
+                      )}
+                    </div>
                     <Input
                       value={teacherForm.mobile}
+                      maxLength={10}
+                      inputMode="numeric"
+                      pattern="[0-9]*"
                       onChange={(e) =>
                         setTeacherForm({
                           ...teacherForm,
-                          mobile: e.target.value,
+                          mobile: sanitizeMobileInput(e.target.value),
                         })
                       }
-                      placeholder="+1 (555) 000-0000"
+                      placeholder="9876543210 (Optional 10 digits)"
+                      className={teacherForm.mobile && !isValid10DigitMobile(teacherForm.mobile) ? "border-destructive focus-visible:ring-destructive" : ""}
                     />
                   </div>
                   <div>
@@ -1395,16 +1446,28 @@ export const HODDashboard: React.FC = () => {
                     })
                   }
                 />
-                <Input
-                  placeholder="Parent Mobile *"
-                  value={studentForm.parent_mobile}
-                  onChange={(e) =>
-                    setStudentForm({
-                      ...studentForm,
-                      parent_mobile: e.target.value,
-                    })
-                  }
-                />
+                <div className="space-y-1">
+                  <div className="flex justify-between items-center text-xs text-muted-foreground">
+                    <span>Parent Mobile (10 digits) *</span>
+                    <span className={`font-mono ${studentForm.parent_mobile.length === 10 ? "text-emerald-500 font-bold" : ""}`}>
+                      {studentForm.parent_mobile.length}/10
+                    </span>
+                  </div>
+                  <Input
+                    placeholder="9876543210"
+                    maxLength={10}
+                    inputMode="numeric"
+                    pattern="[0-9]*"
+                    value={studentForm.parent_mobile}
+                    onChange={(e) =>
+                      setStudentForm({
+                        ...studentForm,
+                        parent_mobile: sanitizeMobileInput(e.target.value),
+                      })
+                    }
+                    className={studentForm.parent_mobile && !isValid10DigitMobile(studentForm.parent_mobile) ? "border-destructive focus-visible:ring-destructive" : ""}
+                  />
+                </div>
                 <Input
                   type="email"
                   placeholder="Student Email"

@@ -27,6 +27,7 @@ import { HODStudents } from "./pages/HODStudents";
 import { ClassTeacherLogin } from "./pages/ClassTeacherLogin";
 import { ClassTeacherDashboard } from "./pages/ClassTeacherDashboard";
 import { ForcePasswordChangeModal } from "./components/ForcePasswordChangeModal";
+import { LogoutConfirmDialog } from "./components/LogoutConfirmDialog";
 
 const ProtectedRoute: React.FC<{
   children: React.ReactNode;
@@ -101,6 +102,7 @@ export const App: React.FC = () => {
       <AuthProvider>
         <BrowserRouter>
           <ForcePasswordChangeModal />
+          <LogoutConfirmDialog />
           <Routes>
             <Route path="/" element={<AccessHub />} />
             <Route path="/teacher/login" element={<ClassTeacherLogin />} />
