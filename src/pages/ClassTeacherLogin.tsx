@@ -5,6 +5,7 @@ import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
 import { Card } from "../components/ui/card";
 import { Loader2, ArrowRight } from "lucide-react";
+import { EduTrackLogo } from "../components/EduTrackLogo";
 
 export const ClassTeacherLogin: React.FC = () => {
   const { loginWithCredentials } = useAuth();
@@ -29,9 +30,12 @@ export const ClassTeacherLogin: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-background flex items-center justify-center">
-      <Card className="p-6 w-full max-w-md">
-        <h2 className="font-display text-2xl font-bold mb-4 text-center">Class Teacher Login</h2>
+    <div className="min-h-screen bg-background flex items-center justify-center p-4">
+      <Card className="p-6 w-full max-w-md shadow-lg border-border">
+        <div className="mb-6 flex justify-center">
+          <EduTrackLogo variant="full" size="md" showTagline={true} />
+        </div>
+        <h2 className="font-display text-xl font-bold mb-4 text-center">Class Teacher Login</h2>
         {error && <p className="text-sm text-destructive mb-2 text-center">{error}</p>}
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
@@ -63,6 +67,16 @@ export const ClassTeacherLogin: React.FC = () => {
             Sign In
           </Button>
         </form>
+        <div className="mt-6 pt-4 border-t border-border/60 text-center">
+          <Button
+            variant="ghost"
+            size="sm"
+            className="text-xs text-muted-foreground hover:text-foreground"
+            onClick={() => navigate("/")}
+          >
+            ← Back to Academic Portal Hub
+          </Button>
+        </div>
       </Card>
     </div>
   );

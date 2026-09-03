@@ -69,7 +69,9 @@ export const StudentProfile: React.FC = () => {
       alert("New passwords do not match.");
       return;
     }
-    const savedPassword = localStorage.getItem(`smit_password_${user?.id}`);
+    const savedPassword =
+      localStorage.getItem(`edutrack_password_${user?.id}`) ||
+      localStorage.getItem(`smit_password_${user?.id}`);
     if (savedPassword && savedPassword !== currentPassword) {
       alert("Current password is incorrect.");
       return;
@@ -80,6 +82,10 @@ export const StudentProfile: React.FC = () => {
     setConfirmPassword("");
     alert("Password set successfully.");
   };
+
+  const isDefaultPassword =
+    localStorage.getItem(`edutrack_password_${user?.id}`) === "123" ||
+    localStorage.getItem(`smit_password_${user?.id}`) === "123";
 
   return (
     <div className="mx-auto max-w-4xl space-y-6">
@@ -97,7 +103,7 @@ export const StudentProfile: React.FC = () => {
         </div>
       </div>
 
-      {localStorage.getItem(`smit_password_${user?.id}`) === "123" && (
+      {isDefaultPassword && (
         <div className="flex items-start gap-3 rounded-xl border border-amber-500/30 bg-amber-500/10 p-4 text-sm text-amber-800 dark:text-amber-200">
           <Lock className="mt-0.5 h-4 w-4 shrink-0" />
           <div>

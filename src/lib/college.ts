@@ -1,7 +1,8 @@
 export const college = {
-  name: "St. Mary's Institute of Technology",
-  shortName: "SMIT",
-  tagline: "Smart Attendance & Parent Alert System",
+  name: "EduTrack Institute of Technology",
+  shortName: "EduTrack",
+  tagline: "Manage Attendance. Alert Parents. Build Trust.",
+  logoUrl: "/logo.png",
   minAttendance: 75,
   semesters: [1, 2, 3, 4, 5, 6, 7, 8],
 };

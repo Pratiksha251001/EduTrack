@@ -21,6 +21,7 @@ import { useTheme } from "../context/ThemeContext";
 import { college } from "../lib/college";
 import { Button } from "./ui/button";
 import { Badge } from "./ui/badge";
+import { EduTrackLogo } from "./EduTrackLogo";
 
 export const AppShell: React.FC = () => {
   const { user, role, signOut } = useAuth();
@@ -91,21 +92,9 @@ export const AppShell: React.FC = () => {
       <aside
         className={`fixed inset-y-0 left-0 z-50 flex w-72 flex-col bg-[hsl(var(--sidebar))] text-[hsl(var(--sidebar-foreground))] transition-transform duration-300 ease-in-out lg:translate-x-0 ${mobileOpen ? "translate-x-0" : "-translate-x-full"}`}
       >
-        <div className="flex h-20 items-center justify-between border-b border-[hsl(var(--sidebar-border))] px-6">
-          <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[hsl(var(--sidebar-primary))] text-[hsl(var(--sidebar-primary-foreground))] font-display font-extrabold text-xl shadow-md">
-              S
-            </div>
-            <div>
-              <h1 className="font-display text-base font-bold leading-tight">
-                {college.shortName}
-              </h1>
-              <p className="text-[11px] opacity-70 leading-none">
-                Smart Attendance
-              </p>
-            </div>
-          </div>
-          <button className="lg:hidden" onClick={() => setMobileOpen(false)}>
+        <div className="flex h-20 items-center justify-between border-b border-[hsl(var(--sidebar-border))] px-5">
+          <EduTrackLogo size="md" variant="horizontal" colorMode="onDark" />
+          <button className="lg:hidden text-[hsl(var(--sidebar-foreground))] hover:opacity-80" onClick={() => setMobileOpen(false)}>
             <X className="h-5 w-5" />
           </button>
         </div>
@@ -176,9 +165,7 @@ export const AppShell: React.FC = () => {
             >
               <Menu className="h-5 w-5" />
             </button>
-            <span className="font-display font-bold text-lg">
-              {college.shortName}
-            </span>
+            <EduTrackLogo size="sm" variant="horizontal" />
           </div>
           <Badge variant="outline">{role}</Badge>
         </header>

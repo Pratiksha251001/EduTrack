@@ -16,6 +16,7 @@ import { useAuth } from '../context/AuthContext';
 import { college } from '../lib/college';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
+import { EduTrackLogo } from '../components/EduTrackLogo';
 
 export const LandingAuth: React.FC = () => {
   const { loginAsDemo } = useAuth();
@@ -76,13 +77,11 @@ export const LandingAuth: React.FC = () => {
   return (
     <div className="min-h-screen bg-background">
       <section className="relative overflow-hidden border-b border-border bg-gradient-to-b from-primary/5 via-background to-background py-20 px-6">
-        <div className="mx-auto max-w-5xl text-center space-y-6">
-          <div className="inline-flex items-center gap-2 rounded-full border border-primary/20 bg-primary/10 px-4 py-1.5 text-xs font-semibold text-primary">
+        <div className="mx-auto max-w-5xl text-center space-y-6 flex flex-col items-center">
+          <EduTrackLogo variant="full" size="xl" showTagline={false} />
+          <div className="inline-flex items-center gap-2 rounded-full border border-primary/20 bg-primary/10 px-4 py-1.5 text-xs font-semibold text-primary mt-2">
             <Sparkles className="h-3.5 w-3.5" /> Next-Generation Academic Attendance System
           </div>
-          <h1 className="font-display text-4xl font-extrabold tracking-tight sm:text-6xl text-foreground">
-            {college.name}
-          </h1>
           <p className="mx-auto max-w-2xl text-lg text-muted-foreground">
             {college.tagline} — seamless morning roll calls, automated parent SMS notifications, and audit-ready reports.
           </p>
@@ -116,7 +115,7 @@ export const LandingAuth: React.FC = () => {
               )}
               <div className="space-y-1.5">
                 <label className="text-xs font-semibold text-muted-foreground">Email Address</label>
-                <Input required type="email" placeholder="faculty@smit.edu" value={email} onChange={(e) => setEmail(e.target.value)} />
+                <Input required type="email" placeholder="faculty@edutrack.edu" value={email} onChange={(e) => setEmail(e.target.value)} />
               </div>
               <div className="space-y-1.5">
                 <label className="text-xs font-semibold text-muted-foreground">Password</label>

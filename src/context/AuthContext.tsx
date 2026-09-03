@@ -33,6 +33,18 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+const getStorageItem = (key: string) =>
+  localStorage.getItem(`edutrack_${key}`) || localStorage.getItem(`smit_${key}`);
+
+const setStorageItem = (key: string, value: string) => {
+  localStorage.setItem(`edutrack_${key}`, value);
+};
+
+const removeStorageItem = (key: string) => {
+  localStorage.removeItem(`edutrack_${key}`);
+  localStorage.removeItem(`smit_${key}`);
+};
+
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
   children,
 }) => {
@@ -41,8 +53,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const savedUser = localStorage.getItem("smit_user");
-    const savedRole = localStorage.getItem("smit_role") as UserRoleType | null;
+    const savedUser = getStorageItem("user");
+    const savedRole = getStorageItem("role") as UserRoleType | null;
     if (savedUser && savedRole) {
       setUser(JSON.parse(savedUser));
       setRole(savedRole);
@@ -53,11 +65,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
   const loginAsDemo = async (targetRole: UserRoleType) => {
     setLoading(true);
 
+    const defaultAdminEmail =
+      import.meta.env.VITE_DEFAULT_ADMIN_EMAIL?.trim().toLowerCase() ||
+      "admin@edutrack.edu";
+    const defaultAdminName =
+      import.meta.env.VITE_DEFAULT_ADMIN_NAME?.trim() ||
+      "Institutional Administrator";
+
     const demoUsers: Record<UserRoleType, User> = {
       admin: {
         id: "admin-1",
-        email: "admin@edutrack.edu",
-        full_name: "Dr. Arthur Pendelton (Administrator)",
+        email: defaultAdminEmail,
+        full_name: defaultAdminName,
       },
       hod: {
         id: "hod-user-id",
@@ -92,13 +111,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     const demoUser = demoUsers[targetRole];
     setUser(demoUser);
     setRole(targetRole);
-    localStorage.setItem("smit_user", JSON.stringify(demoUser));
-    localStorage.setItem("smit_role", targetRole);
+    setStorageItem("user", JSON.stringify(demoUser));
+    setStorageItem("role", targetRole);
     if (
       targetRole === "student" &&
-      !localStorage.getItem(`smit_password_${demoUser.id}`)
+      !getStorageItem(`password_${demoUser.id}`)
     ) {
-      localStorage.setItem(`smit_password_${demoUser.id}`, "123");
+      setStorageItem(`password_${demoUser.id}`, "123");
     }
     setLoading(false);
   };
@@ -106,12 +125,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
   const signOut = async () => {
     setUser(null);
     setRole(null);
-    localStorage.removeItem("smit_user");
-    localStorage.removeItem("smit_role");
+    removeStorageItem("user");
+    removeStorageItem("role");
   };
 
   const setPassword = (password: string) => {
-    if (user) localStorage.setItem(`smit_password_${user.id}`, password);
+    if (user) setStorageItem(`password_${user.id}`, password);
   };
 
   const registerAdmin = async (
@@ -119,7 +138,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     email: string,
     password: string,
   ) => {
-    if (localStorage.getItem("smit_admin_account")) {
+    if (getStorageItem("admin_account")) {
       return {
         ok: false,
         message: "An Admin account already exists for this institution.",
@@ -131,7 +150,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
       email: email.trim().toLowerCase(),
       password,
     };
-    localStorage.setItem("smit_admin_account", JSON.stringify(account));
+    setStorageItem("admin_account", JSON.stringify(account));
     return { ok: true };
   };
 
@@ -157,7 +176,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
           : undefined;
         return (
           teacher?.status === "active" &&
-          localStorage.getItem(`smit_password_${item.id}`) === password
+          getStorageItem(`password_${item.id}`) === password
         );
       });
       const teacherAccount = localDb.teachers.find(
@@ -166,7 +185,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
           item.email?.trim().toLowerCase() === email.trim().toLowerCase() &&
           item.status === "active" &&
           (!departmentId || item.department_id === departmentId) &&
-          localStorage.getItem(`smit_hod_password_${item.id}`) === password,
+          (getStorageItem(`hod_password_${item.id}`) === password ||
+            getStorageItem(`password_${item.id}`) === password),
       );
       if (teacherAccount) {
         const hodUser = {
@@ -178,8 +198,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
         };
         setUser(hodUser);
         setRole("hod");
-        localStorage.setItem("smit_user", JSON.stringify(hodUser));
-        localStorage.setItem("smit_role", "hod");
+        setStorageItem("user", JSON.stringify(hodUser));
+        setStorageItem("role", "hod");
         return { ok: true };
       }
       const teacher = account?.teacher_id
@@ -209,8 +229,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
       };
       setUser(hodUser);
       setRole("hod");
-      localStorage.setItem("smit_user", JSON.stringify(hodUser));
-      localStorage.setItem("smit_role", "hod");
+      setStorageItem("user", JSON.stringify(hodUser));
+      setStorageItem("role", "hod");
       return { ok: true };
     }
     if (targetRole !== "admin")
@@ -218,34 +238,83 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
         ok: false,
         message: "Use the available demo login for this role.",
       };
-    const saved = localStorage.getItem("smit_admin_account");
-    if (!saved)
+
+    const envEmail = import.meta.env.VITE_DEFAULT_ADMIN_EMAIL?.trim().toLowerCase();
+    const envPassword = import.meta.env.VITE_DEFAULT_ADMIN_PASSWORD;
+    const envName = import.meta.env.VITE_DEFAULT_ADMIN_NAME?.trim() || "Institutional Administrator";
+
+    // 1. Check if matches environment-configured credentials
+    if (envEmail && envPassword) {
+      if (
+        email.trim().toLowerCase() === envEmail &&
+        password === envPassword
+      ) {
+        const adminUser = {
+          id: "admin-env",
+          email: envEmail,
+          full_name: envName,
+        };
+        setUser(adminUser);
+        setRole("admin");
+        setStorageItem("user", JSON.stringify(adminUser));
+        setStorageItem("role", "admin");
+        return { ok: true };
+      }
+    }
+
+    // 2. Check if matches locally registered admin account
+    const saved = getStorageItem("admin_account");
+    if (saved) {
+      const account = JSON.parse(saved) as {
+        id: string;
+        full_name: string;
+        email: string;
+        password: string;
+      };
+      if (
+        account.email === email.trim().toLowerCase() &&
+        account.password === password
+      ) {
+        const adminUser = {
+          id: account.id,
+          email: account.email,
+          full_name: account.full_name,
+        };
+        setUser(adminUser);
+        setRole("admin");
+        setStorageItem("user", JSON.stringify(adminUser));
+        setStorageItem("role", "admin");
+        return { ok: true };
+      }
+    }
+
+    // 3. Fallback default credentials if not customized yet
+    if (
+      !envEmail &&
+      !saved &&
+      email.trim().toLowerCase() === "admin@edutrack.edu" &&
+      password === "Admin@123"
+    ) {
+      const adminUser = {
+        id: "admin-default",
+        email: "admin@edutrack.edu",
+        full_name: "Institutional Administrator",
+      };
+      setUser(adminUser);
+      setRole("admin");
+      setStorageItem("user", JSON.stringify(adminUser));
+      setStorageItem("role", "admin");
+      return { ok: true };
+    }
+
+    if (!saved && !envEmail) {
       return {
         ok: false,
-        message: "Register the institution Admin before signing in.",
+        message: "No admin account configured. Enter admin credentials from .env or complete first-time setup.",
       };
-    const account = JSON.parse(saved) as {
-      id: string;
-      full_name: string;
-      email: string;
-      password: string;
-    };
-    if (
-      account.email !== email.trim().toLowerCase() ||
-      account.password !== password
-    ) {
-      return { ok: false, message: "Admin email or password is incorrect." };
     }
-    const adminUser = {
-      id: account.id,
-      email: account.email,
-      full_name: account.full_name,
-    };
-    setUser(adminUser);
-    setRole("admin");
-    localStorage.setItem("smit_user", JSON.stringify(adminUser));
-    localStorage.setItem("smit_role", "admin");
-    return { ok: true };
+
+    return { ok: false, message: "Admin email or password is incorrect." };
   };
 
   return (

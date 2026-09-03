@@ -131,6 +131,10 @@ export function CrudPage<T extends { id: string }>({
         if (teacherPassword) {
           if (account) {
             localStorage.setItem(
+              `edutrack_password_${account.id}`,
+              teacherPassword,
+            );
+            localStorage.setItem(
               `smit_password_${account.id}`,
               teacherPassword,
             );
@@ -147,11 +151,16 @@ export function CrudPage<T extends { id: string }>({
                 status: "active",
               },
             ]);
+            localStorage.setItem(`edutrack_password_${accountId}`, teacherPassword);
             localStorage.setItem(`smit_password_${accountId}`, teacherPassword);
             await localDb.update("teachers", editingItem.id, {
               user_id: accountId,
             });
           }
+          localStorage.setItem(
+            `edutrack_hod_password_${editingItem.id}`,
+            teacherPassword,
+          );
           localStorage.setItem(
             `smit_hod_password_${editingItem.id}`,
             teacherPassword,
@@ -182,7 +191,12 @@ export function CrudPage<T extends { id: string }>({
             status: "active",
           },
         ]);
+        localStorage.setItem(`edutrack_password_${accountId}`, teacherPassword);
         localStorage.setItem(`smit_password_${accountId}`, teacherPassword);
+        localStorage.setItem(
+          `edutrack_hod_password_${teacher.id}`,
+          teacherPassword,
+        );
         localStorage.setItem(
           `smit_hod_password_${teacher.id}`,
           teacherPassword,

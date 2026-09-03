@@ -88,37 +88,3 @@ h4,
 .surface-panel {
   @apply rounded-xl border border-border bg-card p-6 shadow-sm transition-all;
 }
-
-.access-hub .text-white {
-  color: hsl(var(--foreground));
-}
-
-.access-hub .text-white\/80,
-.access-hub .text-white\/60,
-.access-hub .text-white\/50,
-.access-hub .text-white\/40,
-.access-hub .text-white\/30 {
-  color: hsl(var(--muted-foreground));
-}
-
-.access-hub .bg-white\/5,
-.access-hub .bg-white\/10,
-.access-hub .bg-white\/\[0\.025\],
-.access-hub .bg-white\/\[0\.03\],
-.access-hub .bg-white\/\[0\.02\] {
-  background-color: hsl(var(--muted) / 0.7);
-}
-
-.access-hub .border-white\/10,
-.access-hub .border-white\/5 {
-  border-color: hsl(var(--border));
-}
-
-.access-hub [class*="bg-[#"] {
-  background-color: hsl(var(--card));
-}
-
-.access-hub [class*="bg-gradient-to-r"] {
-  background-image: none;
-  background-color: hsl(var(--primary));
-}
