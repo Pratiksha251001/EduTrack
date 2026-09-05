@@ -566,7 +566,7 @@ export const UserProfile: React.FC = () => {
             <Card className="p-6">
               <CardHeader className="p-0 pb-4">
                 <CardTitle className="text-base font-bold flex items-center gap-2">
-                  <UserCog className="h-5 w-5 text-lime-600 dark:text-lime-400" />
+                  <UserCog className="h-5 w-5 text-teal-600 dark:text-teal-400" />
                   Class Coordinator Scope & Faculty Profile
                 </CardTitle>
               </CardHeader>

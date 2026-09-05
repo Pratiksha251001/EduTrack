@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import { Search, Plus, Edit, Trash2, Loader2 } from "lucide-react";
 import { localDb } from "../lib/supabase";
 import { saveCredential } from "../lib/authUtils";
@@ -36,6 +36,7 @@ interface CrudPageProps<T> {
   columns: CrudColumn<T>[];
   searchKeys: string[];
   sortItems?: (a: T, b: T) => number;
+  extraHeaderActions?: React.ReactNode;
 }
 
 export function CrudPage<T extends { id: string }>({
@@ -46,11 +47,22 @@ export function CrudPage<T extends { id: string }>({
   columns,
   searchKeys,
   sortItems,
+  extraHeaderActions,
 }: CrudPageProps<T>) {
   const [data, setData] = useState<T[]>(() => (localDb as any)[table] || []);
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(0);
   const pageSize = 10;
+
+  useEffect(() => {
+    const handleUpdate = (e: any) => {
+      if (e.detail?.table === table) {
+        setData([...((localDb as any)[table] || [])]);
+      }
+    };
+    window.addEventListener("edutrack_data_updated", handleUpdate);
+    return () => window.removeEventListener("edutrack_data_updated", handleUpdate);
+  }, [table]);
 
   const [modalOpen, setModalOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<T | null>(null);
@@ -306,9 +318,12 @@ export function CrudPage<T extends { id: string }>({
           <h2 className="font-display text-2xl font-bold">{title}</h2>
           <p className="text-sm text-muted-foreground">{description}</p>
         </div>
-        <Button onClick={openAdd}>
-          <Plus className="mr-2 h-4 w-4" /> Add {title.slice(0, -1)}
-        </Button>
+        <div className="flex items-center gap-2 flex-wrap">
+          {extraHeaderActions}
+          <Button onClick={openAdd}>
+            <Plus className="mr-2 h-4 w-4" /> Add {title.slice(0, -1)}
+          </Button>
+        </div>
       </div>
 
       {modalOpen && (

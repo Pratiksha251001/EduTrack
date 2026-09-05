@@ -27,6 +27,7 @@ import {
   college,
   SMS_LANGUAGES,
   generateSmsMessage,
+  cleanSmsMessage,
   getParentWhatsAppUrl,
   formatParentPhoneForWhatsApp,
 } from "../lib/college";
@@ -75,8 +76,11 @@ export const ParentAlertModal: React.FC<ParentAlertModalProps> = ({
   }, [open, initialLanguage, subjectName]);
 
   const activeMessage = useMemo(() => {
-    return generateSmsMessage(studentName, date, customSubject, selectedLang);
-  }, [studentName, date, customSubject, selectedLang]);
+    if (existingMessage) {
+      return cleanSmsMessage(existingMessage);
+    }
+    return cleanSmsMessage(generateSmsMessage(studentName, date, customSubject, selectedLang));
+  }, [existingMessage, studentName, date, customSubject, selectedLang]);
 
   const handleCopy = () => {
     navigator.clipboard.writeText(activeMessage);
@@ -201,45 +205,22 @@ export const ParentAlertModal: React.FC<ParentAlertModalProps> = ({
             </div>
           </div>
 
-          {/* Language Selector */}
-          <div>
-            <div className="flex items-center justify-between mb-2">
-              <label className="text-xs font-semibold text-foreground flex items-center gap-1.5">
-                <Globe className="h-3.5 w-3.5 text-primary" />
-                Select Alert Message Language / भाषेची निवड
-              </label>
-              <span className="text-[11px] text-muted-foreground">
-                Available in 3 regional languages
-              </span>
+          {/* Unified Language Notice */}
+          <div className="flex items-center justify-between p-2.5 rounded-xl border border-primary/20 bg-primary/5">
+            <div className="flex items-center gap-2">
+              <Globe className="h-4 w-4 text-primary" />
+              <div>
+                <span className="text-xs font-bold text-foreground block">
+                  Trilingual Parent Alert Message
+                </span>
+                <span className="text-[11px] text-muted-foreground block">
+                  Includes complete message in English, मराठी, and हिंदी
+                </span>
+              </div>
             </div>
-
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-              {SMS_LANGUAGES.map((lang) => {
-                const isSelected = selectedLang === lang.id;
-                return (
-                  <button
-                    key={lang.id}
-                    type="button"
-                    onClick={() => setSelectedLang(lang.id)}
-                    className={`flex flex-col items-start p-2.5 rounded-xl border text-left transition-all ${
-                      isSelected
-                        ? "border-primary bg-primary/10 text-primary shadow-xs ring-1 ring-primary/30"
-                        : "border-border bg-card hover:bg-muted text-muted-foreground hover:text-foreground"
-                    }`}
-                  >
-                    <div className="flex items-center gap-1.5 w-full">
-                      <span className="text-base">{lang.flag}</span>
-                      <span className="text-xs font-bold text-foreground">
-                        {lang.label}
-                      </span>
-                    </div>
-                    <span className="text-[10px] text-muted-foreground mt-0.5 line-clamp-1">
-                      {lang.subLabel}
-                    </span>
-                  </button>
-                );
-              })}
-            </div>
+            <Badge variant="outline" className="text-[10px] font-semibold border-primary/30 text-primary bg-primary/10">
+              English + मराठी + हिंदी
+            </Badge>
           </div>
 
           {/* Message Preview Box */}

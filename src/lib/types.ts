@@ -106,6 +106,7 @@ export interface SmsLog {
   attendance_date: string;
   sent_at: string;
   language?: SmsLanguage | string;
+  created_at?: string;
 }
 
 export interface ClassCoordinatorAssignment {

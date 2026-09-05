@@ -1,4 +1,4 @@
--- ============================================================================
+export const SUPABASE_SCHEMA_SQL = `-- ============================================================================
 -- EduTrack Smart Attendance Management System
 -- Supabase PostgreSQL Database Schema
 -- Run this entire script in your Supabase SQL Editor (SQL Editor -> New Query -> Run)
@@ -211,3 +211,4 @@ create policy "Public access notices" on public.notices for all using (true) wit
 
 -- Ensure single institutional admin index
 create unique index if not exists one_admin_per_institution on public.user_roles (role) where role = 'admin';
+`;

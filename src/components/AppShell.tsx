@@ -121,10 +121,20 @@ export const AppShell: React.FC = () => {
                 key={item.path}
                 to={item.path}
                 onClick={() => setMobileOpen(false)}
-                className={`flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all ${active ? "bg-[hsl(var(--sidebar-primary))] text-[hsl(var(--sidebar-primary-foreground))] font-semibold shadow-sm" : "opacity-90 hover:bg-[hsl(var(--sidebar-accent))]"}`}
+                className={`flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all ${
+                  active
+                    ? "bg-[hsl(var(--sidebar-primary))] text-[hsl(var(--sidebar-primary-foreground))] font-semibold shadow-xs"
+                    : "text-[hsl(var(--sidebar-foreground))] opacity-85 hover:opacity-100 hover:bg-[hsl(var(--sidebar-accent))]"
+                }`}
               >
-                <Icon className="h-4 w-4 opacity-80" />
-                {item.label}
+                <Icon
+                  className={`h-4 w-4 shrink-0 transition-opacity ${
+                    active
+                      ? "opacity-100 text-[hsl(var(--sidebar-primary-foreground))]"
+                      : "opacity-75"
+                  }`}
+                />
+                <span className="truncate">{item.label}</span>
               </Link>
             );
           })}

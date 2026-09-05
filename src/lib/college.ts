@@ -18,12 +18,29 @@ export interface SmsLanguageOption {
 
 export const SMS_LANGUAGES: SmsLanguageOption[] = [
   { id: "trilingual", label: "त्रिभाषिक (All 3)", subLabel: "English + मराठी + हिंदी", flag: "🌐" },
-  { id: "mr", label: "मराठी", subLabel: "Marathi (स्थानिक पालकांसाठी)", flag: "🚩" },
-  { id: "hi", label: "हिंदी", subLabel: "Hindi (सरल हिंदी संदेश)", flag: "🇮🇳" },
-  { id: "en", label: "English", subLabel: "Standard English", flag: "🇬🇧" },
-  { id: "bilingual_mr", label: "Eng + मराठी", subLabel: "English & Marathi", flag: "📑" },
-  { id: "bilingual_hi", label: "Eng + हिंदी", subLabel: "English & Hindi", flag: "📑" },
+  { id: "mr", label: "मराठी", subLabel: "Marathi (स्थानिक पालकांसाठी)", flag: "🌐" },
+  { id: "hi", label: "हिंदी", subLabel: "Hindi (सरल हिंदी संदेश)", flag: "🌐" },
+  { id: "en", label: "English", subLabel: "Standard English", flag: "🌐" },
+  { id: "bilingual_mr", label: "Eng + मराठी", subLabel: "English & Marathi", flag: "🌐" },
+  { id: "bilingual_hi", label: "Eng + हिंदी", subLabel: "English & Hindi", flag: "🌐" },
 ];
+
+/**
+ * Remove legacy prefixes like "🚩 [मराठी संदेश]:" or "🇮🇳 [हिंदी संदेश]:" from any stored or generated message
+ */
+export function cleanSmsMessage(msg: string): string {
+  if (!msg) return "";
+  return msg
+    .replace(/🚩\s*\[\s*मराठी(?:\s*संदेश)?\s*\]\s*:\s*/gi, "")
+    .replace(/🇮🇳\s*\[\s*हिंदी(?:\s*संदेश)?\s*\]\s*:\s*/gi, "")
+    .replace(/\[\s*मराठी(?:\s*संदेश)?\s*\]\s*:\s*/gi, "")
+    .replace(/\[\s*हिंदी(?:\s*संदेश)?\s*\]\s*:\s*/gi, "")
+    .replace(/🚩\s*मराठी(?:\s*संदेश)?\s*:\s*/gi, "")
+    .replace(/🇮🇳\s*हिंदी(?:\s*संदेश)?\s*:\s*/gi, "")
+    .replace(/🚩/g, "")
+    .replace(/🇮🇳/g, "")
+    .trim();
+}
 
 /**
  * Single language generator functions
@@ -41,41 +58,33 @@ export function getHindiAbsenceMessage(studentName: string, date: string, subjec
 }
 
 export function getTrilingualAbsenceMessage(studentName: string, date: string, subjectName: string): string {
-  return `Dear Parent,\nYour child, ${studentName}, was marked ABSENT today (${date}) for "${subjectName}" at ${college.name}.\n\n🚩 [मराठी संदेश]:\nआदरणीय पालक, आपला पाल्य ${studentName} आज (${date}) रोजी "${subjectName}" या तासाला गैरहजर होता/होती. कृपया नियमित उपस्थितीची खात्री करावी.\n\n🇮🇳 [हिंदी संदेश]:\nआदरणीय अभिभावक, आपका बच्चा ${studentName} आज (${date}) को "${subjectName}" की कक्षा में अनुपस्थित था/थी। कृपया उपस्थिति पर ध्यान दें।\n\n- ${college.name}`;
+  return `Dear Parent, your child ${studentName} was marked ABSENT today (${date}) for the lecture "${subjectName}" at ${college.name}. Please ensure regular attendance.
+
+आदरणीय पालक, आपला पाल्य ${studentName} आज दिनांक ${date} रोजी "${subjectName}" या विषयाच्या तासाला गैरहजर (अनुपस्थित) होता/होती. कृपया नियमित उपस्थितीची खात्री करावी.
+
+आदरणीय अभिभावक, आपका बच्चा ${studentName} आज दिनांक ${date} को "${subjectName}" विषय की कक्षा में अनुपस्थित था/थी। कृपया नियमित उपस्थिति सुनिश्चित करें।
+
+- ${college.name}`;
 }
 
 export function getBilingualMrMessage(studentName: string, date: string, subjectName: string): string {
-  return `Dear Parent,\nYour child ${studentName} was marked ABSENT today (${date}) for "${subjectName}" at ${college.name}.\n\n🚩 [मराठी]:\nआदरणीय पालक, आपला पाल्य ${studentName} आज (${date}) रोजी "${subjectName}" या विषयाला गैरहजर होता/होती. कृपया नोंद घ्यावी.\n\n- ${college.name}`;
+  return getTrilingualAbsenceMessage(studentName, date, subjectName);
 }
 
 export function getBilingualHiMessage(studentName: string, date: string, subjectName: string): string {
-  return `Dear Parent,\nYour child ${studentName} was marked ABSENT today (${date}) for "${subjectName}" at ${college.name}.\n\n🇮🇳 [हिंदी]:\nआदरणीय अभिभावक, आपका बच्चा ${studentName} आज (${date}) को "${subjectName}" विषय की कक्षा में अनुपस्थित था/थी। कृपया ध्यान दें।\n\n- ${college.name}`;
+  return getTrilingualAbsenceMessage(studentName, date, subjectName);
 }
 
 /**
- * Master generator function for attendance SMS alerts supporting all languages
+ * Master generator function for attendance SMS alerts - always includes English, Marathi, and Hindi
  */
 export function generateSmsMessage(
   studentName: string,
   date: string,
   subjectName: string,
-  lang: SmsLanguage = "trilingual"
+  _lang: SmsLanguage = "trilingual"
 ): string {
-  switch (lang) {
-    case "mr":
-      return getMarathiAbsenceMessage(studentName, date, subjectName);
-    case "hi":
-      return getHindiAbsenceMessage(studentName, date, subjectName);
-    case "en":
-      return getEnglishAbsenceMessage(studentName, date, subjectName);
-    case "bilingual_mr":
-      return getBilingualMrMessage(studentName, date, subjectName);
-    case "bilingual_hi":
-      return getBilingualHiMessage(studentName, date, subjectName);
-    case "trilingual":
-    default:
-      return getTrilingualAbsenceMessage(studentName, date, subjectName);
-  }
+  return getTrilingualAbsenceMessage(studentName, date, subjectName);
 }
 
 /**

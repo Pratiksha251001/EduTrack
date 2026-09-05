@@ -19,6 +19,7 @@ import {
   KeyRound,
   ShieldCheck,
   Search,
+  Database,
 } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import { useTheme } from "../context/ThemeContext";
@@ -29,6 +30,7 @@ import { Badge } from "../components/ui/badge";
 import { UserRoleType } from "../lib/types";
 import { localDb, isSupabaseConfigured } from "../lib/supabase";
 import { EduTrackLogo } from "../components/EduTrackLogo";
+import { DatabaseSetupModal } from "../components/DatabaseSetupModal";
 
 interface PortalCard {
   title: string;
@@ -59,6 +61,7 @@ export const AccessHub: React.FC = () => {
   const [departmentId, setDepartmentId] = useState("");
   const [activeCategory, setActiveCategory] = useState<"all" | "admin" | "faculty" | "student">("all");
   const [searchQuery, setSearchQuery] = useState("");
+  const [dbModalOpen, setDbModalOpen] = useState(false);
 
   const defaultAdminEmail =
     import.meta.env.VITE_DEFAULT_ADMIN_EMAIL?.trim() || "admin@edutrack.edu";
@@ -114,8 +117,8 @@ export const AccessHub: React.FC = () => {
       description:
         "Upload student spreadsheets (Excel/CSV), manage batch profiles, and monitor attendance trends.",
       icon: UserCog,
-      iconBg: "bg-lime-500/15",
-      iconColor: "text-lime-700 dark:text-lime-400",
+      iconBg: "bg-teal-500/10",
+      iconColor: "text-teal-600 dark:text-teal-400",
       buttonLabel: "Coordinator Portal",
       role: "class_coordinator",
       demoEnabled: true,
@@ -241,6 +244,15 @@ export const AccessHub: React.FC = () => {
           </div>
 
           <div className="flex items-center gap-3">
+            <button
+              onClick={() => setDbModalOpen(true)}
+              className="inline-flex items-center gap-1.5 rounded-full border border-border bg-card px-2.5 py-1 text-xs font-semibold text-foreground hover:bg-muted transition-colors shadow-xs"
+              title="Database Connection & SQL Query"
+            >
+              <Database className="h-3.5 w-3.5 text-primary" />
+              <span className="hidden sm:inline">Database & SQL</span>
+            </button>
+
             {isSupabaseConfigured && (
               <span className="hidden sm:inline-flex items-center gap-1.5 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2.5 py-1 text-xs font-semibold text-emerald-600 dark:text-emerald-400">
                 <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
@@ -697,6 +709,10 @@ export const AccessHub: React.FC = () => {
           </div>
         </div>
       )}
+      <DatabaseSetupModal
+        open={dbModalOpen}
+        onOpenChange={setDbModalOpen}
+      />
     </div>
   );
 };
