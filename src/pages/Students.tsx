@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { CrudPage } from "../components/CrudPage";
 import { Student } from "../lib/types";
 import { localDb, isSupabaseConfigured } from "../lib/supabase";
@@ -9,9 +9,19 @@ import { Database, Trash2 } from "lucide-react";
 import { DatabaseSetupModal } from "../components/DatabaseSetupModal";
 
 export const Students: React.FC = () => {
-  const departments = localDb.departments;
+  const [departments, setDepartments] = useState(localDb.departments);
   const [dbModalOpen, setDbModalOpen] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
+
+  useEffect(() => {
+    const handleUpdate = () => {
+      setDepartments([...localDb.departments]);
+    };
+    window.addEventListener("edutrack_data_updated", handleUpdate);
+    return () => {
+      window.removeEventListener("edutrack_data_updated", handleUpdate);
+    };
+  }, []);
 
   const handleClearDefaultData = () => {
     if (
@@ -91,7 +101,10 @@ export const Students: React.FC = () => {
             key: "department_id",
             label: "Department",
             type: "select",
-            options: departments.map((d) => ({ value: d.id, label: d.name })),
+            options: [
+              { value: "", label: "Unassigned" },
+              ...departments.map((d) => ({ value: d.id, label: d.name })),
+            ],
           },
           {
             key: "semester",
@@ -122,24 +135,61 @@ export const Students: React.FC = () => {
           {
             header: "Roll No",
             render: (s) => (
-              <span className="font-mono text-xs font-bold">{s.roll_number}</span>
+              <span className="font-mono text-xs font-bold text-primary">
+                {s.roll_number}
+              </span>
             ),
           },
           {
-            header: "Full Name",
+            header: "Reg No",
+            render: (s) => (
+              <span className="font-mono text-xs text-muted-foreground">
+                {s.reg_number || "—"}
+              </span>
+            ),
+          },
+          {
+            header: "Student Name",
             render: (s) => <span className="font-semibold">{s.full_name}</span>,
           },
-          { header: "Reg No", render: (s) => s.reg_number || "—" },
           {
             header: "Department",
             render: (s) =>
-              departments.find((d) => d.id === s.department_id)?.code || "—",
+              departments.find((d) => d.id === s.department_id)?.name || "—",
           },
-          { header: "Sem", render: (s) => s.semester },
           {
-            header: "Parent Contact",
-            render: (s) =>
-              `${s.parent_name || "Guardian"} (${s.parent_mobile || "No Mobile"})`,
+            header: "Semester",
+            render: (s) => (
+              <Badge variant="outline">Semester {s.semester}</Badge>
+            ),
+          },
+          {
+            header: "Parent / Guardian",
+            render: (s) => (
+              <div>
+                <div className="text-xs font-medium">{s.parent_name || "—"}</div>
+                {s.parent_mobile && (
+                  <div className="text-[11px] font-mono text-muted-foreground">
+                    {s.parent_mobile}
+                  </div>
+                )}
+              </div>
+            ),
+          },
+          {
+            header: "Contact",
+            render: (s) => (
+              <div className="text-xs">
+                {s.student_mobile && (
+                  <div className="font-mono text-muted-foreground">
+                    {s.student_mobile}
+                  </div>
+                )}
+                {s.email && (
+                  <div className="text-[11px] text-muted-foreground">{s.email}</div>
+                )}
+              </div>
+            ),
           },
           {
             header: "Status",
@@ -152,10 +202,7 @@ export const Students: React.FC = () => {
         ]}
       />
 
-      <DatabaseSetupModal
-        open={dbModalOpen}
-        onOpenChange={setDbModalOpen}
-      />
+      <DatabaseSetupModal open={dbModalOpen} onOpenChange={setDbModalOpen} />
     </div>
   );
 };

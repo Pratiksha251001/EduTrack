@@ -34,6 +34,19 @@ export const DatabaseSetupModal: React.FC<DatabaseSetupModalProps> = ({
     setTimeout(() => setCopied(false), 2500);
   };
 
+  const handleClearAllDefaultData = () => {
+    if (
+      window.confirm(
+        "Are you sure you want to remove ALL default data across departments, faculty teachers, HODs, CCs, students, subjects, classes, attendance, and logs? Everything will be reset to 0 records so you can start with a 100% clean institutional roster.",
+      )
+    ) {
+      localDb.clearAllDefaultData();
+      setStatusMessage("All default data removed! Departments, faculty, students, and subjects are now at 0 records.");
+      onDataChanged?.();
+      setTimeout(() => setStatusMessage(null), 3500);
+    }
+  };
+
   const handleClearDemoData = () => {
     if (
       window.confirm(
@@ -119,17 +132,17 @@ export const DatabaseSetupModal: React.FC<DatabaseSetupModalProps> = ({
 
         {/* Section 1: Clean Slate / Remove Default Data */}
         <div className="rounded-lg border border-border bg-card p-4 space-y-3">
-          <div className="flex items-center justify-between">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <div>
               <h3 className="text-sm font-bold flex items-center gap-1.5">
                 <Trash2 className="h-4 w-4 text-destructive" />
-                Remove Default Demo Data
+                Default Demo Data Management
               </h3>
               <p className="text-xs text-muted-foreground mt-0.5">
-                Remove pre-loaded sample students, attendance, and logs so your roster starts with 0 students.
+                Wipe all mock data (departments, faculty, students, subjects) to 0 records so only your custom records exist.
               </p>
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 flex-wrap">
               <Button
                 variant="outline"
                 size="sm"
@@ -143,11 +156,12 @@ export const DatabaseSetupModal: React.FC<DatabaseSetupModalProps> = ({
               <Button
                 variant="destructive"
                 size="sm"
-                onClick={handleClearDemoData}
-                className="text-xs"
+                onClick={handleClearAllDefaultData}
+                className="text-xs font-semibold"
+                title="Wipe all departments, teachers, and students to start from scratch"
               >
                 <Trash2 className="h-3.5 w-3.5 mr-1" />
-                Clear Default Data
+                Clear ALL Default Data
               </Button>
             </div>
           </div>

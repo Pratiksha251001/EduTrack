@@ -1,13 +1,25 @@
-import React from "react";
+import React, { useState, useEffect } from "react";
 import { CrudPage } from "../components/CrudPage";
 import { Subject } from "../lib/types";
 import { localDb } from "../lib/supabase";
 import { college } from "../lib/college";
 
 export const Subjects: React.FC = () => {
-  const departments = localDb.departments;
-  const teachers = localDb.teachers;
-  const teacherSubjects = localDb.teacher_subjects;
+  const [departments, setDepartments] = useState(localDb.departments);
+  const [teachers, setTeachers] = useState(localDb.teachers);
+  const [teacherSubjects, setTeacherSubjects] = useState(localDb.teacher_subjects);
+
+  useEffect(() => {
+    const handleUpdate = () => {
+      setDepartments([...localDb.departments]);
+      setTeachers([...localDb.teachers]);
+      setTeacherSubjects([...localDb.teacher_subjects]);
+    };
+    window.addEventListener("edutrack_data_updated", handleUpdate);
+    return () => {
+      window.removeEventListener("edutrack_data_updated", handleUpdate);
+    };
+  }, []);
 
   return (
     <CrudPage<Subject>
@@ -22,7 +34,10 @@ export const Subjects: React.FC = () => {
           key: "department_id",
           label: "Department",
           type: "select",
-          options: departments.map((d) => ({ value: d.id, label: d.name })),
+          options: [
+            { value: "", label: "Unassigned" },
+            ...departments.map((d) => ({ value: d.id, label: d.name })),
+          ],
         },
         {
           key: "semester",
@@ -44,10 +59,13 @@ export const Subjects: React.FC = () => {
           key: "teacher_id",
           label: "Assigned Faculty",
           type: "select",
-          options: teachers.map((t) => ({
-            value: t.id,
-            label: `${t.full_name} (${t.employee_id})`,
-          })),
+          options: [
+            { value: "", label: "Unassigned" },
+            ...teachers.map((t) => ({
+              value: t.id,
+              label: `${t.full_name} (${t.employee_id})`,
+            })),
+          ],
         },
       ]}
       columns={[

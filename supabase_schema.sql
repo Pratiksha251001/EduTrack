@@ -23,6 +23,10 @@ create table if not exists public.teachers (
   id uuid default uuid_generate_v4() primary key,
   employee_id text not null unique,
   full_name text not null,
+  designation text,
+  qualification text,
+  date_of_birth date,
+  experience_years text,
   email text unique,
   mobile text,
   department_id uuid references public.departments(id) on delete set null,
@@ -208,6 +212,13 @@ create policy "Public access sms_logs" on public.sms_logs for all using (true) w
 
 drop policy if exists "Public access notices" on public.notices;
 create policy "Public access notices" on public.notices for all using (true) with check (true);
+
+-- Ensure columns exist if tables were created previously
+alter table public.teachers add column if not exists designation text;
+alter table public.teachers add column if not exists qualification text;
+alter table public.teachers add column if not exists date_of_birth date;
+alter table public.teachers add column if not exists experience_years text;
+alter table public.academic_classes add column if not exists coordinator_teacher_id uuid references public.teachers(id) on delete set null;
 
 -- Ensure single institutional admin index
 create unique index if not exists one_admin_per_institution on public.user_roles (role) where role = 'admin';

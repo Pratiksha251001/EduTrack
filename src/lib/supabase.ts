@@ -27,14 +27,32 @@ export function generateUuid(): string {
   });
 }
 
-const supabaseUrl =
+/**
+ * Sanitizes Supabase URL by removing trailing slashes and /rest/v1 paths.
+ */
+export function cleanSupabaseUrl(url: string | undefined): string {
+  if (!url) return "";
+  let clean = url.trim();
+  // Strip trailing /rest/v1 or /rest/v1/ (case-insensitive)
+  clean = clean.replace(/\/rest\/v1\/?$/i, "");
+  // Strip any trailing slashes
+  clean = clean.replace(/\/+$/, "");
+  return clean;
+}
+
+const defaultSupabaseUrl = "https://sovkwhqpvvdotzwfivzh.supabase.co";
+const defaultSupabaseKey = "sb_publishable_DeR0Ivw3WKGnfaNxDtTMgA_z3O9BzmM";
+
+const rawSupabaseUrl =
   import.meta.env.VITE_SUPABASE_URL ||
   import.meta.env.NEXT_PUBLIC_SUPABASE_URL ||
-  "https://placeholder.supabase.co";
-const supabaseKey =
+  defaultSupabaseUrl;
+
+export const supabaseUrl = cleanSupabaseUrl(rawSupabaseUrl);
+export const supabaseKey =
   import.meta.env.VITE_SUPABASE_ANON_KEY ||
   import.meta.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ||
-  "placeholder-key";
+  defaultSupabaseKey;
 
 export const isSupabaseConfigured = Boolean(
   supabaseUrl &&
@@ -45,6 +63,145 @@ export const isSupabaseConfigured = Boolean(
 );
 
 export const supabase = createClient(supabaseUrl, supabaseKey);
+
+const TABLE_COLUMNS: Record<string, string[]> = {
+  departments: ["id", "name", "code", "institution_name", "hod_id", "status", "created_at"],
+  teachers: [
+    "id",
+    "employee_id",
+    "full_name",
+    "designation",
+    "qualification",
+    "date_of_birth",
+    "experience_years",
+    "email",
+    "mobile",
+    "department_id",
+    "user_id",
+    "is_class_coordinator",
+    "assigned_semester",
+    "role",
+    "status",
+    "created_at",
+  ],
+  students: [
+    "id",
+    "roll_number",
+    "reg_number",
+    "full_name",
+    "department_id",
+    "semester",
+    "parent_name",
+    "parent_mobile",
+    "student_mobile",
+    "email",
+    "user_id",
+    "photo_url",
+    "address",
+    "date_of_birth",
+    "gender",
+    "status",
+    "created_at",
+  ],
+  academic_classes: [
+    "id",
+    "name",
+    "department_id",
+    "semester",
+    "coordinator_teacher_id",
+    "status",
+    "created_at",
+  ],
+  class_coordinator_assignments: [
+    "id",
+    "teacher_id",
+    "department_id",
+    "semester",
+    "assigned_by",
+    "created_at",
+  ],
+  subjects: [
+    "id",
+    "code",
+    "name",
+    "department_id",
+    "semester",
+    "credits",
+    "created_at",
+  ],
+  teacher_subjects: [
+    "id",
+    "teacher_id",
+    "subject_id",
+    "class_name",
+    "created_at",
+  ],
+  attendance: [
+    "id",
+    "student_id",
+    "subject_id",
+    "date",
+    "status",
+    "marked_by",
+    "created_at",
+  ],
+  sms_logs: [
+    "id",
+    "student_id",
+    "subject_id",
+    "student_name",
+    "parent_mobile",
+    "message",
+    "status",
+    "attendance_date",
+    "language",
+    "sent_at",
+  ],
+  notices: ["id", "title", "message", "audience", "status", "created_at"],
+};
+
+export function sanitizePayloadForSupabase(table: string, rawItem: any): any {
+  const allowed = TABLE_COLUMNS[table];
+  const item: any = {};
+  const keys = allowed || Object.keys(rawItem);
+
+  for (const k of keys) {
+    if (rawItem[k] === undefined) continue;
+    let val = rawItem[k];
+
+    // Convert empty string UUID foreign keys to null
+    if (
+      val === "" &&
+      (k.endsWith("_id") || k === "user_id" || k === "assigned_by" || k === "hod_id")
+    ) {
+      val = null;
+    }
+
+    // Convert empty date strings to null
+    if (val === "" && (k === "date_of_birth" || k === "date")) {
+      val = null;
+    }
+
+    // Parse integers
+    if (k === "semester" || k === "assigned_semester" || k === "credits") {
+      val = val === "" || val === null ? null : parseInt(String(val), 10) || null;
+    }
+
+    // Normalize boolean
+    if (k === "is_class_coordinator") {
+      val = Boolean(val);
+    }
+
+    item[k] = val;
+  }
+
+  // Ensure valid UUID
+  if (!item.id || item.id.length < 20 || item.id.startsWith("id-")) {
+    item.id = generateUuid();
+  }
+
+  return item;
+}
 
 class LocalDatabase {
   private readonly storageKey = "edutrack_local_db";
@@ -64,6 +221,18 @@ class LocalDatabase {
   academic_classes = this.load("academic_classes", mockClasses);
 
   constructor() {
+    // Check if the user requested default demo data wipe
+    const cleanApplied = localStorage.getItem(
+      `${this.storageKey}_clean_slate_applied_v2`,
+    );
+    if (cleanApplied !== "true") {
+      this.clearAllDefaultData();
+      localStorage.setItem(
+        `${this.storageKey}_clean_slate_applied_v2`,
+        "true",
+      );
+    }
+
     if (isSupabaseConfigured) {
       this.syncFromSupabase();
     }
@@ -132,11 +301,8 @@ class LocalDatabase {
         return data as T[];
       }
 
-      // If user cleared default data, do not seed mock students, attendance, or sms logs
-      if (
-        isDemoCleared &&
-        (table === "students" || table === "attendance" || table === "sms_logs")
-      ) {
+      // If user cleared default data, do not seed mock records
+      if (isDemoCleared) {
         return [] as T[];
       }
 
@@ -158,8 +324,56 @@ class LocalDatabase {
   }
 
   /**
-   * Clears default / mock student roster, attendance records, and SMS logs
-   * so the application starts with a pristine, clean slate.
+   * Clears ALL default / mock data (departments, teachers, students, subjects, classes, attendance, logs)
+   * so the entire institutional database starts with a clean slate (0 records).
+   */
+  public clearAllDefaultData() {
+    this.departments = [];
+    this.teachers = [];
+    this.subjects = [];
+    this.students = [];
+    this.academic_classes = [];
+    this.class_coordinator_assignments = [];
+    this.teacher_subjects = [];
+    this.attendance = [];
+    this.sms_logs = [];
+    this.notices = [];
+
+    localStorage.setItem(`${this.storageKey}_demo_cleared`, "true");
+
+    const tables = [
+      "departments",
+      "teachers",
+      "subjects",
+      "students",
+      "academic_classes",
+      "class_coordinator_assignments",
+      "teacher_subjects",
+      "attendance",
+      "sms_logs",
+      "notices",
+    ];
+
+    for (const t of tables) {
+      this.persist(t);
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(
+          new CustomEvent("edutrack_data_updated", {
+            detail: { table: t, data: [] },
+          }),
+        );
+      }
+    }
+
+    if (typeof window !== "undefined") {
+      window.dispatchEvent(
+        new CustomEvent("edutrack_sms_logs_updated", { detail: [] }),
+      );
+    }
+  }
+
+  /**
+   * Clears default / mock student roster, attendance records, and SMS logs.
    */
   public clearDemoStudents() {
     this.students = [];
@@ -183,23 +397,47 @@ class LocalDatabase {
   }
 
   /**
-   * Restore demo data if desired
+   * Restore demo data if desired for testing
    */
   public restoreDemoData() {
     localStorage.removeItem(`${this.storageKey}_demo_cleared`);
+    this.departments = [...mockDepartments];
+    this.teachers = [...mockTeachers];
+    this.subjects = [...mockSubjects];
     this.students = [...mockStudents];
     this.attendance = [...mockAttendance];
     this.sms_logs = [...mockSmsLogs];
-    this.persist("students");
-    this.persist("attendance");
-    this.persist("sms_logs");
+    this.class_coordinator_assignments = [...mockClassCoordinatorAssignments];
+    this.teacher_subjects = [...mockTeacherSubjects];
+    this.users = [...mockUsers];
+    this.notices = [...mockNotices];
+    this.academic_classes = [...mockClasses];
+
+    const tables = [
+      "departments",
+      "teachers",
+      "subjects",
+      "students",
+      "attendance",
+      "sms_logs",
+      "class_coordinator_assignments",
+      "teacher_subjects",
+      "users",
+      "notices",
+      "academic_classes",
+    ];
+    for (const t of tables) {
+      this.persist(t);
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(
+          new CustomEvent("edutrack_data_updated", {
+            detail: { table: t, data: (this as any)[t] },
+          }),
+        );
+      }
+    }
 
     if (typeof window !== "undefined") {
-      window.dispatchEvent(
-        new CustomEvent("edutrack_data_updated", {
-          detail: { table: "students", data: this.students },
-        }),
-      );
       window.dispatchEvent(
         new CustomEvent("edutrack_sms_logs_updated", { detail: this.sms_logs }),
       );
@@ -285,21 +523,16 @@ class LocalDatabase {
     // Direct background sync to Supabase if configured
     if (isSupabaseConfigured) {
       try {
-        const payload = inserted.map((item) => {
-          const copy = { ...item };
-          for (const key of Object.keys(copy)) {
-            // Nullify empty string IDs to avoid Postgres UUID parse failure
-            if (copy[key] === "" && (key.endsWith("_id") || key === "user_id")) {
-              copy[key] = null;
-            }
-          }
-          return copy;
-        });
+        const payload = inserted.map((item) =>
+          sanitizePayloadForSupabase(table, item),
+        );
         const { error } = await supabase.from(table).insert(payload);
         if (error) {
           console.error(`Supabase insert error on ${table}:`, error);
         } else {
-          console.log(`Supabase synced ${inserted.length} record(s) into ${table}`);
+          console.log(
+            `Supabase synced ${inserted.length} record(s) into ${table}`,
+          );
         }
       } catch (err) {
         console.error(`Supabase insert exception on ${table}:`, err);
@@ -310,7 +543,7 @@ class LocalDatabase {
   }
 
   async update(table: string, id: string, data: any) {
-    const list = (this as any)[table];
+    const list = (this as any)[table] || [];
     const idx = list.findIndex((x: any) => x.id === id);
     if (idx !== -1) {
       list[idx] = { ...list[idx], ...data };
@@ -321,16 +554,8 @@ class LocalDatabase {
 
       if (isSupabaseConfigured) {
         try {
-          const copy = { ...data };
-          for (const key of Object.keys(copy)) {
-            if (copy[key] === "" && (key.endsWith("_id") || key === "user_id")) {
-              copy[key] = null;
-            }
-          }
-          if (table === "students" && copy.semester !== undefined) {
-            copy.semester = parseInt(String(copy.semester), 10) || 1;
-          }
-          const { error } = await supabase.from(table).update(copy).eq("id", id);
+          const payload = sanitizePayloadForSupabase(table, { ...list[idx] });
+          const { error } = await supabase.from(table).update(payload).eq("id", id);
           if (error) {
             console.error(`Supabase update error for ${table}:`, error);
           }
@@ -339,13 +564,19 @@ class LocalDatabase {
         }
       }
 
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(
+          new CustomEvent("edutrack_data_updated", { detail: { table, data: list } }),
+        );
+      }
+
       return list[idx];
     }
     return null;
   }
 
   async delete(table: string, id: string) {
-    const list = (this as any)[table];
+    const list = (this as any)[table] || [];
     const idx = list.findIndex((x: any) => x.id === id);
     if (idx !== -1) {
       list.splice(idx, 1);
@@ -360,6 +591,12 @@ class LocalDatabase {
         } catch (err) {
           console.error(`Supabase delete exception on ${table}:`, err);
         }
+      }
+
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(
+          new CustomEvent("edutrack_data_updated", { detail: { table, data: list } }),
+        );
       }
 
       return true;
@@ -388,7 +625,10 @@ class LocalDatabase {
 
     if (isSupabaseConfigured) {
       try {
-        const { error } = await supabase.from("attendance").upsert(records);
+        const payload = records.map((r) =>
+          sanitizePayloadForSupabase("attendance", r),
+        );
+        const { error } = await supabase.from("attendance").upsert(payload);
         if (error) {
           console.error("Supabase upsert attendance error:", error);
         }
