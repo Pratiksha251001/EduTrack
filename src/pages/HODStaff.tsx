@@ -24,6 +24,12 @@ import { localDb } from "../lib/supabase";
 import { saveCredential } from "../lib/authUtils";
 import { Teacher } from "../lib/types";
 import { college } from "../lib/college";
+import {
+  cleanMobile,
+  isValid10DigitMobile,
+  getMobileValidationError,
+  sanitizeMobileInput,
+} from "../lib/validation";
 import { Badge } from "../components/ui/badge";
 import { Button } from "../components/ui/button";
 import { Card } from "../components/ui/card";
@@ -190,6 +196,14 @@ export const HODStaff: React.FC<HODStaffProps> = ({ mode }) => {
       return;
     }
 
+    if (form.mobile) {
+      const mobErr = getMobileValidationError(form.mobile, "Faculty Mobile", false);
+      if (mobErr) {
+        alert(mobErr);
+        return;
+      }
+    }
+
     const isCoordinator = form.role === "class_coordinator";
     const data = {
       employee_id: form.employee_id.trim(),
@@ -200,7 +214,7 @@ export const HODStaff: React.FC<HODStaffProps> = ({ mode }) => {
       date_of_birth: form.date_of_birth.trim() || null,
       experience_years: form.experience_years.trim() || null,
       email: form.email.trim() || null,
-      mobile: form.mobile.trim() || null, // Optional phone
+      mobile: cleanMobile(form.mobile) || null, // Standardized 10-digit mobile
       photo_url: form.photo_url.trim() || null,
       role: form.role,
       is_class_coordinator: isCoordinator,
@@ -522,19 +536,48 @@ export const HODStaff: React.FC<HODStaffProps> = ({ mode }) => {
               />
             </div>
 
-            {/* 7. Phone / Mobile (Option to set manually) */}
+            {/* 7. Phone / Mobile (10-digit validation) */}
             <div className="space-y-1">
               <label className="text-xs font-semibold text-foreground flex items-center justify-between">
                 <span>Phone / Mobile</span>
-                <span className="text-[11px] font-normal text-muted-foreground">(Optional / manual set)</span>
+                {form.mobile ? (
+                  <span
+                    className={`text-[10px] font-mono ${
+                      form.mobile.length === 10
+                        ? "text-emerald-600 font-bold"
+                        : "text-muted-foreground"
+                    }`}
+                  >
+                    {form.mobile.length}/10 digits
+                  </span>
+                ) : (
+                  <span className="text-[11px] font-normal text-muted-foreground">
+                    (Optional / 10 digits)
+                  </span>
+                )}
               </label>
               <Input
-                placeholder="e.g. +91 98765 43210"
+                type="tel"
+                inputMode="numeric"
+                pattern="[0-9]*"
+                maxLength={10}
+                placeholder="9876543210 (10 digits)"
                 value={form.mobile}
                 onChange={(event) =>
-                  setForm({ ...form, mobile: event.target.value })
+                  setForm({
+                    ...form,
+                    mobile: sanitizeMobileInput(event.target.value),
+                  })
                 }
+                className={`font-mono ${
+                  form.mobile && !isValid10DigitMobile(form.mobile)
+                    ? "border-destructive focus-visible:ring-destructive bg-destructive/5"
+                    : ""
+                }`}
               />
+              <p className="text-[10px] text-muted-foreground">
+                Strictly 10 digits only if provided (e.g. 9876543210).
+              </p>
             </div>
 
             {/* 8. Email */}

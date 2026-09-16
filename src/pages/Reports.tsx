@@ -1,17 +1,21 @@
-import React, { useState, useMemo } from 'react';
-import { FileSpreadsheet, FileText } from 'lucide-react';
+import React, { useState, useMemo, useEffect } from 'react';
+import { FileSpreadsheet, FileText, Calendar, Filter } from 'lucide-react';
+import { useAuth } from '../context/AuthContext';
 import { localDb } from '../lib/supabase';
 import { college } from '../lib/college';
 import { exportAttendancePdf } from '../lib/pdfExport';
 import { Button } from '../components/ui/button';
 import { Select } from '../components/ui/select';
 import { Input } from '../components/ui/input';
+import { DatePicker } from '../components/ui/date-picker';
+import { Badge } from '../components/ui/badge';
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '../components/ui/table';
 
 export const Reports: React.FC = () => {
-  const students = localDb.students;
-  const subjects = localDb.subjects;
-  const departments = localDb.departments;
+  const { user, role } = useAuth();
+  const allStudents = localDb.students;
+  const allSubjects = localDb.subjects;
+  const allDepartments = localDb.departments;
   const attendance = localDb.attendance;
 
   const thirtyDaysAgo = new Date(Date.now() - 30 * 86400000).toISOString().split('T')[0];
@@ -19,8 +23,97 @@ export const Reports: React.FC = () => {
 
   const [startDate, setStartDate] = useState(thirtyDaysAgo);
   const [endDate, setEndDate] = useState(todayStr);
-  const [selectedDept, setSelectedDept] = useState<string>('__all');
+
+  // Initialize selectedDept based on role
+  const defaultDept = role === 'admin' ? '__all' : user?.department_id || '__all';
+  const [selectedDept, setSelectedDept] = useState<string>(defaultDept);
   const [selectedSubject, setSelectedSubject] = useState<string>('__all');
+
+  useEffect(() => {
+    if (role !== 'admin' && user?.department_id) {
+      setSelectedDept(user.department_id);
+    }
+  }, [role, user?.department_id]);
+
+  // Scoped subjects based on role
+  const subjects = useMemo(() => {
+    if (role === 'admin') return allSubjects;
+    if (role === 'hod') {
+      return allSubjects.filter((s) => !user?.department_id || s.department_id === user.department_id);
+    }
+    if (role === 'class_coordinator') {
+      const teacherRec = localDb.teachers.find(
+        (t) =>
+          t.id === user?.teacher_id ||
+          (user?.email && t.email?.toLowerCase() === user.email.toLowerCase()) ||
+          (user?.employee_id && t.employee_id === user.employee_id) ||
+          (t.is_class_coordinator && t.department_id === user?.department_id)
+      );
+      const coordSem = teacherRec?.assigned_semester || user?.assigned_semester || 5;
+      const deptId = user?.department_id || teacherRec?.department_id;
+      return allSubjects.filter(
+        (s) => (!deptId || s.department_id === deptId) && s.semester === coordSem
+      );
+    }
+    if (role === 'teacher') {
+      const teacherId = user?.teacher_id || user?.id;
+      const mySubjectIds = new Set(
+        localDb.teacher_subjects
+          .filter((ts) => ts.teacher_id === teacherId)
+          .map((ts) => ts.subject_id)
+      );
+      allSubjects.forEach((s) => {
+        if ((s as any).teacher_id === teacherId) {
+          mySubjectIds.add(s.id);
+        }
+      });
+      if (mySubjectIds.size > 0) {
+        return allSubjects.filter((s) => mySubjectIds.has(s.id));
+      }
+      return allSubjects.filter((s) => !user?.department_id || s.department_id === user.department_id);
+    }
+    return allSubjects;
+  }, [allSubjects, role, user]);
+
+  // Scoped students based on role
+  const students = useMemo(() => {
+    if (role === 'admin') return allStudents;
+    if (role === 'hod') {
+      return allStudents.filter((st) => !user?.department_id || st.department_id === user.department_id);
+    }
+    if (role === 'class_coordinator') {
+      const teacherRec = localDb.teachers.find(
+        (t) =>
+          t.id === user?.teacher_id ||
+          (user?.email && t.email?.toLowerCase() === user.email.toLowerCase()) ||
+          (user?.employee_id && t.employee_id === user.employee_id) ||
+          (t.is_class_coordinator && t.department_id === user?.department_id)
+      );
+      const coordSem = teacherRec?.assigned_semester || user?.assigned_semester || 5;
+      const deptId = user?.department_id || teacherRec?.department_id;
+      return allStudents.filter(
+        (st) => (!deptId || st.department_id === deptId) && st.semester === coordSem
+      );
+    }
+    if (role === 'teacher') {
+      // Students in semesters of the teacher's assigned subjects
+      const teacherSemesters = new Set(subjects.map((s) => s.semester));
+      return allStudents.filter(
+        (st) =>
+          (!user?.department_id || st.department_id === user.department_id) &&
+          teacherSemesters.has(st.semester)
+      );
+    }
+    return allStudents;
+  }, [allStudents, subjects, role, user]);
+
+  const departments = useMemo(() => {
+    if (role === 'admin') return allDepartments;
+    if (user?.department_id) {
+      return allDepartments.filter((d) => d.id === user.department_id);
+    }
+    return allDepartments;
+  }, [allDepartments, role, user]);
 
   const reportRows = useMemo(() => {
     const list: Array<{
@@ -96,7 +189,15 @@ export const Reports: React.FC = () => {
     <div className="space-y-6">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <h2 className="font-display text-2xl font-bold">Attendance Reports & Sign-off</h2>
+          <div className="flex items-center gap-2 mb-1">
+            <h2 className="font-display text-2xl font-bold">Attendance Reports & Sign-off</h2>
+            <Badge variant="outline" className="text-xs border-primary/30 bg-primary/10 text-primary">
+              {role === 'admin' && 'College-Wide Reports'}
+              {role === 'hod' && `Department Scope (${user?.department_id || 'All Classes'})`}
+              {role === 'class_coordinator' && `Class Coordinator Scope (Sem ${user?.assigned_semester || 5})`}
+              {role === 'teacher' && 'Assigned Classes & Subjects'}
+            </Badge>
+          </div>
           <p className="text-sm text-muted-foreground">
             Aggregate student attendance across date intervals with audit-ready PDF & CSV export.
           </p>
@@ -112,36 +213,93 @@ export const Reports: React.FC = () => {
         </div>
       </div>
 
-      <div className="surface-panel grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <div className="space-y-1.5">
-          <label className="text-xs font-semibold text-muted-foreground">From Date</label>
-          <Input type="date" value={startDate} onChange={e => setStartDate(e.target.value)} />
+      <div className="surface-panel space-y-4">
+        <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border pb-3">
+          <span className="text-xs font-semibold text-muted-foreground flex items-center gap-1.5">
+            <Calendar className="h-4 w-4 text-primary" /> Filter Date Range
+          </span>
+          <div className="flex items-center gap-1.5 flex-wrap">
+            <Button
+              variant="outline"
+              size="sm"
+              className="text-[11px] h-7 px-2.5"
+              onClick={() => {
+                setStartDate(todayStr);
+                setEndDate(todayStr);
+              }}
+            >
+              Today
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              className="text-[11px] h-7 px-2.5"
+              onClick={() => {
+                const past7 = new Date(Date.now() - 7 * 86400000).toISOString().split('T')[0];
+                setStartDate(past7);
+                setEndDate(todayStr);
+              }}
+            >
+              Last 7 Days
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              className="text-[11px] h-7 px-2.5"
+              onClick={() => {
+                const d = new Date();
+                const firstDay = new Date(d.getFullYear(), d.getMonth(), 1).toISOString().split('T')[0];
+                setStartDate(firstDay);
+                setEndDate(todayStr);
+              }}
+            >
+              This Month
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              className="text-[11px] h-7 px-2.5"
+              onClick={() => {
+                setStartDate(thirtyDaysAgo);
+                setEndDate(todayStr);
+              }}
+            >
+              Last 30 Days
+            </Button>
+          </div>
         </div>
-        <div className="space-y-1.5">
-          <label className="text-xs font-semibold text-muted-foreground">To Date</label>
-          <Input type="date" value={endDate} onChange={e => setEndDate(e.target.value)} />
-        </div>
-        <div className="space-y-1.5">
-          <label className="text-xs font-semibold text-muted-foreground">Department</label>
-          <Select
-            value={selectedDept}
-            onChange={e => setSelectedDept(e.target.value)}
-            options={[
-              { value: '__all', label: 'All Departments' },
-              ...departments.map(d => ({ value: d.id, label: d.name })),
-            ]}
-          />
-        </div>
-        <div className="space-y-1.5">
-          <label className="text-xs font-semibold text-muted-foreground">Subject</label>
-          <Select
-            value={selectedSubject}
-            onChange={e => setSelectedSubject(e.target.value)}
-            options={[
-              { value: '__all', label: 'All Subjects' },
-              ...subjects.map(s => ({ value: s.id, label: `${s.code} - ${s.name}` })),
-            ]}
-          />
+
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="space-y-1.5">
+            <label className="text-xs font-semibold text-muted-foreground">From Date</label>
+            <DatePicker value={startDate} max={endDate} onChange={val => setStartDate(val || thirtyDaysAgo)} />
+          </div>
+          <div className="space-y-1.5">
+            <label className="text-xs font-semibold text-muted-foreground">To Date</label>
+            <DatePicker value={endDate} min={startDate} max={todayStr} onChange={val => setEndDate(val || todayStr)} />
+          </div>
+          <div className="space-y-1.5">
+            <label className="text-xs font-semibold text-muted-foreground">Department</label>
+            <Select
+              value={selectedDept}
+              onChange={e => setSelectedDept(e.target.value)}
+              options={[
+                { value: '__all', label: 'All Departments' },
+                ...departments.map(d => ({ value: d.id, label: d.name })),
+              ]}
+            />
+          </div>
+          <div className="space-y-1.5">
+            <label className="text-xs font-semibold text-muted-foreground">Subject</label>
+            <Select
+              value={selectedSubject}
+              onChange={e => setSelectedSubject(e.target.value)}
+              options={[
+                { value: '__all', label: 'All Subjects' },
+                ...subjects.map(s => ({ value: s.id, label: `${s.code} - ${s.name}` })),
+              ]}
+            />
+          </div>
         </div>
       </div>
 

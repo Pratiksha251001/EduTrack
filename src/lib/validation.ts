@@ -8,14 +8,14 @@
  */
 export function cleanMobile(val: string | null | undefined): string {
   if (!val) return '';
-  const digits = String(val).replace(/\D/g, '');
-  // If user pasted with 91 (India) country code e.g. 919876543210 (12 digits)
+  let digits = String(val).replace(/\D/g, '');
+  // If user entered with 91 (India) country code e.g. 919876543210 (12 digits)
   if (digits.length === 12 && digits.startsWith('91')) {
-    return digits.slice(2);
+    digits = digits.slice(2);
   }
   // If user entered with leading 0 e.g. 09876543210 (11 digits)
   if (digits.length === 11 && digits.startsWith('0')) {
-    return digits.slice(1);
+    digits = digits.slice(1);
   }
   return digits.slice(0, 10);
 }
@@ -39,17 +39,17 @@ export function getMobileValidationError(
 ): string | null {
   const raw = String(val || '').trim();
   if (!raw) {
-    return isRequired ? `${fieldName} is mandatory (10 digits required).` : null;
+    return isRequired ? `${fieldName} is mandatory (strictly 10 digits required).` : null;
   }
   const cleaned = cleanMobile(raw);
   if (cleaned.length === 0) {
-    return `${fieldName} must contain numbers only.`;
+    return `${fieldName} must contain numbers only (10 digits).`;
   }
-  if (cleaned.length < 10) {
+  if (cleaned.length !== 10) {
     return `${fieldName} must be exactly 10 digits (currently ${cleaned.length} digit${cleaned.length === 1 ? '' : 's'}).`;
   }
   if (!/^[6-9]/.test(cleaned)) {
-    return `${fieldName} must start with 6, 7, 8, or 9 (e.g. 9876543210).`;
+    return `${fieldName} must be a valid 10-digit mobile number starting with 6, 7, 8, or 9 (e.g. 9876543210).`;
   }
   return null;
 }
@@ -67,10 +67,18 @@ export function formatMobileDisplay(val: string | null | undefined): string {
 
 /**
  * Restricts live user typing to only digits and maximum 10 digits.
+ * Automatically handles pasted +91 or leading 0 prefix.
  * Useful for onChange handlers: `onChange={e => setValue(sanitizeMobileInput(e.target.value))}`
  */
 export function sanitizeMobileInput(val: string): string {
-  return val.replace(/\D/g, '').slice(0, 10);
+  if (!val) return '';
+  let digits = val.replace(/\D/g, '');
+  if (digits.length === 12 && digits.startsWith('91')) {
+    digits = digits.slice(2);
+  } else if (digits.length === 11 && digits.startsWith('0')) {
+    digits = digits.slice(1);
+  }
+  return digits.slice(0, 10);
 }
 
 /**

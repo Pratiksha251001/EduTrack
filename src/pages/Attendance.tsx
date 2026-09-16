@@ -14,6 +14,9 @@ import {
   CheckCircle2,
   Bell,
   ArrowRight,
+  Calendar,
+  ChevronLeft,
+  ChevronRight,
 } from "lucide-react";
 import { localDb } from "../lib/supabase";
 import { useAuth } from "../context/AuthContext";
@@ -28,15 +31,54 @@ import { Button } from "../components/ui/button";
 import { Select } from "../components/ui/select";
 import { Input } from "../components/ui/input";
 import { Badge } from "../components/ui/badge";
+import { DatePicker } from "../components/ui/date-picker";
 import { AttendanceVerificationModal } from "../components/AttendanceVerificationModal";
 import { AttendanceDispatchReceiptModal } from "../components/AttendanceDispatchReceiptModal";
+import { recordAttendanceSubmittedNotification } from "../lib/notificationService";
 
 export const Attendance: React.FC = () => {
   const { user, role } = useAuth();
-  const subjects = localDb.subjects.filter(
-    (subject) =>
-      role !== "hod" || subject.department_id === user?.department_id,
-  );
+  const subjects = useMemo(() => {
+    return localDb.subjects.filter((subject) => {
+      if (role === "admin") return true;
+      if (role === "hod") {
+        return (
+          !user?.department_id ||
+          subject.department_id === user.department_id
+        );
+      }
+      if (role === "class_coordinator") {
+        const teacherRec = localDb.teachers.find(
+          (t) =>
+            t.id === user?.teacher_id ||
+            (user?.email && t.email?.toLowerCase() === user.email.toLowerCase()) ||
+            (user?.employee_id && t.employee_id === user.employee_id) ||
+            (t.is_class_coordinator && t.department_id === user?.department_id)
+        );
+        const coordSem = teacherRec?.assigned_semester || user?.assigned_semester || 5;
+        const deptId = user?.department_id || teacherRec?.department_id;
+        const isClassSubject = (!deptId || subject.department_id === deptId) && subject.semester === coordSem;
+        const isMyTeachingSubject =
+          localDb.teacher_subjects.some(
+            (ts) => (ts.teacher_id === user?.teacher_id || ts.teacher_id === user?.id) && ts.subject_id === subject.id
+          ) || (subject as any).teacher_id === user?.teacher_id || (subject as any).teacher_id === user?.id;
+        return isClassSubject || isMyTeachingSubject;
+      }
+      if (role === "teacher") {
+        const teacherId = user?.teacher_id || user?.id;
+        const isAssigned =
+          localDb.teacher_subjects.some(
+            (ts) => ts.teacher_id === teacherId && ts.subject_id === subject.id
+          ) || (subject as any).teacher_id === teacherId;
+        // If teacher has assigned subjects, restrict strictly to assigned
+        const anyAssigned = localDb.teacher_subjects.some(ts => ts.teacher_id === teacherId) ||
+          localDb.subjects.some(s => (s as any).teacher_id === teacherId);
+        if (anyAssigned) return isAssigned;
+        return !user?.department_id || subject.department_id === user.department_id;
+      }
+      return !user?.department_id || subject.department_id === user.department_id;
+    });
+  }, [role, user]);
   const students = localDb.students;
 
   const todayStr = new Date().toISOString().split("T")[0];
@@ -176,6 +218,23 @@ export const Attendance: React.FC = () => {
     }
 
     const currentLang = SMS_LANGUAGES.find((l) => l.id === chosenLang);
+
+    // Record notification for HOD, CC, and Admin
+    recordAttendanceSubmittedNotification({
+      teacherName: user?.full_name || "Faculty Member",
+      teacherId: user?.teacher_id || user?.id || null,
+      subjectId: selectedSubject.id,
+      subjectName: selectedSubject.name,
+      subjectCode: selectedSubject.code,
+      departmentId: selectedSubject.department_id,
+      semester: selectedSubject.semester,
+      date: selectedDate,
+      totalStudents: cohortStudents.length,
+      presentCount: cohortStudents.length - currentAbsentees.length,
+      absentCount: currentAbsentees.length,
+      smsCount: dispatchedList.filter((d) => d.status === "sent").length,
+    });
+
     setSaving(false);
     setConfirmOpen(false);
 
@@ -254,14 +313,46 @@ export const Attendance: React.FC = () => {
         </div>
 
         <div className="space-y-1.5">
-          <label className="text-xs font-semibold text-muted-foreground">
-            Attendance Date
-          </label>
-          <Input
-            type="date"
-            max={todayStr}
+          <div className="flex items-center justify-between">
+            <label className="text-xs font-semibold text-muted-foreground flex items-center gap-1.5">
+              <Calendar className="h-3.5 w-3.5 text-primary" />
+              <span>Attendance Date</span>
+            </label>
+            <div className="flex items-center gap-1">
+              <button
+                type="button"
+                onClick={() => {
+                  const d = new Date(selectedDate || todayStr);
+                  d.setDate(d.getDate() - 1);
+                  setSelectedDate(d.toISOString().split("T")[0]);
+                }}
+                className="p-0.5 rounded text-muted-foreground hover:text-foreground hover:bg-muted"
+                title="Previous day"
+              >
+                <ChevronLeft className="h-3.5 w-3.5" />
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  const d = new Date(selectedDate || todayStr);
+                  d.setDate(d.getDate() + 1);
+                  const nextStr = d.toISOString().split("T")[0];
+                  if (nextStr <= todayStr) {
+                    setSelectedDate(nextStr);
+                  }
+                }}
+                disabled={selectedDate >= todayStr}
+                className="p-0.5 rounded text-muted-foreground hover:text-foreground hover:bg-muted disabled:opacity-30 disabled:cursor-not-allowed"
+                title="Next day"
+              >
+                <ChevronRight className="h-3.5 w-3.5" />
+              </button>
+            </div>
+          </div>
+          <DatePicker
             value={selectedDate}
-            onChange={(e) => setSelectedDate(e.target.value)}
+            max={todayStr}
+            onChange={(val) => setSelectedDate(val || todayStr)}
           />
         </div>
 

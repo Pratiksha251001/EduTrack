@@ -1,4 +1,4 @@
-import React, { useRef, useState, useMemo } from "react";
+import React, { useRef, useState, useMemo, useEffect } from "react";
 import { Link } from "react-router-dom";
 import {
   ArrowLeft,
@@ -25,6 +25,8 @@ import {
   Briefcase,
   Clock,
   Hash,
+  Shuffle,
+  RotateCcw,
 } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import { localDb } from "../lib/supabase";
@@ -41,35 +43,113 @@ import {
   cleanMobile,
   isValidEmail,
 } from "../lib/validation";
+import { UserRoleType } from "../types";
 
 export const UserProfile: React.FC = () => {
-  const { user, role, updateUserPassword, openLogoutConfirm } = useAuth();
+  const { user, role, isDemo, loginAsDemo, loginAsRandomDemo, updateUserPassword, openLogoutConfirm } = useAuth();
   const fileRef = useRef<HTMLInputElement>(null);
 
   // Student specific data
   const student = useMemo(() => {
     if (role !== "student") return null;
-    return (
-      localDb.students.find(
-        (s) =>
-          s.id === user?.student_id ||
-          (user?.roll_number && s.roll_number === user.roll_number) ||
-          (user?.email && s.email?.toLowerCase() === user.email.toLowerCase())
-      ) || null
+    const found = localDb.students.find(
+      (s) =>
+        s.id === user?.student_id ||
+        (user?.roll_number && s.roll_number === user.roll_number) ||
+        (user?.email && s.email?.toLowerCase() === user.email.toLowerCase())
     );
+    if (found) return found;
+
+    // Guaranteed fallback dummy student record for Demo / Study mode
+    return {
+      id: user?.student_id || "st-1",
+      roll_number: user?.roll_number || "21CS001",
+      reg_number: "REG-2021-001",
+      full_name: user?.full_name || "Alexander Hayes",
+      department_id: user?.department_id || "dept-1",
+      semester: 5,
+      parent_name: "Marcus Hayes (Father)",
+      parent_mobile: "9876543210",
+      student_mobile: "9876543211",
+      email: user?.email || "alex.h@student.edutrack.edu",
+      user_id: user?.id || "student-user-id",
+      address: "Flat 402, Campus View Residency, University Road",
+      date_of_birth: "2003-05-15",
+      gender: "male",
+      status: "active" as const,
+      photo_url: null,
+    };
   }, [role, user]);
 
   // Teacher / HOD / CC specific data
   const teacher = useMemo(() => {
     if (role === "student" || role === "admin") return null;
-    return (
-      localDb.teachers.find(
-        (t) =>
-          t.id === user?.teacher_id ||
-          (user?.employee_id && t.employee_id === user.employee_id) ||
-          (user?.email && t.email?.toLowerCase() === user.email.toLowerCase())
-      ) || null
+    const found = localDb.teachers.find(
+      (t) =>
+        t.id === user?.teacher_id ||
+        (user?.employee_id && t.employee_id === user.employee_id) ||
+        (user?.email && t.email?.toLowerCase() === user.email.toLowerCase())
     );
+    if (found) return found;
+
+    // Guaranteed fallback dummy faculty record for Demo / Study mode
+    if (role === "hod") {
+      return {
+        id: user?.teacher_id || "t-1",
+        employee_id: user?.employee_id || "EMP-101",
+        full_name: user?.full_name || "Dr. Robert Vance (HOD)",
+        email: user?.email || "hod.cse@edutrack.edu",
+        mobile: "9876543201",
+        department_id: user?.department_id || "dept-1",
+        user_id: user?.id || "hod-user-id",
+        role: "hod" as const,
+        status: "active" as const,
+        designation: "Professor & Head of Department",
+        qualification: "Ph.D in Computer Science & Engineering",
+        date_of_birth: "1978-06-15",
+        experience_years: "18 Years",
+        photo_url: null,
+      };
+    }
+    if (role === "class_coordinator") {
+      return {
+        id: user?.teacher_id || "t-4",
+        employee_id: user?.employee_id || "EMP-104",
+        full_name: user?.full_name || "Prof. Emily Watson (Class Coordinator)",
+        email: user?.email || "e.watson@edutrack.edu",
+        mobile: "9876543204",
+        department_id: user?.department_id || "dept-1",
+        user_id: user?.id || "cc-user-id",
+        is_class_coordinator: true,
+        assigned_semester: 5,
+        role: "class_coordinator" as const,
+        status: "active" as const,
+        designation: "Assistant Professor & Class Coordinator",
+        qualification: "M.Tech in Cyber Security",
+        date_of_birth: "1990-11-08",
+        experience_years: "7 Years",
+        photo_url: null,
+      };
+    }
+    // Faculty / Teacher
+    return {
+      id: user?.teacher_id || "t-2",
+      employee_id: user?.employee_id || "EMP-102",
+      full_name: user?.full_name || "Prof. Sarah Jenkins",
+      email: user?.email || "s.jenkins@edutrack.edu",
+      mobile: "9876543202",
+      department_id: user?.department_id || "dept-1",
+      user_id: user?.id || "teacher-user-id",
+      is_class_coordinator: true,
+      assigned_semester: 5,
+      role: "teacher" as const,
+      status: "active" as const,
+      designation: "Associate Professor",
+      qualification: "M.Tech in Software Systems",
+      date_of_birth: "1985-09-24",
+      experience_years: "11 Years",
+      photo_url: null,
+    };
   }, [role, user]);
 
   // Department data
@@ -79,7 +159,13 @@ export const UserProfile: React.FC = () => {
     user?.department_id;
 
   const department = useMemo(() => {
-    return localDb.departments.find((d) => d.id === departmentId);
+    return localDb.departments.find((d) => d.id === departmentId) || {
+      id: "dept-1",
+      name: "Computer Science & Engineering",
+      code: "CSE",
+      established_year: 2005,
+      description: "Department of Computer Science & Engineering",
+    };
   }, [departmentId]);
 
   // Assigned subjects for teachers
@@ -88,7 +174,28 @@ export const UserProfile: React.FC = () => {
     const teacherSubIds = localDb.teacher_subjects
       .filter((ts) => ts.teacher_id === teacher.id)
       .map((ts) => ts.subject_id);
-    return localDb.subjects.filter((s) => teacherSubIds.includes(s.id));
+    const found = localDb.subjects.filter((s) => teacherSubIds.includes(s.id));
+    if (found.length > 0) return found;
+
+    // Fallback dummy subjects for demo testing
+    return [
+      {
+        id: "sub-1",
+        code: "CS501",
+        name: "Design and Analysis of Algorithms",
+        department_id: "dept-1",
+        semester: 5,
+        credits: 4,
+      },
+      {
+        id: "sub-2",
+        code: "CS502",
+        name: "Database Management Systems",
+        department_id: "dept-1",
+        semester: 5,
+        credits: 4,
+      },
+    ];
   }, [teacher]);
 
   // Coordinator specific data
@@ -100,7 +207,7 @@ export const UserProfile: React.FC = () => {
     );
     const count = localDb.students.filter(
       (s) => (!departmentId || s.department_id === departmentId) && s.semester === sem
-    ).length;
+    ).length || 45;
     return {
       semester: sem,
       className: assignedClass?.name || `${department?.code || "CSE"} - Sem ${sem}`,
@@ -114,7 +221,7 @@ export const UserProfile: React.FC = () => {
     const records = localDb.attendance.filter(
       (r) => r.student_id === student.id
     );
-    if (records.length === 0) return { total: 0, present: 0, percent: 100 };
+    if (records.length === 0) return { total: 42, present: 38, percent: 90 };
     const present = records.filter((r) => r.status === "present").length;
     const percent = Math.round((present / records.length) * 100);
     return { total: records.length, present, percent };
@@ -148,6 +255,23 @@ export const UserProfile: React.FC = () => {
   });
 
   const [teacherMobile, setTeacherMobile] = useState(teacher?.mobile || "");
+
+  // Synchronize form states whenever student or teacher identity updates
+  useEffect(() => {
+    if (student) {
+      setStudentForm({
+        email: student.email || "",
+        student_mobile: student.student_mobile || "",
+        address: student.address || "",
+      });
+    }
+  }, [student]);
+
+  useEffect(() => {
+    if (teacher) {
+      setTeacherMobile(teacher.mobile || "");
+    }
+  }, [teacher]);
 
   // Password form states
   const [newPassword, setNewPassword] = useState("");
@@ -315,6 +439,49 @@ export const UserProfile: React.FC = () => {
         </Badge>
       </div>
 
+      {/* Demo / Study Mode Profile Notice */}
+      {isDemo && (
+        <Card className="border-amber-400/50 bg-gradient-to-r from-amber-500/15 via-background to-indigo-500/10 p-4 shadow-xs">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+            <div className="flex items-center gap-3">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-amber-500/20 text-amber-600 dark:text-amber-400 font-bold">
+                <Sparkles className="h-5 w-5" />
+              </div>
+              <div>
+                <div className="flex items-center gap-2">
+                  <h3 className="text-sm font-bold text-foreground">
+                    Interactive Dummy Profile · Study Mode
+                  </h3>
+                  <Badge variant="secondary" className="text-[10px] uppercase font-bold bg-amber-500/20 text-amber-900 dark:text-amber-200">
+                    Preloaded Record
+                  </Badge>
+                </div>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  You are exploring a dummy profile for <strong>{user?.full_name}</strong> ({roleTitle}). You can test photo changes, mobile verification, or safely switch to any other dummy role below.
+                </p>
+              </div>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-2 shrink-0">
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={async () => {
+                  const roles: UserRoleType[] = ["admin", "hod", "class_coordinator", "teacher", "student"];
+                  const next = roles[(roles.indexOf(role as UserRoleType) + 1) % roles.length];
+                  await loginAsDemo(next);
+                }}
+                className="text-xs gap-1.5 border-primary/30 hover:bg-primary/10"
+                title="Switch to next role dummy profile"
+              >
+                <Shuffle className="h-3.5 w-3.5 text-primary" />
+                <span>Next Dummy Profile</span>
+              </Button>
+            </div>
+          </div>
+        </Card>
+      )}
+
       {/* Profile Header Hero Card */}
       <Card className="p-6 border-border bg-gradient-to-r from-card via-card to-primary/5">
         <div className="flex flex-col sm:flex-row items-start sm:items-center gap-5">
@@ -435,21 +602,60 @@ export const UserProfile: React.FC = () => {
                 </CardTitle>
               </CardHeader>
               <CardContent className="p-0 space-y-4 text-xs">
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3.5">
                   <div className="rounded-xl border border-border p-3.5 bg-muted/30">
-                    <p className="text-muted-foreground text-[11px] font-medium">Institution</p>
-                    <p className="font-bold text-foreground text-sm mt-0.5">{college.name}</p>
-                    <p className="text-muted-foreground text-[11px] mt-0.5">{college.tagline || "Technical Institute"}</p>
+                    <p className="text-muted-foreground text-[11px] font-medium flex items-center gap-1">
+                      <Briefcase className="h-3.5 w-3.5 text-primary" /> Official Designation
+                    </p>
+                    <p className="font-bold text-foreground text-sm mt-0.5">Chief Academic Officer & Super Admin</p>
+                    <p className="text-muted-foreground text-[11px] mt-0.5">Executive Appointment</p>
                   </div>
+
                   <div className="rounded-xl border border-border p-3.5 bg-muted/30">
-                    <p className="text-muted-foreground text-[11px] font-medium">Governance Role</p>
-                    <p className="font-bold text-foreground text-sm mt-0.5">Global System Administrator</p>
-                    <p className="text-muted-foreground text-[11px] mt-0.5">Full Read/Write Institutional Access</p>
+                    <p className="text-muted-foreground text-[11px] font-medium flex items-center gap-1">
+                      <Building2 className="h-3.5 w-3.5 text-primary" /> Institution
+                    </p>
+                    <p className="font-bold text-foreground text-sm mt-0.5">{college.shortName}</p>
+                    <p className="text-muted-foreground text-[11px] mt-0.5">{college.name}</p>
+                  </div>
+
+                  <div className="rounded-xl border border-border p-3.5 bg-muted/30">
+                    <p className="text-muted-foreground text-[11px] font-medium flex items-center gap-1">
+                      <Hash className="h-3.5 w-3.5 text-primary" /> Administrator Ref ID
+                    </p>
+                    <p className="font-bold font-mono text-foreground text-sm mt-0.5">
+                      {user?.employee_id || "ADM-SYS-2025"}
+                    </p>
+                    <p className="text-muted-foreground text-[11px] mt-0.5">Root system key</p>
+                  </div>
+
+                  <div className="rounded-xl border border-border p-3.5 bg-muted/30">
+                    <p className="text-muted-foreground text-[11px] font-medium flex items-center gap-1">
+                      <MapPin className="h-3.5 w-3.5 text-primary" /> Office Chamber
+                    </p>
+                    <p className="font-bold text-foreground text-sm mt-0.5">Executive Wing, Suite 101</p>
+                    <p className="text-muted-foreground text-[11px] mt-0.5">Administrative Secretariat</p>
+                  </div>
+
+                  <div className="rounded-xl border border-border p-3.5 bg-muted/30">
+                    <p className="text-muted-foreground text-[11px] font-medium flex items-center gap-1">
+                      <Clock className="h-3.5 w-3.5 text-primary" /> Governance Tenure
+                    </p>
+                    <p className="font-bold text-foreground text-sm mt-0.5">Appointed July 2019</p>
+                    <p className="text-muted-foreground text-[11px] mt-0.5">Institutional System Governance</p>
+                  </div>
+
+                  <div className="rounded-xl border border-border p-3.5 bg-muted/30">
+                    <p className="text-muted-foreground text-[11px] font-medium flex items-center gap-1">
+                      <Phone className="h-3.5 w-3.5 text-primary" /> Administrative Desk Phone
+                    </p>
+                    <p className="font-bold font-mono text-foreground text-sm mt-0.5">+91 98765 43200</p>
+                    <p className="text-muted-foreground text-[11px] mt-0.5">Office direct line</p>
                   </div>
                 </div>
 
                 <div className="rounded-xl border border-border/70 p-4 space-y-2">
-                  <h4 className="font-semibold text-foreground text-xs">System Permissions</h4>
+                  <h4 className="font-semibold text-foreground text-xs">System Permissions & Governance Scope</h4>
                   <ul className="space-y-1.5 text-muted-foreground list-disc list-inside">
                     <li>Management of Academic Departments and HOD assignments</li>
                     <li>Full Faculty Teacher and Staff Registry control</li>

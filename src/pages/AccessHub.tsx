@@ -20,6 +20,8 @@ import {
   ShieldCheck,
   Search,
   Database,
+  Terminal as TerminalIcon,
+  Shuffle,
 } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import { useTheme } from "../context/ThemeContext";
@@ -31,6 +33,7 @@ import { UserRoleType } from "../lib/types";
 import { localDb, isSupabaseConfigured } from "../lib/supabase";
 import { EduTrackLogo } from "../components/EduTrackLogo";
 import { DatabaseSetupModal } from "../components/DatabaseSetupModal";
+import { BackendTerminalModal } from "../components/BackendTerminalModal";
 
 interface PortalCard {
   title: string;
@@ -47,7 +50,7 @@ interface PortalCard {
 }
 
 export const AccessHub: React.FC = () => {
-  const { loginAsDemo, registerAdmin, loginWithCredentials } = useAuth();
+  const { loginAsDemo, loginAsRandomDemo, registerAdmin, loginWithCredentials } = useAuth();
   const navigate = useNavigate();
   const { theme, toggleTheme } = useTheme();
 
@@ -62,6 +65,7 @@ export const AccessHub: React.FC = () => {
   const [activeCategory, setActiveCategory] = useState<"all" | "admin" | "faculty" | "student">("all");
   const [searchQuery, setSearchQuery] = useState("");
   const [dbModalOpen, setDbModalOpen] = useState(false);
+  const [terminalModalOpen, setTerminalModalOpen] = useState(false);
 
   const defaultAdminEmail =
     import.meta.env.VITE_DEFAULT_ADMIN_EMAIL?.trim() || "admin@edutrack.edu";
@@ -81,7 +85,7 @@ export const AccessHub: React.FC = () => {
       buttonLabel: "Admin Dashboard",
       role: "admin",
       demoEnabled: true,
-      demoHint: "Default .env Admin",
+      demoHint: "1-Click Instant Demo",
     },
     {
       title: "HOD Portal",
@@ -94,7 +98,8 @@ export const AccessHub: React.FC = () => {
       iconColor: "text-teal-600 dark:text-teal-400",
       buttonLabel: "HOD Dashboard",
       role: "hod",
-      demoEnabled: false,
+      demoEnabled: true,
+      demoHint: "1-Click Instant Demo",
     },
     {
       title: "Teacher Portal",
@@ -161,6 +166,13 @@ export const AccessHub: React.FC = () => {
   const handleDemoLogin = async (role: UserRoleType) => {
     setLoading(true);
     await loginAsDemo(role);
+    setLoading(false);
+    navigate("/dashboard", { replace: true });
+  };
+
+  const handleRandomDemoLogin = async () => {
+    setLoading(true);
+    await loginAsRandomDemo();
     setLoading(false);
     navigate("/dashboard", { replace: true });
   };
@@ -253,6 +265,15 @@ export const AccessHub: React.FC = () => {
               <span className="hidden sm:inline">Database & SQL</span>
             </button>
 
+            <button
+              onClick={() => setTerminalModalOpen(true)}
+              className="inline-flex items-center gap-1.5 rounded-full border border-slate-700 bg-slate-900 text-slate-200 hover:bg-slate-800 dark:bg-slate-800 dark:border-slate-700 px-2.5 py-1 text-xs font-mono font-medium transition-colors shadow-xs"
+              title="View Backend Terminal & Database Handshake"
+            >
+              <TerminalIcon className="h-3.5 w-3.5 text-emerald-400" />
+              <span>Terminal Setup</span>
+            </button>
+
             {isSupabaseConfigured && (
               <span className="hidden sm:inline-flex items-center gap-1.5 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2.5 py-1 text-xs font-semibold text-emerald-600 dark:text-emerald-400">
                 <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
@@ -340,6 +361,37 @@ export const AccessHub: React.FC = () => {
             >
               Students (1)
             </button>
+          </div>
+        </section>
+
+        {/* Instant Demo & Study Mode Callout */}
+        <section className="rounded-2xl border-2 border-primary/30 bg-gradient-to-r from-primary/10 via-amber-500/10 to-indigo-500/10 p-5 shadow-sm text-left sm:flex sm:items-center sm:justify-between gap-4">
+          <div className="space-y-1 mb-4 sm:mb-0">
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary text-primary-foreground shadow-xs">
+                <Sparkles className="h-4 w-4" />
+              </span>
+              <h2 className="text-base font-bold text-foreground">
+                Study Demo Mode · Interactive Walkthrough
+              </h2>
+              <span className="rounded-full bg-amber-500/20 px-2 py-0.5 text-[10px] font-bold text-amber-900 dark:text-amber-200 uppercase tracking-wide">
+                No Login Required
+              </span>
+            </div>
+            <p className="text-xs text-muted-foreground max-w-xl">
+              Explore how EduTrack works with a 1-click random demo dashboard loaded with dummy faculty and student profiles, live attendance logs, and automated notifications.
+            </p>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-2 shrink-0">
+            <Button
+              onClick={handleRandomDemoLogin}
+              disabled={loading}
+              className="gap-2 bg-primary text-primary-foreground font-bold shadow-md hover:bg-primary/90 transition-all active:scale-95"
+            >
+              <Shuffle className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />
+              <span>Launch Random Demo Dashboard</span>
+            </Button>
           </div>
         </section>
 
@@ -712,6 +764,10 @@ export const AccessHub: React.FC = () => {
       <DatabaseSetupModal
         open={dbModalOpen}
         onOpenChange={setDbModalOpen}
+      />
+      <BackendTerminalModal
+        open={terminalModalOpen}
+        onOpenChange={setTerminalModalOpen}
       />
     </div>
   );

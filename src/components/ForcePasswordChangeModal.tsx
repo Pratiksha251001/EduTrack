@@ -19,7 +19,7 @@ import {
 import { isDefaultPassword } from "../lib/authUtils";
 
 export const ForcePasswordChangeModal: React.FC = () => {
-  const { user, role, mustChangePassword, updateUserPassword, openLogoutConfirm } = useAuth();
+  const { user, role, isDemo, mustChangePassword, updateUserPassword, openLogoutConfirm } = useAuth();
 
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -29,8 +29,8 @@ export const ForcePasswordChangeModal: React.FC = () => {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
-  // If user is admin or mustChangePassword is false, do not render
-  if (!user || role === "admin" || !mustChangePassword) {
+  // If user is admin, demo/study mode, or mustChangePassword is false, do not render
+  if (!user || role === "admin" || isDemo || !mustChangePassword) {
     return null;
   }
 

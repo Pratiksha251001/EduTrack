@@ -32,6 +32,7 @@ import {
   formatParentPhoneForWhatsApp,
 } from "../lib/college";
 import { localDb } from "../lib/supabase";
+import { isValid10DigitMobile } from "../lib/validation";
 import { SmsLanguage, SmsLog } from "../lib/types";
 
 interface ParentAlertModalProps {
@@ -117,7 +118,8 @@ export const ParentAlertModal: React.FC<ParentAlertModalProps> = ({
     setDispatching(true);
     await new Promise((r) => setTimeout(r, 600));
 
-    const status = parentMobile ? "sent" : "failed";
+    const isMobileValid = isValid10DigitMobile(parentMobile);
+    const status = parentMobile && isMobileValid ? "sent" : "failed";
     const logEntry: SmsLog = {
       id: `sms-direct-${Date.now()}`,
       student_id: studentId || null,
@@ -137,8 +139,10 @@ export const ParentAlertModal: React.FC<ParentAlertModalProps> = ({
 
     if (status === "sent") {
       onSuccess?.(`Absence alert SMS successfully dispatched to parent in ${SMS_LANGUAGES.find(l => l.id === selectedLang)?.label || selectedLang}!`);
-    } else {
+    } else if (!parentMobile) {
       onSuccess?.(`SMS recorded as failed: Parent mobile number missing.`);
+    } else {
+      onSuccess?.(`SMS recorded as failed: Parent mobile "${parentMobile}" is not a valid 10-digit number.`);
     }
   };
 
@@ -180,9 +184,15 @@ export const ParentAlertModal: React.FC<ParentAlertModalProps> = ({
               <div className="flex items-center gap-1.5 text-foreground">
                 <span className="text-muted-foreground">Mobile:</span>
                 {parentMobile ? (
-                  <span className="font-mono font-semibold text-emerald-600 dark:text-emerald-400">
-                    {parentMobile}
-                  </span>
+                  isValid10DigitMobile(parentMobile) ? (
+                    <span className="font-mono font-semibold text-emerald-600 dark:text-emerald-400">
+                      {parentMobile}
+                    </span>
+                  ) : (
+                    <Badge variant="destructive" className="text-[10px]" title="Must be exactly 10 digits">
+                      Invalid 10-Digit ({parentMobile})
+                    </Badge>
+                  )
                 ) : (
                   <Badge variant="destructive" className="text-[10px]">
                     No Mobile Number!

@@ -1,4 +1,5 @@
 import React, { useState, useMemo } from "react";
+import { Link } from "react-router-dom";
 import {
   Building2,
   Users,
@@ -14,6 +15,8 @@ import {
   Edit3,
   Save,
   BookOpen,
+  ClipboardCheck,
+  Sparkles,
 } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import { localDb } from "../lib/supabase";
@@ -166,6 +169,16 @@ export const HODDashboard: React.FC = () => {
     [academicClasses, assignedDepartmentId],
   );
 
+  const myTeachingSubjects = useMemo(() => {
+    if (!linkedTeacher) return [];
+    return subjects.filter((s) => {
+      const isAssigned = teacherSubjects.some(
+        (ts) => ts.teacher_id === linkedTeacher.id && ts.subject_id === s.id,
+      );
+      return isAssigned || (s as any).teacher_id === linkedTeacher.id;
+    });
+  }, [subjects, teacherSubjects, linkedTeacher]);
+
   const deptAttendance = localDb.attendance.filter((record) =>
     deptStudents.some((student) => student.id === record.student_id),
   );
@@ -303,7 +316,7 @@ export const HODDashboard: React.FC = () => {
           full_name: teacherForm.full_name.trim(),
           department_id: user?.department_id,
           email: teacherForm.email?.trim() || null,
-          mobile: teacherForm.mobile?.trim() || null,
+          mobile: cleanMobile(teacherForm.mobile) || null,
           is_class_coordinator: isCoordinator,
           role: teacherForm.role,
           status: "active",
@@ -678,16 +691,24 @@ export const HODDashboard: React.FC = () => {
               .
             </p>
           </div>
-          <div className="rounded-xl border border-border bg-background/70 px-4 py-3 text-left sm:min-w-44">
-            <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
-              Assigned Department
-            </p>
-            <p className="mt-1 font-display text-xl font-bold text-primary">
-              {myDepartment?.code || "—"}
-            </p>
-            <p className="truncate text-xs text-muted-foreground">
-              {myDepartment?.name || "Department unavailable"}
-            </p>
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
+            <Link to="/attendance">
+              <Button size="sm" className="w-full sm:w-auto gap-1.5 bg-primary text-primary-foreground shadow-xs">
+                <ClipboardCheck className="h-4 w-4" />
+                Take Lecture Attendance
+              </Button>
+            </Link>
+            <div className="rounded-xl border border-border bg-background/70 px-4 py-2.5 text-left sm:min-w-44">
+              <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
+                Assigned Department
+              </p>
+              <p className="mt-0.5 font-display text-lg font-bold text-primary">
+                {myDepartment?.code || "—"}
+              </p>
+              <p className="truncate text-xs text-muted-foreground">
+                {myDepartment?.name || "Department unavailable"}
+              </p>
+            </div>
           </div>
         </div>
       </div>
@@ -734,6 +755,91 @@ export const HODDashboard: React.FC = () => {
           );
         })}
       </div>
+
+      {/* Dual Role: HOD as Senior Faculty & Lecturer */}
+      <Card className="border-primary/25 bg-gradient-to-br from-primary/5 via-card to-card p-5">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-border/70 pb-4">
+          <div className="space-y-1">
+            <div className="flex items-center gap-2">
+              <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary/15 text-primary">
+                <BookOpen className="h-4 w-4" />
+              </span>
+              <h2 className="font-display text-lg font-bold text-foreground">
+                My Lecture & Teaching Workload
+              </h2>
+              <Badge variant="outline" className="border-primary/30 text-primary text-[10px] font-bold">
+                Dual Role: HOD & Lecturer
+              </Badge>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              As Head of Department, you can conduct academic lectures, mark subject attendance, and supervise department faculty.
+            </p>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <Link to="/attendance">
+              <Button size="sm" className="gap-1.5 shadow-xs">
+                <ClipboardCheck className="h-4 w-4" />
+                Mark Lecture Attendance
+              </Button>
+            </Link>
+          </div>
+        </div>
+
+        <div className="pt-4">
+          {myTeachingSubjects.length > 0 ? (
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+              {myTeachingSubjects.map((sub) => (
+                <div
+                  key={sub.id}
+                  className="flex items-center justify-between rounded-xl border border-border bg-card p-3.5 shadow-xs hover:border-primary/40 transition-colors"
+                >
+                  <div className="min-w-0 pr-3">
+                    <div className="flex items-center gap-2">
+                      <span className="font-mono text-xs font-bold text-primary">
+                        {sub.code}
+                      </span>
+                      <Badge variant="outline" className="text-[10px]">
+                        Sem {sub.semester}
+                      </Badge>
+                    </div>
+                    <p className="truncate text-sm font-semibold text-foreground mt-1">
+                      {sub.name}
+                    </p>
+                    <p className="text-[11px] text-muted-foreground mt-0.5">
+                      {sub.credits} Course Credits
+                    </p>
+                  </div>
+
+                  <Link to="/attendance">
+                    <Button size="sm" variant="outline" className="h-8 text-xs shrink-0 gap-1 hover:bg-primary hover:text-primary-foreground">
+                      <ClipboardCheck className="h-3.5 w-3.5" />
+                      Mark
+                    </Button>
+                  </Link>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="flex flex-col sm:flex-row items-center justify-between gap-3 rounded-xl border border-dashed border-border bg-background/50 p-4 text-xs text-muted-foreground">
+              <div className="space-y-0.5 text-center sm:text-left">
+                <p className="font-semibold text-foreground">
+                  Ready to take lectures for {myDepartment?.code || "your department"}
+                </p>
+                <p>
+                  You can conduct lectures for any course in your department or map specific subjects to your profile under Subject Assignments.
+                </p>
+              </div>
+              <Link to="/attendance" className="shrink-0">
+                <Button size="sm" variant="secondary" className="gap-1.5 text-xs">
+                  <ClipboardCheck className="h-3.5 w-3.5 text-primary" />
+                  Select Subject & Take Attendance
+                </Button>
+              </Link>
+            </div>
+          )}
+        </div>
+      </Card>
 
       <Card>
         <div className="border-b border-border px-5 py-4">

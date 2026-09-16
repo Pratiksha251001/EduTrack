@@ -4,12 +4,14 @@ import { Teacher } from "../lib/types";
 import { localDb, isSupabaseConfigured } from "../lib/supabase";
 import { Badge } from "../components/ui/badge";
 import { Button } from "../components/ui/button";
-import { Database, Trash2 } from "lucide-react";
+import { Database, Trash2, Terminal as TerminalIcon } from "lucide-react";
 import { DatabaseSetupModal } from "../components/DatabaseSetupModal";
+import { BackendTerminalModal } from "../components/BackendTerminalModal";
 
 export const Teachers: React.FC = () => {
   const [departments, setDepartments] = useState(localDb.departments);
   const [dbModalOpen, setDbModalOpen] = useState(false);
+  const [terminalModalOpen, setTerminalModalOpen] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
 
   useEffect(() => {
@@ -87,6 +89,16 @@ export const Teachers: React.FC = () => {
             <Button
               variant="outline"
               size="sm"
+              onClick={() => setTerminalModalOpen(true)}
+              className="text-xs h-9 gap-1.5 font-mono bg-slate-900 text-slate-100 hover:bg-slate-800 dark:bg-slate-800"
+            >
+              <TerminalIcon className="h-3.5 w-3.5 text-emerald-400" />
+              Terminal Setup
+            </Button>
+
+            <Button
+              variant="outline"
+              size="sm"
               onClick={handleClearDefaultData}
               title="Remove default sample data to start fresh"
               className="text-xs h-9 gap-1.5 text-destructive hover:bg-destructive/10 hover:text-destructive"
@@ -99,22 +111,27 @@ export const Teachers: React.FC = () => {
         fields={[
           { key: "employee_id", label: "College Employee ID Ref No", required: true },
           { key: "full_name", label: "Full Name", required: true },
-          { key: "designation", label: "Academic Designation (e.g. Associate Professor, Asst Professor)" },
+          { key: "designation", label: "Academic Designation (e.g. Professor & HOD, Associate Professor, Asst Professor)" },
           { key: "qualification", label: "Highest Qualification (e.g. Ph.D, M.Tech, M.Sc)" },
-          { key: "date_of_birth", label: "Date of Birth (YYYY-MM-DD)", type: "text" },
+          { key: "date_of_birth", label: "Date of Birth", type: "date" },
           { key: "experience_years", label: "Year of Experience (e.g. 8 Years)" },
           { key: "email", label: "Email Address", type: "email" },
-          { key: "mobile", label: "Mobile Number (Optional)" },
+          {
+            key: "mobile",
+            label: "Mobile Number (Optional)",
+            helperText: "Strictly 10 digits if provided (e.g. 9876543210).",
+          },
           {
             key: "role",
-            label: "Role",
+            label: "Role (All roles can take lectures)",
             type: "select",
             required: true,
             defaultValue: "lecturer",
+            helperText: "HODs automatically have dual roles: they manage the department AND can be assigned subjects to conduct lectures & mark attendance.",
             options: [
-              { value: "hod", label: "HOD (Head of Department)" },
-              { value: "class_coordinator", label: "Class Coordinator (CC)" },
-              { value: "lecturer", label: "Lecturer / Faculty" },
+              { value: "hod", label: "HOD (Head of Department & Senior Lecturer)" },
+              { value: "class_coordinator", label: "Class Coordinator (CC & Lecturer)" },
+              { value: "lecturer", label: "Lecturer / Faculty Member" },
             ],
           },
           {
@@ -144,8 +161,9 @@ export const Teachers: React.FC = () => {
           },
           {
             key: "password",
-            label: "Login Password (optional, default will be assigned)",
+            label: "Login Password",
             type: "password",
+            helperText: "Optional. If left blank, automatically defaults to HOD@123 for HOD or Teacher@123 for faculty.",
           },
           {
             key: "status",
@@ -191,7 +209,7 @@ export const Teachers: React.FC = () => {
                 {t.role === "class_coordinator"
                   ? `Class Coordinator${t.assigned_semester ? ` (Sem ${t.assigned_semester})` : ""}`
                   : t.role === "hod"
-                    ? "HOD"
+                    ? "HOD & Lecturer"
                     : "Lecturer"}
               </Badge>
             ),
@@ -223,6 +241,7 @@ export const Teachers: React.FC = () => {
       />
 
       <DatabaseSetupModal open={dbModalOpen} onOpenChange={setDbModalOpen} />
+      <BackendTerminalModal open={terminalModalOpen} onOpenChange={setTerminalModalOpen} />
     </div>
   );
 };

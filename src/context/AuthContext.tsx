@@ -9,6 +9,7 @@ import {
   markCustomPasswordSet,
   hasCustomPassword,
 } from "../lib/authUtils";
+import { recordFailedLoginNotification } from "../lib/notificationService";
 
 interface User {
   id: string;
@@ -25,8 +26,10 @@ interface AuthContextType {
   user: User | null;
   role: UserRoleType | null;
   loading: boolean;
+  isDemo: boolean;
   mustChangePassword: boolean;
   loginAsDemo: (role: UserRoleType) => Promise<void>;
+  loginAsRandomDemo: () => Promise<UserRoleType>;
   signOut: () => Promise<void>;
   isLogoutConfirmOpen: boolean;
   isLoggingOut: boolean;
@@ -68,6 +71,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
   const [user, setUser] = useState<User | null>(null);
   const [role, setRole] = useState<UserRoleType | null>(null);
   const [loading, setLoading] = useState(true);
+  const [isDemo, setIsDemo] = useState(false);
   const [mustChangePassword, setMustChangePassword] = useState(false);
   const [isLogoutConfirmOpen, setIsLogoutConfirmOpen] = useState(false);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
@@ -78,13 +82,24 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
   useEffect(() => {
     const savedUser = getStorageItem("user");
     const savedRole = getStorageItem("role") as UserRoleType | null;
+    const savedIsDemo = getStorageItem("is_demo") === "true";
     const savedMustChange = getStorageItem("must_change_password") === "true";
+
+    if (savedIsDemo) {
+      setIsDemo(true);
+      localDb.ensureDemoDataLoaded();
+    }
+
     if (savedUser && savedRole) {
       try {
         const parsedUser = JSON.parse(savedUser);
         setUser(parsedUser);
         setRole(savedRole);
-        if (savedRole !== "admin") {
+
+        // Never force password change in demo mode for study users
+        if (savedIsDemo) {
+          setMustChangePassword(false);
+        } else if (savedRole !== "admin") {
           const identifiers = [
             parsedUser.id,
             parsedUser.email,
@@ -109,6 +124,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
   const loginAsDemo = async (targetRole: UserRoleType) => {
     setLoading(true);
 
+    // Ensure database mock records are loaded so dashboard and profiles are populated
+    localDb.ensureDemoDataLoaded();
+
     const defaultAdminEmail =
       import.meta.env.VITE_DEFAULT_ADMIN_EMAIL?.trim().toLowerCase() ||
       "admin@edutrack.edu";
@@ -121,30 +139,31 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
         id: "admin-1",
         email: defaultAdminEmail,
         full_name: defaultAdminName,
+        employee_id: "ADM-SYS-2025",
       },
       hod: {
         id: "hod-user-id",
         email: "hod.cse@edutrack.edu",
-        full_name: "Dr. Robert Vance (HOD - CSE)",
+        full_name: "Dr. Robert Vance (HOD)",
         department_id: "dept-1",
         teacher_id: "t-1",
-        employee_id: "EMP-CSE-01",
+        employee_id: "EMP-101",
       },
       teacher: {
         id: "teacher-user-id",
-        email: "teacher@edutrack.edu",
+        email: "s.jenkins@edutrack.edu",
         full_name: "Prof. Sarah Jenkins",
         department_id: "dept-1",
         teacher_id: "t-2",
-        employee_id: "EMP-CSE-02",
+        employee_id: "EMP-102",
       },
       class_coordinator: {
         id: "cc-user-id",
-        email: "cc@edutrack.edu",
+        email: "e.watson@edutrack.edu",
         full_name: "Prof. Emily Watson (Class Coordinator)",
         department_id: "dept-1",
         teacher_id: "t-4",
-        employee_id: "EMP-CSE-04",
+        employee_id: "EMP-104",
       },
       student: {
         id: "student-user-id",
@@ -152,34 +171,21 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
         full_name: "Alexander Hayes",
         department_id: "dept-1",
         student_id: "st-1",
-        roll_number: "101",
+        roll_number: "21CS001",
       },
     };
 
     const demoUser = demoUsers[targetRole];
     setUser(demoUser);
     setRole(targetRole);
+    setIsDemo(true);
     setStorageItem("user", JSON.stringify(demoUser));
     setStorageItem("role", targetRole);
+    setStorageItem("is_demo", "true");
 
-    const identifiers = [
-      demoUser.id,
-      demoUser.email,
-      demoUser.teacher_id,
-      demoUser.employee_id,
-      demoUser.student_id,
-      demoUser.roll_number,
-    ];
-    const hasCustom = hasCustomPassword(identifiers);
-
-    // Any non-admin visiting for the first time without custom password must set their password
-    if (targetRole !== "admin" && !hasCustom) {
-      setMustChangePassword(true);
-      setStorageItem("must_change_password", "true");
-    } else {
-      setMustChangePassword(false);
-      removeStorageItem("must_change_password");
-    }
+    // In demo / study mode, never block user with password change modal
+    setMustChangePassword(false);
+    removeStorageItem("must_change_password");
 
     if (
       targetRole === "student" &&
@@ -190,12 +196,22 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     setLoading(false);
   };
 
+  const loginAsRandomDemo = async (): Promise<UserRoleType> => {
+    const roles: UserRoleType[] = ["admin", "hod", "class_coordinator", "teacher", "student"];
+    const candidates = roles.filter((r) => r !== role);
+    const chosenRole = candidates[Math.floor(Math.random() * candidates.length)] || "admin";
+    await loginAsDemo(chosenRole);
+    return chosenRole;
+  };
+
   const signOut = async () => {
     setUser(null);
     setRole(null);
+    setIsDemo(false);
     setMustChangePassword(false);
     removeStorageItem("user");
     removeStorageItem("role");
+    removeStorageItem("is_demo");
     removeStorageItem("must_change_password");
   };
 
@@ -317,6 +333,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     const rawInput = identifier.trim();
     const cleanId = normalizeId(rawInput);
 
+    const failLogin = (message: string) => {
+      recordFailedLoginNotification({
+        attemptedRole: targetRole,
+        identifier: rawInput,
+        reason: message,
+      });
+      return { ok: false, message };
+    };
+
     // ==========================================
     // 1. ADMIN LOGIN
     // ==========================================
@@ -381,7 +406,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
         return { ok: true };
       }
 
-      return { ok: false, message: "Invalid Admin email or password." };
+      return failLogin("Invalid Admin email or password.");
     }
 
     // ==========================================
@@ -432,10 +457,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
           setStorageItem("role", "hod");
           return { ok: true };
         }
-        return {
-          ok: false,
-          message: "HOD not found. Ensure the Admin has added this HOD and assigned their department.",
-        };
+        return failLogin(
+          "HOD not found. Ensure the Admin has added this HOD and assigned their department.",
+        );
       }
 
       const isValidPassword = verifyPassword(
@@ -451,7 +475,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
       );
 
       if (!isValidPassword) {
-        return { ok: false, message: "Incorrect HOD password. Default is HOD@123 or employee ID." };
+        return failLogin("Incorrect HOD password. Default is HOD@123 or employee ID.");
       }
 
       const hodUser = {
@@ -532,10 +556,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
           setStorageItem("role", "class_coordinator");
           return { ok: true };
         }
-        return {
-          ok: false,
-          message: "Class Coordinator not found. Ensure the HOD has created or assigned this coordinator.",
-        };
+        return failLogin(
+          "Class Coordinator not found. Ensure the HOD has created or assigned this coordinator.",
+        );
       }
 
       const teacherId = matchedTeacher?.id || matchedUserAcc?.teacher_id;
@@ -552,7 +575,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
       );
 
       if (!isValidPassword) {
-        return { ok: false, message: "Incorrect Class Coordinator password. Default is CC@123 or employee ID." };
+        return failLogin("Incorrect Class Coordinator password. Default is CC@123 or employee ID.");
       }
 
       const ccUser = {
@@ -628,10 +651,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
           setStorageItem("role", "teacher");
           return { ok: true };
         }
-        return {
-          ok: false,
-          message: "Faculty teacher not found. Ensure the HOD has created this teacher.",
-        };
+        return failLogin(
+          "Faculty teacher not found. Ensure the HOD has created this teacher.",
+        );
       }
 
       const teacherId = matchedTeacher?.id || matchedUserAcc?.teacher_id;
@@ -648,7 +670,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
       );
 
       if (!isValidPassword) {
-        return { ok: false, message: "Incorrect faculty password. Default is Teacher@123 or employee ID." };
+        return failLogin("Incorrect faculty password. Default is Teacher@123 or employee ID.");
       }
 
       const teacherUser = {
@@ -725,10 +747,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
           setStorageItem("role", "student");
           return { ok: true };
         }
-        return {
-          ok: false,
-          message: "Student record not found. Check your Roll Number or contact your Class Teacher.",
-        };
+        return failLogin(
+          "Student record not found. Check your Roll Number or contact your Class Teacher.",
+        );
       }
 
       const studentId = matchedStudent?.id || matchedUserAcc?.student_id;
@@ -756,10 +777,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
       );
 
       if (!isValidPassword) {
-        return {
-          ok: false,
-          message: `Incorrect password. Default student password is your Roll Number (${rollNumber || "e.g. 101"}).`,
-        };
+        return failLogin(
+          `Incorrect password. Default student password is your Roll Number (${rollNumber || "e.g. 101"}).`,
+        );
       }
 
       const studentUser = {
@@ -803,7 +823,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
       return { ok: true };
     }
 
-    return { ok: false, message: "Invalid role selected." };
+    return failLogin("Invalid role selected.");
   };
 
   return (
@@ -812,8 +832,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
         user,
         role,
         loading,
+        isDemo,
         mustChangePassword,
         loginAsDemo,
+        loginAsRandomDemo,
         signOut,
         isLogoutConfirmOpen,
         isLoggingOut,

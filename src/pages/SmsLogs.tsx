@@ -17,7 +17,10 @@ import {
   Minimize2,
   Maximize2,
   Eye,
+  Shield,
+  Filter,
 } from 'lucide-react';
+import { useAuth } from '../context/AuthContext';
 import { localDb } from '../lib/supabase';
 import { Input } from '../components/ui/input';
 import { Select } from '../components/ui/select';
@@ -31,6 +34,7 @@ import {
 import { ParentAlertModal } from '../components/ParentAlertModal';
 
 export const SmsLogs: React.FC = () => {
+  const { user, role } = useAuth();
   const [logs, setLogs] = useState<any[]>(() => localDb.getSmsLogs());
   const [dateScope, setDateScope] = useState<'all' | 'today'>('all');
   const [search, setSearch] = useState('');
@@ -69,21 +73,90 @@ export const SmsLogs: React.FC = () => {
     };
   }, []);
 
+  // Role-based scoping of SMS logs
+  const scopedLogs = useMemo(() => {
+    if (role === 'admin') return logs;
+
+    const studentsMap = new Map(localDb.students.map((s) => [s.id, s]));
+    const subjectsMap = new Map(localDb.subjects.map((s) => [s.id, s]));
+
+    if (role === 'hod') {
+      const deptId = user?.department_id;
+      if (!deptId) return logs;
+      return logs.filter((log) => {
+        const student = studentsMap.get(log.student_id);
+        const subject = subjectsMap.get(log.subject_id);
+        return student?.department_id === deptId || subject?.department_id === deptId;
+      });
+    }
+
+    if (role === 'class_coordinator') {
+      const teacherRec = localDb.teachers.find(
+        (t) =>
+          t.id === user?.teacher_id ||
+          (user?.email && t.email?.toLowerCase() === user.email.toLowerCase()) ||
+          (user?.employee_id && t.employee_id === user.employee_id) ||
+          (t.is_class_coordinator && t.department_id === user?.department_id)
+      );
+      const coordSem = teacherRec?.assigned_semester || user?.assigned_semester || 5;
+      const deptId = user?.department_id || teacherRec?.department_id;
+
+      return logs.filter((log) => {
+        const student = studentsMap.get(log.student_id);
+        const subject = subjectsMap.get(log.subject_id);
+        const isClassStudent =
+          student && (!deptId || student.department_id === deptId) && student.semester === coordSem;
+        const isClassSubject =
+          subject && (!deptId || subject.department_id === deptId) && subject.semester === coordSem;
+        return isClassStudent || isClassSubject;
+      });
+    }
+
+    if (role === 'teacher') {
+      const teacherId = user?.teacher_id || user?.id;
+      const mySubjectIds = new Set(
+        localDb.teacher_subjects
+          .filter((ts) => ts.teacher_id === teacherId)
+          .map((ts) => ts.subject_id)
+      );
+      localDb.subjects.forEach((s) => {
+        if ((s as any).teacher_id === teacherId) {
+          mySubjectIds.add(s.id);
+        }
+      });
+
+      // If teacher has assigned subjects, restrict strictly to logs of those subjects/classes
+      if (mySubjectIds.size > 0) {
+        return logs.filter((log) => log.subject_id && mySubjectIds.has(log.subject_id));
+      }
+      // Fallback to department if none assigned
+      if (user?.department_id) {
+        return logs.filter((log) => {
+          const student = studentsMap.get(log.student_id);
+          const subject = subjectsMap.get(log.subject_id);
+          return student?.department_id === user.department_id || subject?.department_id === user.department_id;
+        });
+      }
+    }
+
+    return logs;
+  }, [logs, role, user]);
+
   const todayStr = new Date().toISOString().split('T')[0];
 
   const todayLogs = useMemo(() => {
-    return logs.filter((log) => {
+    return scopedLogs.filter((log) => {
       const isDateToday = log.attendance_date === todayStr;
       const isSentToday = log.sent_at && log.sent_at.startsWith(todayStr);
       return isDateToday || isSentToday;
     });
-  }, [logs, todayStr]);
+  }, [scopedLogs, todayStr]);
 
-  const deliveredCount = useMemo(() => logs.filter((l) => l.status === 'sent').length, [logs]);
-  const failedCount = useMemo(() => logs.filter((l) => l.status === 'failed').length, [logs]);
+  const deliveredCount = useMemo(() => scopedLogs.filter((l) => l.status === 'sent').length, [scopedLogs]);
+  const failedCount = useMemo(() => scopedLogs.filter((l) => l.status === 'failed').length, [scopedLogs]);
 
   const filteredLogs = useMemo(() => {
-    return logs.filter((log) => {
+    return scopedLogs.filter((log) => {
       if (dateScope === 'today') {
         const isDateToday = log.attendance_date === todayStr;
         const isSentToday = log.sent_at && log.sent_at.startsWith(todayStr);
@@ -100,7 +173,7 @@ export const SmsLogs: React.FC = () => {
       }
       return true;
     });
-  }, [logs, dateScope, search, statusFilter, todayStr]);
+  }, [scopedLogs, dateScope, search, statusFilter, todayStr]);
 
   const handleCopy = (id: string, text: string) => {
     navigator.clipboard.writeText(text);
@@ -164,9 +237,20 @@ export const SmsLogs: React.FC = () => {
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <div>
-          <h2 className="font-display text-2xl font-bold">Parent Absentee SMS Logs</h2>
+          <div className="flex items-center gap-2 mb-1">
+            <h2 className="font-display text-2xl font-bold">Parent Absentee SMS Logs</h2>
+            <Badge variant="outline" className="text-xs border-primary/30 bg-primary/10 text-primary">
+              {role === 'admin' && 'College-Wide Audit'}
+              {role === 'hod' && `Department: ${user?.department_id || 'All Classes'}`}
+              {role === 'class_coordinator' && `Class Coordinator Scope (Sem ${user?.assigned_semester || 5})`}
+              {role === 'teacher' && 'Assigned Classes & Subjects'}
+            </Badge>
+          </div>
           <p className="text-sm text-muted-foreground">
-            Complete real-time dispatch record of parent absentee alerts (English, मराठी & हिंदी).
+            {role === 'admin' && 'Complete real-time dispatch record of parent absentee alerts across all college departments.'}
+            {role === 'hod' && 'Real-time dispatch record of parent absentee alerts for all classes and students in your department.'}
+            {role === 'class_coordinator' && 'Parent absentee alerts dispatched for your assigned class / semester students.'}
+            {role === 'teacher' && 'Parent absentee alerts dispatched for students in your assigned subjects and classes.'}
           </p>
         </div>
 
