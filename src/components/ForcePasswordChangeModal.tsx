@@ -19,7 +19,14 @@ import {
 import { isDefaultPassword } from "../lib/authUtils";
 
 export const ForcePasswordChangeModal: React.FC = () => {
-  const { user, role, isDemo, mustChangePassword, updateUserPassword, openLogoutConfirm } = useAuth();
+  const {
+    user,
+    role,
+    isDemo,
+    mustChangePassword,
+    updateUserPassword,
+    openLogoutConfirm,
+  } = useAuth();
 
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -29,7 +36,7 @@ export const ForcePasswordChangeModal: React.FC = () => {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
-  // If user is admin, demo/study mode, or mustChangePassword is false, do not render
+  // If user is admin or mustChangePassword is false, do not render
   if (!user || role === "admin" || isDemo || !mustChangePassword) {
     return null;
   }
@@ -38,10 +45,10 @@ export const ForcePasswordChangeModal: React.FC = () => {
     role === "hod"
       ? "Head of Department (HOD)"
       : role === "class_coordinator"
-      ? "Class Coordinator"
-      : role === "teacher"
-      ? "Faculty Member"
-      : "Student";
+        ? "Class Coordinator"
+        : role === "teacher"
+          ? "Faculty Member"
+          : "Student";
 
   // Requirement checks
   const isMinLength = newPassword.length >= 6;
@@ -73,7 +80,7 @@ export const ForcePasswordChangeModal: React.FC = () => {
 
     if (!isNotDefault) {
       setErrorMessage(
-        "You cannot use a default institutional password (such as HOD@123, CC@123, Teacher@123, 123, or your roll number/employee ID). Please choose your own secure password."
+        "You cannot use a default institutional password (such as HOD@123, CC@123, Teacher@123, 123, or your roll number/employee ID). Please choose your own secure password.",
       );
       return;
     }
@@ -108,7 +115,9 @@ export const ForcePasswordChangeModal: React.FC = () => {
           <EduTrackLogo size="sm" variant="horizontal" />
           <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
             <span className="h-2 w-2 rounded-full bg-amber-500 animate-pulse" />
-            <span className="font-medium text-amber-600 dark:text-amber-400">Security Requirement</span>
+            <span className="font-medium text-amber-600 dark:text-amber-400">
+              Security Requirement
+            </span>
           </div>
         </div>
 
@@ -121,7 +130,9 @@ export const ForcePasswordChangeModal: React.FC = () => {
             Set Your Personal Password
           </h2>
           <p className="mt-2 text-xs sm:text-sm text-muted-foreground leading-relaxed">
-            You signed in using a default temporary password. To safeguard your account and institutional records, please set your own private password before accessing the system.
+            You signed in using a default temporary password. To safeguard your
+            account and institutional records, please set your own private
+            password before accessing the system.
           </p>
         </div>
 
@@ -138,8 +149,8 @@ export const ForcePasswordChangeModal: React.FC = () => {
               {user.roll_number
                 ? `Roll No: ${user.roll_number}`
                 : user.employee_id
-                ? `Employee ID: ${user.employee_id}`
-                : user.email}
+                  ? `Employee ID: ${user.employee_id}`
+                  : user.email}
             </p>
           </div>
           <div className="ml-3 shrink-0">
@@ -240,7 +251,9 @@ export const ForcePasswordChangeModal: React.FC = () => {
                     : "text-muted-foreground/50"
                 }`}
               />
-              <span className={isMinLength ? "text-foreground font-medium" : ""}>
+              <span
+                className={isMinLength ? "text-foreground font-medium" : ""}
+              >
                 At least 6 characters long
               </span>
             </div>
@@ -252,7 +265,9 @@ export const ForcePasswordChangeModal: React.FC = () => {
                     : "text-muted-foreground/50"
                 }`}
               />
-              <span className={isNotDefault ? "text-foreground font-medium" : ""}>
+              <span
+                className={isNotDefault ? "text-foreground font-medium" : ""}
+              >
                 Different from default institutional passwords
               </span>
             </div>

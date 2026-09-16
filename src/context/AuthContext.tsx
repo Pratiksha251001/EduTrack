@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from "react";
 import { UserRoleType } from "../lib/types";
-import { localDb } from "../lib/supabase";
+import { localDb, supabase } from "../lib/supabase";
 import {
   normalizeId,
   saveCredential,
@@ -37,7 +37,9 @@ interface AuthContextType {
   closeLogoutConfirm: () => void;
   confirmLogout: () => Promise<void>;
   setPassword: (password: string) => void;
-  updateUserPassword: (newPassword: string) => Promise<{ ok: boolean; message?: string }>;
+  updateUserPassword: (
+    newPassword: string,
+  ) => Promise<{ ok: boolean; message?: string }>;
   registerAdmin: (
     fullName: string,
     email: string,
@@ -54,7 +56,8 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 const getStorageItem = (key: string) =>
-  localStorage.getItem(`edutrack_${key}`) || localStorage.getItem(`smit_${key}`);
+  localStorage.getItem(`edutrack_${key}`) ||
+  localStorage.getItem(`smit_${key}`);
 
 const setStorageItem = (key: string, value: string) => {
   localStorage.setItem(`edutrack_${key}`, value);
@@ -80,25 +83,61 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
   const closeLogoutConfirm = () => setIsLogoutConfirmOpen(false);
 
   useEffect(() => {
+    let mounted = true;
+    const restoreSupabaseSession = async () => {
+      const { data } = await supabase.auth.getSession();
+      if (!mounted || !data.session) return;
+      const authUser = data.session.user;
+      const { data: roleRecord } = await supabase
+        .from("user_roles")
+        .select("role, department_id")
+        .eq("user_id", authUser.id)
+        .maybeSingle();
+      if (!roleRecord) return;
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("full_name, must_change_password")
+        .eq("id", authUser.id)
+        .maybeSingle();
+      const restoredUser = {
+        id: authUser.id,
+        email: authUser.email || "",
+        full_name:
+          profile?.full_name ||
+          authUser.user_metadata?.full_name ||
+          "EduTrack User",
+        department_id: roleRecord.department_id,
+      };
+      setUser(restoredUser);
+      setRole(roleRecord.role as UserRoleType);
+      setMustChangePassword(profile?.must_change_password === true);
+    };
+    void restoreSupabaseSession();
+    const { data: listener } = supabase.auth.onAuthStateChange(
+      (_event, session) => {
+        if (!session && mounted) {
+          setUser(null);
+          setRole(null);
+          setMustChangePassword(false);
+        }
+      },
+    );
     const savedUser = getStorageItem("user");
     const savedRole = getStorageItem("role") as UserRoleType | null;
     const savedIsDemo = getStorageItem("is_demo") === "true";
     const savedMustChange = getStorageItem("must_change_password") === "true";
-
     if (savedIsDemo) {
       setIsDemo(true);
       localDb.ensureDemoDataLoaded();
     }
-
     if (savedUser && savedRole) {
       try {
         const parsedUser = JSON.parse(savedUser);
         setUser(parsedUser);
         setRole(savedRole);
-
-        // Never force password change in demo mode for study users
         if (savedIsDemo) {
           setMustChangePassword(false);
+          removeStorageItem("must_change_password");
         } else if (savedRole !== "admin") {
           const identifiers = [
             parsedUser.id,
@@ -119,6 +158,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
       }
     }
     setLoading(false);
+    return () => {
+      mounted = false;
+      listener.subscription.unsubscribe();
+    };
   }, []);
 
   const loginAsDemo = async (targetRole: UserRoleType) => {
@@ -197,14 +240,22 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
   };
 
   const loginAsRandomDemo = async (): Promise<UserRoleType> => {
-    const roles: UserRoleType[] = ["admin", "hod", "class_coordinator", "teacher", "student"];
+    const roles: UserRoleType[] = [
+      "admin",
+      "hod",
+      "class_coordinator",
+      "teacher",
+      "student",
+    ];
     const candidates = roles.filter((r) => r !== role);
-    const chosenRole = candidates[Math.floor(Math.random() * candidates.length)] || "admin";
+    const chosenRole =
+      candidates[Math.floor(Math.random() * candidates.length)] || "admin";
     await loginAsDemo(chosenRole);
     return chosenRole;
   };
 
   const signOut = async () => {
+    await supabase.auth.signOut();
     setUser(null);
     setRole(null);
     setIsDemo(false);
@@ -242,7 +293,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
   };
 
   const updateUserPassword = async (
-    newPassword: string
+    newPassword: string,
   ): Promise<{ ok: boolean; message?: string }> => {
     if (!user || !role) {
       return { ok: false, message: "No active user session." };
@@ -280,16 +331,26 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
       role === "hod" && user.teacher_id ? `hod_${user.teacher_id}` : null,
     ].filter(Boolean);
 
-    saveCredential(identifiers, cleanPassword);
-    markCustomPasswordSet(identifiers);
-    setStorageItem(`password_${user.id}`, cleanPassword);
-
+    const { data: sessionData } = await supabase.auth.getSession();
+    if (sessionData.session?.user.id === user.id) {
+      const { error } = await supabase.auth.updateUser({
+        password: cleanPassword,
+      });
+      if (error) return { ok: false, message: error.message };
+      await supabase
+        .from("profiles")
+        .update({ must_change_password: false })
+        .eq("id", user.id);
+    } else {
+      saveCredential(identifiers, cleanPassword);
+      markCustomPasswordSet(identifiers);
+    }
     const matchingUser = localDb.users.find(
       (u) =>
         u.id === user.id ||
         (user.email && normalizeId(u.email) === normalizeId(user.email)) ||
         (user.teacher_id && u.teacher_id === user.teacher_id) ||
-        (user.student_id && u.student_id === user.student_id)
+        (user.student_id && u.student_id === user.student_id),
     );
     if (matchingUser) {
       await localDb.update("users", matchingUser.id, {
@@ -332,7 +393,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
   ) => {
     const rawInput = identifier.trim();
     const cleanId = normalizeId(rawInput);
-
+    setIsDemo(false);
+    removeStorageItem("is_demo");
     const failLogin = (message: string) => {
       recordFailedLoginNotification({
         attemptedRole: targetRole,
@@ -342,13 +404,69 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
       return { ok: false, message };
     };
 
+    if (rawInput.includes("@")) {
+      const { data: authData, error: authError } =
+        await supabase.auth.signInWithPassword({
+          email: rawInput.toLowerCase(),
+          password,
+        });
+      if (authError) {
+        return failLogin(authError.message || "Invalid email or password.");
+      }
+      if (authData.user) {
+        const { data: roleRecord } = await supabase
+          .from("user_roles")
+          .select("role, department_id")
+          .eq("user_id", authData.user.id)
+          .maybeSingle();
+        if (!roleRecord || roleRecord.role !== targetRole) {
+          await supabase.auth.signOut();
+          return failLogin(
+            "This account is not authorized for the selected portal.",
+          );
+        }
+        const { data: profile } = await supabase
+          .from("profiles")
+          .select("full_name, must_change_password")
+          .eq("id", authData.user.id)
+          .maybeSingle();
+        const studentRecord =
+          targetRole === "student"
+            ? localDb.students.find((item) => item.user_id === authData.user.id)
+            : undefined;
+        const authenticatedUser = {
+          id: authData.user.id,
+          email: authData.user.email || rawInput.toLowerCase(),
+          full_name:
+            profile?.full_name ||
+            authData.user.user_metadata?.full_name ||
+            "EduTrack User",
+          department_id: roleRecord.department_id,
+          student_id: studentRecord?.id,
+          roll_number: studentRecord?.roll_number,
+        };
+        setUser(authenticatedUser);
+        setRole(targetRole);
+        setStorageItem("user", JSON.stringify(authenticatedUser));
+        setStorageItem("role", targetRole);
+        const requiresChange = profile?.must_change_password === true;
+        setMustChangePassword(requiresChange);
+        if (requiresChange) setStorageItem("must_change_password", "true");
+        else removeStorageItem("must_change_password");
+        return { ok: true };
+      }
+    }
+
     // ==========================================
     // 1. ADMIN LOGIN
     // ==========================================
     if (targetRole === "admin") {
-      const envEmail = import.meta.env.VITE_DEFAULT_ADMIN_EMAIL?.trim().toLowerCase();
+      const envEmail =
+        import.meta.env.VITE_DEFAULT_ADMIN_EMAIL?.trim().toLowerCase();
       const envPassword = import.meta.env.VITE_DEFAULT_ADMIN_PASSWORD;
-      const envName = import.meta.env.VITE_DEFAULT_ADMIN_NAME?.trim() || "Institutional Administrator";
+      const envName =
+        import.meta.env.VITE_DEFAULT_ADMIN_NAME?.trim() ||
+        "Institutional Administrator";
 
       // 1.1 Check environment-configured credentials
       if (envEmail && envPassword) {
@@ -375,7 +493,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
           email: string;
           password: string;
         };
-        if (normalizeId(account.email) === cleanId && account.password === password) {
+        if (
+          normalizeId(account.email) === cleanId &&
+          account.password === password
+        ) {
           const adminUser = {
             id: account.id,
             email: account.email,
@@ -391,7 +512,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
 
       // 1.3 Check default admin credentials fallback
       if (
-        (cleanId === "admin@edutrack.edu" || cleanId === "admin@edutrack.com" || cleanId === "admin") &&
+        (cleanId === "admin@edutrack.edu" ||
+          cleanId === "admin@edutrack.com" ||
+          cleanId === "admin") &&
         (password === "Admin@123" || password === "Admin@1234")
       ) {
         const adminUser = {
@@ -415,13 +538,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     if (targetRole === "hod") {
       // Find teacher assigned as HOD or with role "hod"
       const matchedTeacher = localDb.teachers.find((t) => {
-        const isHodRole = t.role === "hod" || localDb.departments.some((d) => d.hod_id === t.id);
+        const isHodRole =
+          t.role === "hod" ||
+          localDb.departments.some((d) => d.hod_id === t.id);
         const matchesIdentifier =
           normalizeId(t.email) === cleanId ||
           normalizeId(t.employee_id) === cleanId ||
           t.id === rawInput;
         const matchesDept = !departmentId || t.department_id === departmentId;
-        return isHodRole && matchesIdentifier && matchesDept && t.status === "active";
+        return (
+          isHodRole && matchesIdentifier && matchesDept && t.status === "active"
+        );
       });
 
       // Also check user accounts
@@ -434,13 +561,24 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
       );
 
       const teacherId = matchedTeacher?.id || matchedUserAcc?.teacher_id;
-      const deptId = matchedTeacher?.department_id || matchedUserAcc?.department_id || departmentId;
+      const deptId =
+        matchedTeacher?.department_id ||
+        matchedUserAcc?.department_id ||
+        departmentId;
       const email = matchedTeacher?.email || matchedUserAcc?.email || rawInput;
-      const fullName = matchedTeacher?.full_name || matchedUserAcc?.full_name || "Head of Department";
+      const fullName =
+        matchedTeacher?.full_name ||
+        matchedUserAcc?.full_name ||
+        "Head of Department";
 
       if (!matchedTeacher && !matchedUserAcc) {
         // Check if demo HOD was requested
-        if (cleanId === "hod.cse@edutrack.edu" && (password === "HOD@123" || password === "123456" || password === "Admin@123")) {
+        if (
+          cleanId === "hod.cse@edutrack.edu" &&
+          (password === "HOD@123" ||
+            password === "123456" ||
+            password === "Admin@123")
+        ) {
           const hodUser = {
             id: "hod-user-id",
             email: "hod.cse@edutrack.edu",
@@ -471,15 +609,25 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
           email,
           `hod_${teacherId}`,
         ],
-        ["HOD@123", "hod@123", matchedTeacher?.employee_id, "123456", "Admin@123"],
+        [
+          "HOD@123",
+          "hod@123",
+          matchedTeacher?.employee_id,
+          "123456",
+          "Admin@123",
+        ],
       );
 
       if (!isValidPassword) {
-        return failLogin("Incorrect HOD password. Default is HOD@123 or employee ID.");
+        return failLogin(
+          "Incorrect HOD password. Default is HOD@123 or employee ID.",
+        );
       }
 
       const hodUser = {
-        id: matchedUserAcc?.id || (teacherId ? `teacher-user-${teacherId}` : `hod-${Date.now()}`),
+        id:
+          matchedUserAcc?.id ||
+          (teacherId ? `teacher-user-${teacherId}` : `hod-${Date.now()}`),
         email,
         full_name: fullName,
         department_id: deptId,
@@ -522,7 +670,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
         const isCC =
           t.role === "class_coordinator" ||
           t.is_class_coordinator === true ||
-          (localDb.class_coordinator_assignments || []).some((a) => a.teacher_id === t.id);
+          (localDb.class_coordinator_assignments || []).some(
+            (a) => a.teacher_id === t.id,
+          );
         const matchesIdentifier =
           normalizeId(t.email) === cleanId ||
           normalizeId(t.employee_id) === cleanId ||
@@ -539,7 +689,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
 
       if (!matchedTeacher && !matchedUserAcc) {
         // Fallback demo CC
-        if (cleanId === "cc@edutrack.edu" && (password === "CC@123" || password === "123456" || password === "Teacher@123")) {
+        if (
+          cleanId === "cc@edutrack.edu" &&
+          (password === "CC@123" ||
+            password === "123456" ||
+            password === "Teacher@123")
+        ) {
           const ccUser = {
             id: "cc-user-id",
             email: "cc@edutrack.edu",
@@ -571,18 +726,32 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
           matchedTeacher?.email,
           matchedUserAcc?.email,
         ],
-        ["CC@123", "cc@123", "Teacher@123", matchedTeacher?.employee_id, "123456"],
+        [
+          "CC@123",
+          "cc@123",
+          "Teacher@123",
+          matchedTeacher?.employee_id,
+          "123456",
+        ],
       );
 
       if (!isValidPassword) {
-        return failLogin("Incorrect Class Coordinator password. Default is CC@123 or employee ID.");
+        return failLogin(
+          "Incorrect Class Coordinator password. Default is CC@123 or employee ID.",
+        );
       }
 
       const ccUser = {
-        id: matchedUserAcc?.id || (teacherId ? `cc-user-${teacherId}` : `cc-${Date.now()}`),
+        id:
+          matchedUserAcc?.id ||
+          (teacherId ? `cc-user-${teacherId}` : `cc-${Date.now()}`),
         email: matchedTeacher?.email || matchedUserAcc?.email || rawInput,
-        full_name: matchedTeacher?.full_name || matchedUserAcc?.full_name || "Class Coordinator",
-        department_id: matchedTeacher?.department_id || matchedUserAcc?.department_id,
+        full_name:
+          matchedTeacher?.full_name ||
+          matchedUserAcc?.full_name ||
+          "Class Coordinator",
+        department_id:
+          matchedTeacher?.department_id || matchedUserAcc?.department_id,
         teacher_id: teacherId,
         employee_id: matchedTeacher?.employee_id,
       };
@@ -634,7 +803,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
       );
 
       if (!matchedTeacher && !matchedUserAcc) {
-        if (cleanId === "teacher@edutrack.edu" && (password === "Teacher@123" || password === "123456")) {
+        if (
+          cleanId === "teacher@edutrack.edu" &&
+          (password === "Teacher@123" || password === "123456")
+        ) {
           const teacherUser = {
             id: "teacher-user-id",
             email: "teacher@edutrack.edu",
@@ -670,14 +842,22 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
       );
 
       if (!isValidPassword) {
-        return failLogin("Incorrect faculty password. Default is Teacher@123 or employee ID.");
+        return failLogin(
+          "Incorrect faculty password. Default is Teacher@123 or employee ID.",
+        );
       }
 
       const teacherUser = {
-        id: matchedUserAcc?.id || (teacherId ? `teacher-user-${teacherId}` : `teacher-${Date.now()}`),
+        id:
+          matchedUserAcc?.id ||
+          (teacherId ? `teacher-user-${teacherId}` : `teacher-${Date.now()}`),
         email: matchedTeacher?.email || matchedUserAcc?.email || rawInput,
-        full_name: matchedTeacher?.full_name || matchedUserAcc?.full_name || "Faculty Member",
-        department_id: matchedTeacher?.department_id || matchedUserAcc?.department_id,
+        full_name:
+          matchedTeacher?.full_name ||
+          matchedUserAcc?.full_name ||
+          "Faculty Member",
+        department_id:
+          matchedTeacher?.department_id || matchedUserAcc?.department_id,
         teacher_id: teacherId,
         employee_id: matchedTeacher?.employee_id,
       };
@@ -730,7 +910,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
       );
 
       if (!matchedStudent && !matchedUserAcc) {
-        if ((cleanId === "123" || cleanId === "alex.h@student.edutrack.edu") && (password === "123" || password === "Student@123")) {
+        if (
+          (cleanId === "123" || cleanId === "alex.h@student.edutrack.edu") &&
+          (password === "123" || password === "Student@123")
+        ) {
           const studentUser = {
             id: "student-user-id",
             email: "alex.h@student.edutrack.edu",
@@ -766,14 +949,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
           matchedStudent?.email,
           matchedUserAcc?.email,
         ],
-        [
-          rollNumber,
-          regNumber,
-          "123",
-          "Student@123",
-          "student@123",
-          "123456",
-        ],
+        [rollNumber, regNumber, "123", "Student@123", "student@123", "123456"],
       );
 
       if (!isValidPassword) {
@@ -783,13 +959,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
       }
 
       const studentUser = {
-        id: matchedUserAcc?.id || (studentId ? `student-user-${studentId}` : `student-${Date.now()}`),
+        id:
+          matchedUserAcc?.id ||
+          (studentId ? `student-user-${studentId}` : `student-${Date.now()}`),
         email:
           matchedStudent?.email ||
           matchedUserAcc?.email ||
           `${normalizeId(rollNumber || "student")}@student.edutrack.edu`,
-        full_name: matchedStudent?.full_name || matchedUserAcc?.full_name || "Enrolled Student",
-        department_id: matchedStudent?.department_id || matchedUserAcc?.department_id,
+        full_name:
+          matchedStudent?.full_name ||
+          matchedUserAcc?.full_name ||
+          "Enrolled Student",
+        department_id:
+          matchedStudent?.department_id || matchedUserAcc?.department_id,
         student_id: studentId,
         roll_number: rollNumber,
       };
@@ -823,7 +1005,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
       return { ok: true };
     }
 
-    return failLogin("Invalid role selected.");
+    return { ok: false, message: "Invalid role selected." };
   };
 
   return (

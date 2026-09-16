@@ -18,7 +18,12 @@ import { useAuth } from "../context/AuthContext";
 import { localDb } from "../lib/supabase";
 import { saveCredential } from "../lib/authUtils";
 import { Button } from "../components/ui/button";
-import { Card, CardHeader, CardTitle, CardContent } from "../components/ui/card";
+import {
+  Card,
+  CardHeader,
+  CardTitle,
+  CardContent,
+} from "../components/ui/card";
 import { Input } from "../components/ui/input";
 import { Select } from "../components/ui/select";
 import { Badge } from "../components/ui/badge";
@@ -45,21 +50,29 @@ export const HODStudents: React.FC = () => {
   );
 
   const [students, setStudents] = useState(() =>
-    localDb.students.filter((item) => !departmentId || item.department_id === departmentId),
+    localDb.students.filter(
+      (item) => !departmentId || item.department_id === departmentId,
+    ),
   );
   const [search, setSearch] = useState("");
   const [selectedSemester, setSelectedSemester] = useState<string>("__all");
   const [open, setOpen] = useState(false);
-  const [attendanceRecords, setAttendanceRecords] = useState(() => localDb.attendance);
+  const [attendanceRecords, setAttendanceRecords] = useState(
+    () => localDb.attendance,
+  );
   const [smsLogs, setSmsLogs] = useState(() => localDb.getSmsLogs());
 
   // Parent Alert Modal State
   const [alertModalOpen, setAlertModalOpen] = useState(false);
-  const [selectedStudentForAlert, setSelectedStudentForAlert] = useState<any | null>(null);
+  const [selectedStudentForAlert, setSelectedStudentForAlert] = useState<
+    any | null
+  >(null);
 
   const refresh = () => {
     setStudents(
-      localDb.students.filter((item) => !departmentId || item.department_id === departmentId),
+      localDb.students.filter(
+        (item) => !departmentId || item.department_id === departmentId,
+      ),
     );
     setAttendanceRecords([...localDb.attendance]);
     setSmsLogs(localDb.getSmsLogs());
@@ -89,11 +102,19 @@ export const HODStudents: React.FC = () => {
 
   // Calculate attendance & SMS stats per student
   const studentStatsMap = useMemo(() => {
-    const map = new Map<string, { total: number; present: number; rate: number; smsCount: number }>();
-    
+    const map = new Map<
+      string,
+      { total: number; present: number; rate: number; smsCount: number }
+    >();
+
     // Group attendance by student
     attendanceRecords.forEach((att) => {
-      const existing = map.get(att.student_id) || { total: 0, present: 0, rate: 0, smsCount: 0 };
+      const existing = map.get(att.student_id) || {
+        total: 0,
+        present: 0,
+        rate: 0,
+        smsCount: 0,
+      };
       existing.total += 1;
       if (att.status === "present") {
         existing.present += 1;
@@ -104,7 +125,12 @@ export const HODStudents: React.FC = () => {
     // Group SMS logs by student
     smsLogs.forEach((log) => {
       if (log.student_id) {
-        const existing = map.get(log.student_id) || { total: 0, present: 0, rate: 0, smsCount: 0 };
+        const existing = map.get(log.student_id) || {
+          total: 0,
+          present: 0,
+          rate: 0,
+          smsCount: 0,
+        };
         existing.smsCount += 1;
         map.set(log.student_id, existing);
       }
@@ -112,7 +138,8 @@ export const HODStudents: React.FC = () => {
 
     // Compute rates
     map.forEach((value) => {
-      value.rate = value.total > 0 ? Math.round((value.present / value.total) * 100) : 100;
+      value.rate =
+        value.total > 0 ? Math.round((value.present / value.total) * 100) : 100;
     });
 
     return map;
@@ -136,7 +163,8 @@ export const HODStudents: React.FC = () => {
       }
     });
 
-    const avgRate = totalClasses > 0 ? Math.round((totalPresent / totalClasses) * 100) : 100;
+    const avgRate =
+      totalClasses > 0 ? Math.round((totalPresent / totalClasses) * 100) : 100;
     const deptSmsCount = smsLogs.filter((l) => {
       const st = students.find((s) => s.id === l.student_id);
       return Boolean(st);
@@ -147,7 +175,10 @@ export const HODStudents: React.FC = () => {
 
   const filtered = useMemo(() => {
     return students.filter((student) => {
-      if (selectedSemester !== "__all" && String(student.semester) !== selectedSemester) {
+      if (
+        selectedSemester !== "__all" &&
+        String(student.semester) !== selectedSemester
+      ) {
         return false;
       }
       const query = search.toLowerCase();
@@ -155,7 +186,8 @@ export const HODStudents: React.FC = () => {
         !query ||
         student.full_name.toLowerCase().includes(query) ||
         student.roll_number.toLowerCase().includes(query) ||
-        (student.parent_name && student.parent_name.toLowerCase().includes(query)) ||
+        (student.parent_name &&
+          student.parent_name.toLowerCase().includes(query)) ||
         (student.parent_mobile && student.parent_mobile.includes(query))
       );
     });
@@ -168,7 +200,9 @@ export const HODStudents: React.FC = () => {
 
     if (
       localDb.students.some(
-        (student) => student.roll_number.toLowerCase() === form.roll_number.trim().toLowerCase(),
+        (student) =>
+          student.roll_number.toLowerCase() ===
+          form.roll_number.trim().toLowerCase(),
       )
     ) {
       errs.push("This roll number already exists in institutional records.");
@@ -177,7 +211,11 @@ export const HODStudents: React.FC = () => {
     const nameErr = getNameValidationError(form.full_name);
     if (nameErr) errs.push(nameErr);
 
-    const mobileErr = getMobileValidationError(form.parent_mobile, "Parent Mobile", true);
+    const mobileErr = getMobileValidationError(
+      form.parent_mobile,
+      "Parent Mobile",
+      true,
+    );
     if (mobileErr) errs.push(mobileErr);
 
     if (form.email && !isValidEmail(form.email)) {
@@ -213,7 +251,9 @@ export const HODStudents: React.FC = () => {
         {
           id: accountId,
           full_name: student.full_name,
-          email: student.email || `${student.roll_number.toLowerCase()}@student.edutrack.edu`,
+          email:
+            student.email ||
+            `${student.roll_number.toLowerCase()}@student.edutrack.edu`,
           role: "student",
           department_id: departmentId,
           student_id: student.id,
@@ -222,12 +262,7 @@ export const HODStudents: React.FC = () => {
       ]);
       const effectivePwd = form.password.trim() || student.roll_number || "123";
       saveCredential(
-        [
-          accountId,
-          student.id,
-          student.roll_number,
-          student.email,
-        ],
+        [accountId, student.id, student.roll_number, student.email],
         effectivePwd,
       );
     }
@@ -268,8 +303,9 @@ export const HODStudents: React.FC = () => {
             Department Students & Attendance
           </h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            Complete overview of all students across semesters in {department?.name || "your department"},
-            including attendance tracking and parent communication logs.
+            Complete overview of all students across semesters in{" "}
+            {department?.name || "your department"}, including attendance
+            tracking and parent communication logs.
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -298,7 +334,9 @@ export const HODStudents: React.FC = () => {
             <span className="text-2xl font-bold text-foreground">
               {departmentMetrics.totalCount}
             </span>
-            <span className="text-xs text-muted-foreground">across all classes</span>
+            <span className="text-xs text-muted-foreground">
+              across all classes
+            </span>
           </div>
         </Card>
 
@@ -313,7 +351,9 @@ export const HODStudents: React.FC = () => {
             <span className="text-2xl font-bold text-foreground">
               {departmentMetrics.avgRate}%
             </span>
-            <span className="text-xs text-muted-foreground">overall department rate</span>
+            <span className="text-xs text-muted-foreground">
+              overall department rate
+            </span>
           </div>
         </Card>
 
@@ -328,7 +368,9 @@ export const HODStudents: React.FC = () => {
             <span className="text-2xl font-bold text-amber-600 dark:text-amber-400">
               {departmentMetrics.defaulterCount}
             </span>
-            <span className="text-xs text-muted-foreground">&lt; 75% attendance</span>
+            <span className="text-xs text-muted-foreground">
+              &lt; 75% attendance
+            </span>
           </div>
         </Card>
 
@@ -343,7 +385,9 @@ export const HODStudents: React.FC = () => {
             <span className="text-2xl font-bold text-foreground">
               {departmentMetrics.deptSmsCount}
             </span>
-            <span className="text-xs text-muted-foreground">alerts dispatched</span>
+            <span className="text-xs text-muted-foreground">
+              alerts dispatched
+            </span>
           </div>
         </Card>
       </div>
@@ -392,7 +436,9 @@ export const HODStudents: React.FC = () => {
             <div className="space-y-1">
               <div className="flex justify-between items-center text-xs text-muted-foreground">
                 <span>Parent Mobile (10 Digits) *</span>
-                <span className={`font-mono ${form.parent_mobile.length === 10 ? "text-emerald-500 font-bold" : ""}`}>
+                <span
+                  className={`font-mono ${form.parent_mobile.length === 10 ? "text-emerald-500 font-bold" : ""}`}
+                >
                   {form.parent_mobile.length}/10
                 </span>
               </div>
@@ -403,9 +449,17 @@ export const HODStudents: React.FC = () => {
                 placeholder="e.g. 9876543210"
                 value={form.parent_mobile}
                 onChange={(event) =>
-                  setForm({ ...form, parent_mobile: sanitizeMobileInput(event.target.value) })
+                  setForm({
+                    ...form,
+                    parent_mobile: sanitizeMobileInput(event.target.value),
+                  })
                 }
-                className={form.parent_mobile && !isValid10DigitMobile(form.parent_mobile) ? "border-destructive" : ""}
+                className={
+                  form.parent_mobile &&
+                  !isValid10DigitMobile(form.parent_mobile)
+                    ? "border-destructive"
+                    : ""
+                }
               />
             </div>
             <Input
@@ -426,7 +480,8 @@ export const HODStudents: React.FC = () => {
                 }
               />
               <p className="text-[11px] text-muted-foreground">
-                Students can log in with their Roll Number and password (default is their Roll Number).
+                Students can log in with their Roll Number and password (default
+                is their Roll Number).
               </p>
             </div>
           </div>
@@ -479,7 +534,12 @@ export const HODStudents: React.FC = () => {
             </div>
           ) : (
             filtered.map((student) => {
-              const stat = studentStatsMap.get(student.id) || { total: 0, present: 0, rate: 100, smsCount: 0 };
+              const stat = studentStatsMap.get(student.id) || {
+                total: 0,
+                present: 0,
+                rate: 100,
+                smsCount: 0,
+              };
               const isDefaulter = stat.total > 0 && stat.rate < 75;
 
               return (
@@ -495,7 +555,10 @@ export const HODStudents: React.FC = () => {
                           <span className="font-mono text-xs font-bold text-primary">
                             {student.roll_number}
                           </span>
-                          <Badge variant="outline" className="text-[10px] px-1.5 py-0">
+                          <Badge
+                            variant="outline"
+                            className="text-[10px] px-1.5 py-0"
+                          >
                             Sem {student.semester}
                           </Badge>
                         </div>

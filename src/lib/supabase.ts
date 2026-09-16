@@ -15,7 +15,10 @@ import {
 import { cleanSmsMessage } from "./college";
 
 export function generateUuid(): string {
-  if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
+  if (
+    typeof crypto !== "undefined" &&
+    typeof crypto.randomUUID === "function"
+  ) {
     try {
       return crypto.randomUUID();
     } catch {}
@@ -40,32 +43,36 @@ export function cleanSupabaseUrl(url: string | undefined): string {
   return clean;
 }
 
-const defaultSupabaseUrl = "https://sovkwhqpvvdotzwfivzh.supabase.co";
-const defaultSupabaseKey = "sb_publishable_DeR0Ivw3WKGnfaNxDtTMgA_z3O9BzmM";
-
 const rawSupabaseUrl =
   import.meta.env.VITE_SUPABASE_URL ||
   import.meta.env.NEXT_PUBLIC_SUPABASE_URL ||
-  defaultSupabaseUrl;
-
+  "";
 export const supabaseUrl = cleanSupabaseUrl(rawSupabaseUrl);
 export const supabaseKey =
   import.meta.env.VITE_SUPABASE_ANON_KEY ||
   import.meta.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ||
-  defaultSupabaseKey;
+  "";
 
 export const isSupabaseConfigured = Boolean(
   supabaseUrl &&
-    supabaseKey &&
-    !supabaseUrl.includes("placeholder") &&
-    supabaseKey !== "placeholder-key" &&
-    supabaseKey !== "your-anon-key-here",
+  supabaseKey &&
+  !supabaseUrl.includes("placeholder") &&
+  supabaseKey !== "placeholder-key" &&
+  supabaseKey !== "your-anon-key-here",
 );
 
 export const supabase = createClient(supabaseUrl, supabaseKey);
 
 const TABLE_COLUMNS: Record<string, string[]> = {
-  departments: ["id", "name", "code", "institution_name", "hod_id", "status", "created_at"],
+  departments: [
+    "id",
+    "name",
+    "code",
+    "institution_name",
+    "hod_id",
+    "status",
+    "created_at",
+  ],
   teachers: [
     "id",
     "employee_id",
@@ -172,7 +179,10 @@ export function sanitizePayloadForSupabase(table: string, rawItem: any): any {
     // Convert empty string UUID foreign keys to null
     if (
       val === "" &&
-      (k.endsWith("_id") || k === "user_id" || k === "assigned_by" || k === "hod_id")
+      (k.endsWith("_id") ||
+        k === "user_id" ||
+        k === "assigned_by" ||
+        k === "hod_id")
     ) {
       val = null;
     }
@@ -184,7 +194,8 @@ export function sanitizePayloadForSupabase(table: string, rawItem: any): any {
 
     // Parse integers
     if (k === "semester" || k === "assigned_semester" || k === "credits") {
-      val = val === "" || val === null ? null : parseInt(String(val), 10) || null;
+      val =
+        val === "" || val === null ? null : parseInt(String(val), 10) || null;
     }
 
     // Normalize boolean
@@ -227,10 +238,7 @@ class LocalDatabase {
     );
     if (cleanApplied !== "true") {
       this.clearAllDefaultData();
-      localStorage.setItem(
-        `${this.storageKey}_clean_slate_applied_v2`,
-        "true",
-      );
+      localStorage.setItem(`${this.storageKey}_clean_slate_applied_v2`, "true");
     }
 
     if (isSupabaseConfigured) {
@@ -504,7 +512,10 @@ class LocalDatabase {
     const inserted = items.map((it) => {
       const entry = {
         ...it,
-        id: it.id && it.id.length > 20 && !it.id.startsWith("id-") ? it.id : generateUuid(),
+        id:
+          it.id && it.id.length > 20 && !it.id.startsWith("id-")
+            ? it.id
+            : generateUuid(),
         created_at: it.created_at || new Date().toISOString(),
         sent_at: it.sent_at || new Date().toISOString(),
       };
@@ -531,7 +542,9 @@ class LocalDatabase {
         new CustomEvent("edutrack_sms_logs_updated", { detail: inserted }),
       );
       window.dispatchEvent(
-        new CustomEvent("edutrack_data_updated", { detail: { table, data: list } }),
+        new CustomEvent("edutrack_data_updated", {
+          detail: { table, data: list },
+        }),
       );
     }
 
@@ -544,6 +557,11 @@ class LocalDatabase {
         const { error } = await supabase.from(table).insert(payload);
         if (error) {
           console.error(`Supabase insert error on ${table}:`, error);
+          if (table === "students") {
+            throw new Error(
+              `Student write failed; local rollback required: ${error.message}`,
+            );
+          }
         } else {
           console.log(
             `Supabase synced ${inserted.length} record(s) into ${table}`,
@@ -551,6 +569,11 @@ class LocalDatabase {
         }
       } catch (err) {
         console.error(`Supabase insert exception on ${table}:`, err);
+        if (table === "students") {
+          throw err instanceof Error
+            ? err
+            : new Error("Student write failed; local rollback required.");
+        }
       }
     }
 
@@ -570,7 +593,10 @@ class LocalDatabase {
       if (isSupabaseConfigured) {
         try {
           const payload = sanitizePayloadForSupabase(table, { ...list[idx] });
-          const { error } = await supabase.from(table).update(payload).eq("id", id);
+          const { error } = await supabase
+            .from(table)
+            .update(payload)
+            .eq("id", id);
           if (error) {
             console.error(`Supabase update error for ${table}:`, error);
           }
@@ -581,7 +607,9 @@ class LocalDatabase {
 
       if (typeof window !== "undefined") {
         window.dispatchEvent(
-          new CustomEvent("edutrack_data_updated", { detail: { table, data: list } }),
+          new CustomEvent("edutrack_data_updated", {
+            detail: { table, data: list },
+          }),
         );
       }
 
@@ -610,7 +638,9 @@ class LocalDatabase {
 
       if (typeof window !== "undefined") {
         window.dispatchEvent(
-          new CustomEvent("edutrack_data_updated", { detail: { table, data: list } }),
+          new CustomEvent("edutrack_data_updated", {
+            detail: { table, data: list },
+          }),
         );
       }
 

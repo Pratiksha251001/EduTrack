@@ -3,6 +3,7 @@ import {
   AlertCircle,
   Check,
   CheckCircle2,
+  ChevronDown,
   Download,
   FileSpreadsheet,
   FileText,
@@ -16,8 +17,7 @@ import {
   Users,
   X,
 } from "lucide-react";
-import { localDb } from "../lib/supabase";
-import { saveCredential } from "../lib/authUtils";
+import { localDb, supabase } from "../lib/supabase";
 import {
   ParsedStudentRow,
   parseStudentSpreadsheet,
@@ -57,13 +57,20 @@ export const StudentImportModal: React.FC<StudentImportModalProps> = ({
   const [isParsing, setIsParsing] = useState(false);
   const [parseError, setParseError] = useState<string | null>(null);
   const [rows, setRows] = useState<ParsedStudentRow[]>([]);
-  const [activeTab, setActiveTab] = useState<"all" | "valid" | "invalid">("all");
+  const [activeTab, setActiveTab] = useState<"all" | "valid" | "invalid">(
+    "all",
+  );
   const [isImporting, setIsImporting] = useState(false);
 
   // Portal Account & Password Strategy
   const [createAccounts, setCreateAccounts] = useState(true);
-  const [passwordMode, setPasswordMode] = useState<"enrollment" | "custom">("enrollment");
+  const [passwordMode, setPasswordMode] = useState<"enrollment" | "custom">(
+    "enrollment",
+  );
   const [customPassword, setCustomPassword] = useState("Student@123");
+  const [selectedDepartmentId, setSelectedDepartmentId] = useState(
+    departmentId || "",
+  );
 
   const resetState = () => {
     setFileName(null);
@@ -110,7 +117,7 @@ export const StudentImportModal: React.FC<StudentImportModalProps> = ({
   const handleCellChange = (
     index: number,
     field: keyof ParsedStudentRow,
-    value: any
+    value: any,
   ) => {
     setRows((prev) => {
       const next = [...prev];
@@ -130,10 +137,12 @@ export const StudentImportModal: React.FC<StudentImportModalProps> = ({
       } else {
         const normRoll = String(row.roll_number).trim().toLowerCase();
         const existingRoll = localDb.students.find(
-          (s) => s.roll_number.trim().toLowerCase() === normRoll
+          (s) => s.roll_number.trim().toLowerCase() === normRoll,
         );
         if (existingRoll) {
-          errors.push(`Enrollment '${row.roll_number}' already exists in institutional records.`);
+          errors.push(
+            `Enrollment '${row.roll_number}' already exists in institutional records.`,
+          );
         }
       }
 
@@ -142,14 +151,22 @@ export const StudentImportModal: React.FC<StudentImportModalProps> = ({
       }
 
       // 10-Digit Parent Mobile Validation
-      const parentErr = getMobileValidationError(row.parent_mobile, "Parent Mobile", true);
+      const parentErr = getMobileValidationError(
+        row.parent_mobile,
+        "Parent Mobile",
+        true,
+      );
       if (parentErr) {
         errors.push(parentErr);
       }
 
       // 10-Digit Student Mobile Validation
       if (row.student_mobile) {
-        const studentErr = getMobileValidationError(row.student_mobile, "Student Mobile", false);
+        const studentErr = getMobileValidationError(
+          row.student_mobile,
+          "Student Mobile",
+          false,
+        );
         if (studentErr) {
           warnings.push(studentErr);
         }
@@ -185,115 +202,195 @@ export const StudentImportModal: React.FC<StudentImportModalProps> = ({
     activeTab === "all"
       ? rows
       : activeTab === "valid"
-      ? validRows
-      : invalidRows;
+        ? validRows
+        : invalidRows;
 
   const validCount = validRows.length;
   const invalidCount = invalidRows.length;
 
   const handleExecuteImport = async () => {
     if (validCount === 0) return;
-    setIsImporting(true);
+    if (!selectedDepartmentId) {
+      alert("A department is required before importing students.");
+      return;
+    }
+    if (
+      createAccounts &&
+      passwordMode === "custom" &&
+      customPassword.trim().length < 6
+    ) {
+      alert("The custom initial password must be at least 6 characters long.");
+      return;
+    }
 
-    try {
-      for (const item of validRows) {
+    setIsImporting(true);
+    let studentsCreated = 0;
+    let accountsCreated = 0;
+    const failures: string[] = [];
+
+    for (const item of validRows) {
+      let insertedStudentId: string | null = null;
+      try {
         const studentData = {
           roll_number: item.roll_number.trim(),
           reg_number: item.reg_number?.trim() || null,
           full_name: item.full_name.trim(),
-          department_id: departmentId || null,
+          department_id: selectedDepartmentId,
           semester: item.semester || defaultSemester || 1,
           parent_name: item.parent_name?.trim() || null,
           parent_mobile: item.parent_mobile.trim(),
           student_mobile: item.student_mobile?.trim() || null,
-          email: item.email?.trim() || null,
+          email: item.email?.trim().toLowerCase() || null,
           date_of_birth: item.date_of_birth || null,
           gender: item.gender || null,
           address: item.address?.trim() || null,
           status: "active" as const,
         };
+        const [student] = await localDb.insert("students", [studentData]);
+        if (!student) throw new Error("Student record was not created.");
+        insertedStudentId = student.id;
+        studentsCreated += 1;
 
-        const insertedStudents = await localDb.insert("students", [studentData]);
-        const student = insertedStudents[0];
-
-        if (student && createAccounts) {
-          // 2. Create user account
-          const accountId = `student-user-${student.id}`;
+        if (createAccounts) {
           const effectiveEmail =
-            item.email?.trim() ||
+            item.email?.trim().toLowerCase() ||
             `${item.roll_number.toLowerCase().replace(/[^a-z0-9]/g, "")}@student.edutrack.edu`;
-
-          await localDb.insert("users", [
-            {
-              id: accountId,
-              full_name: student.full_name,
-              email: effectiveEmail,
-              role: "student",
-              department_id: departmentId || null,
-              student_id: student.id,
-              roll_number: student.roll_number,
-              status: "active",
-            },
-          ]);
-
-          await localDb.update("students", student.id, { user_id: accountId });
-
-          // 3. Save initial login password
-          // Either enrollment/roll number OR custom password specified during import
-          const pwd =
+          const rawPassword =
             passwordMode === "enrollment"
-              ? (student.roll_number || "123")
-              : (customPassword.trim() || student.roll_number || "123");
-
-          saveCredential(
-            [
-              accountId,
-              student.id,
-              student.roll_number,
-              student.reg_number,
-              effectiveEmail,
-            ],
-            pwd
+              ? student.roll_number
+              : customPassword.trim();
+          const initialPassword =
+            rawPassword.length >= 6 ? rawPassword : `${rawPassword}@123`;
+          const { data, error } = await supabase.functions.invoke(
+            "provision-student-accounts",
+            {
+              body: {
+                students: [
+                  {
+                    studentId: student.id,
+                    email: effectiveEmail,
+                    password: initialPassword,
+                    fullName: student.full_name,
+                    departmentId: selectedDepartmentId,
+                  },
+                ],
+              },
+            },
           );
+          if (error || !data?.results?.[0]?.ok) {
+            const reason =
+              data?.results?.[0]?.error ||
+              error?.message ||
+              "Account provisioning failed";
+            throw new Error(reason);
+          }
+          accountsCreated += 1;
+          await localDb.update("students", student.id, {
+            user_id: data.results[0].userId,
+            email: effectiveEmail,
+          });
         }
+      } catch (error) {
+        if (insertedStudentId) {
+          await localDb.delete("students", insertedStudentId);
+          studentsCreated -= 1;
+        }
+        failures.push(
+          `${item.full_name}: ${error instanceof Error ? error.message : "Unknown error"}`,
+        );
       }
-
-      onImportComplete(validRows.length);
-      resetState();
-      onOpenChange(false);
-    } catch (err: any) {
-      alert(`Import failed: ${err.message || "An unknown error occurred"}`);
-    } finally {
-      setIsImporting(false);
     }
-  };
 
+    setIsImporting(false);
+    if (studentsCreated > 0) onImportComplete(studentsCreated);
+    const summary = `Import completed: ${studentsCreated} student(s) created, ${accountsCreated} account(s) created, ${failures.length} failed.`;
+    if (failures.length > 0) {
+      alert(`${summary}\n\n${failures.join("\n")}`);
+      return;
+    }
+    alert(summary);
+    resetState();
+    onOpenChange(false);
+  };
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-5xl border-border bg-card p-6 shadow-2xl rounded-2xl max-h-[92vh] flex flex-col overflow-hidden">
-        <DialogHeader className="pb-3 border-b border-border/60 shrink-0">
+      <DialogContent className="w-[min(1080px,calc(100vw-2rem))] max-w-none max-h-[92vh] overflow-hidden rounded-2xl border-border/70 bg-card p-0 shadow-2xl flex flex-col">
+        <DialogHeader className="shrink-0 border-b border-border/60 bg-muted/10 px-6 py-5">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-[11px] font-bold uppercase tracking-wider text-primary">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-primary">
                 Class Roster & Enrollment Ingestion
               </p>
-              <DialogTitle className="text-xl font-bold font-display mt-0.5">
+              <DialogTitle className="mt-1 max-w-2xl text-2xl font-bold leading-tight tracking-tight font-display">
                 Import Multiple Students (Excel / CSV)
               </DialogTitle>
             </div>
-            <Badge variant="outline" className="text-xs">
+            <Badge
+              variant="outline"
+              className="shrink-0 rounded-full px-3 py-1.5 text-xs font-semibold"
+            >
               Semester {defaultSemester} Roster
             </Badge>
           </div>
         </DialogHeader>
 
-        <div className="flex-1 overflow-y-auto space-y-4 py-3 pr-1">
+        <div className="flex-1 overflow-y-auto space-y-5 px-6 py-5">
+          <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+            <span className="font-semibold text-foreground">
+              Import students in three simple steps:
+            </span>
+            <span className="rounded-full bg-muted px-2.5 py-1">
+              1. Select department
+            </span>
+            <span className="rounded-full bg-muted px-2.5 py-1">
+              2. Upload spreadsheet
+            </span>
+            <span className="rounded-full bg-muted px-2.5 py-1">
+              3. Review and import
+            </span>
+          </div>
+          <div className="rounded-xl border border-border/70 bg-muted/10 p-4 shadow-sm">
+            <label
+              htmlFor="student-import-department"
+              className="mb-2 block text-sm font-semibold text-foreground"
+            >
+              Department <span className="text-destructive">*</span>
+            </label>
+            <div className="relative">
+              <select
+                id="student-import-department"
+                value={selectedDepartmentId}
+                onChange={(event) =>
+                  setSelectedDepartmentId(event.target.value)
+                }
+                disabled={isImporting || Boolean(departmentId)}
+                className="h-10 w-full appearance-none rounded-lg border border-input bg-background pl-3 pr-12 text-sm font-medium text-foreground shadow-sm outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/20 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                <option value="">Select Department</option>
+                {localDb.departments
+                  .filter((department) => department.status !== "inactive")
+                  .map((department) => (
+                    <option key={department.id} value={department.id}>
+                      {department.name}
+                    </option>
+                  ))}
+              </select>
+              <ChevronDown
+                aria-hidden="true"
+                className="pointer-events-none absolute right-4 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground"
+              />
+            </div>
+            <p className="mt-1.5 text-[11px] text-muted-foreground">
+              Every imported student and generated portal account will be
+              assigned to this department.
+            </p>
+          </div>
           {/* Format Specification Banner */}
-          <div className="rounded-xl border border-primary/20 bg-primary/[0.03] p-3.5 text-xs space-y-2">
+          <div className="rounded-xl border border-border/70 bg-muted/10 p-4 text-xs space-y-3">
             <div className="flex flex-wrap items-center justify-between gap-2">
               <span className="font-semibold text-foreground flex items-center gap-1.5">
                 <HelpCircle className="h-4 w-4 text-primary" />
-                Required & Optional Student Data Fields
+                Download a template and prepare student data
               </span>
               <div className="flex items-center gap-2">
                 <Button
@@ -320,12 +417,23 @@ export const StudentImportModal: React.FC<StudentImportModalProps> = ({
             <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-muted-foreground pt-1">
               <div>
                 <span className="font-medium text-foreground">Mandatory:</span>{" "}
-                <span className="font-semibold text-primary">Enrollment No / Roll No</span> (Unique key used as default portal password),{" "}
-                <span className="font-semibold text-primary">Student Full Name</span>,{" "}
-                <span className="font-semibold text-primary">Parent Mobile</span> (For automated SMS alerts).
+                <span className="font-semibold text-primary">
+                  Enrollment No / Roll No
+                </span>{" "}
+                (Unique key used as default portal password),{" "}
+                <span className="font-semibold text-primary">
+                  Student Full Name
+                </span>
+                ,{" "}
+                <span className="font-semibold text-primary">
+                  Parent Mobile
+                </span>{" "}
+                (For automated SMS alerts).
               </div>
               <div>
-                <span className="font-medium text-foreground">Optional:</span> University Reg No, Semester, Parent Name, Student Mobile, Student Email, Date of Birth (YYYY-MM-DD), Gender, Address.
+                <span className="font-medium text-foreground">Optional:</span>{" "}
+                University Reg No, Semester, Parent Name, Student Mobile,
+                Student Email, Date of Birth (YYYY-MM-DD), Gender, Address.
               </div>
             </div>
           </div>
@@ -339,7 +447,7 @@ export const StudentImportModal: React.FC<StudentImportModalProps> = ({
             onDragLeave={() => setDragOver(false)}
             onDrop={handleDrop}
             onClick={() => fileInputRef.current?.click()}
-            className={`border-2 border-dashed rounded-xl p-5 text-center cursor-pointer transition-all ${
+            className={`border-2 border-dashed rounded-xl px-6 py-8 text-center cursor-pointer transition-all ${
               dragOver
                 ? "border-primary bg-primary/5"
                 : "border-border hover:border-primary/50 hover:bg-muted/30"
@@ -353,7 +461,7 @@ export const StudentImportModal: React.FC<StudentImportModalProps> = ({
               className="hidden"
             />
             <div className="flex flex-col items-center justify-center gap-2">
-              <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center text-primary">
+              <div className="h-12 w-12 rounded-xl bg-primary/10 flex items-center justify-center text-primary shadow-sm">
                 {isParsing ? (
                   <Loader2 className="h-5 w-5 animate-spin" />
                 ) : (
@@ -384,7 +492,7 @@ export const StudentImportModal: React.FC<StudentImportModalProps> = ({
           )}
 
           {/* Account Creation & Password Configuration Settings */}
-          <div className="rounded-xl border border-border p-4 bg-muted/20 space-y-3">
+          <div className="rounded-xl border border-border/70 bg-muted/10 p-4 sm:p-5 space-y-4">
             <div className="flex items-center justify-between">
               <label className="flex items-center gap-2 text-xs font-semibold text-foreground cursor-pointer">
                 <input
@@ -395,7 +503,7 @@ export const StudentImportModal: React.FC<StudentImportModalProps> = ({
                 />
                 <span className="flex items-center gap-1.5">
                   <KeyRound className="h-3.5 w-3.5 text-primary" />
-                  Automatically generate student portal accounts upon import
+                  Create student portal accounts automatically
                 </span>
               </label>
               {createAccounts && (
@@ -410,7 +518,7 @@ export const StudentImportModal: React.FC<StudentImportModalProps> = ({
                 <div>
                   <p className="font-semibold text-foreground mb-1.5 flex items-center gap-1.5">
                     <Lock className="h-3.5 w-3.5 text-primary" />
-                    Default Initial Password Strategy:
+                    Initial password strategy
                   </p>
                   <div className="space-y-1.5">
                     <label className="flex items-center gap-2 text-xs text-foreground cursor-pointer">
@@ -423,7 +531,9 @@ export const StudentImportModal: React.FC<StudentImportModalProps> = ({
                       />
                       <span className="font-medium">
                         Unique Enrollment / Roll Number{" "}
-                        <span className="text-muted-foreground font-normal">(Default & Recommended)</span>
+                        <span className="text-muted-foreground font-normal">
+                          (Default & Recommended)
+                        </span>
                       </span>
                     </label>
                     <label className="flex items-center gap-2 text-xs text-foreground cursor-pointer">
@@ -443,11 +553,16 @@ export const StudentImportModal: React.FC<StudentImportModalProps> = ({
 
                 <div>
                   {passwordMode === "enrollment" ? (
-                    <div className="rounded-lg border border-primary/20 bg-primary/5 p-3 text-[11px] text-muted-foreground">
+                    <div className="rounded-xl border border-primary/20 bg-primary/5 p-4 text-xs leading-relaxed text-muted-foreground">
                       <span className="font-semibold text-foreground block mb-0.5">
                         Enrollment Number as Password:
                       </span>
-                      Each student’s portal account will be initially protected by their own unique Roll/Enrollment number (e.g. <code className="font-bold text-foreground font-mono">21CS101</code>). They will be prompted to change it upon first login.
+                      Each student’s portal account will be initially protected
+                      by their own unique Roll/Enrollment number (e.g.{" "}
+                      <code className="font-bold text-foreground font-mono">
+                        21CS101
+                      </code>
+                      ). They will be prompted to change it upon first login.
                     </div>
                   ) : (
                     <div className="space-y-1.5">
@@ -462,7 +577,8 @@ export const StudentImportModal: React.FC<StudentImportModalProps> = ({
                         className="h-8 text-xs font-mono"
                       />
                       <p className="text-[10px] text-muted-foreground">
-                        All imported students will initially use this password to sign in.
+                        All imported students will initially use this password
+                        to sign in.
                       </p>
                     </div>
                   )}
@@ -495,7 +611,9 @@ export const StudentImportModal: React.FC<StudentImportModalProps> = ({
                   </Button>
                   {invalidCount > 0 && (
                     <Button
-                      variant={activeTab === "invalid" ? "destructive" : "outline"}
+                      variant={
+                        activeTab === "invalid" ? "destructive" : "outline"
+                      }
                       size="sm"
                       onClick={() => setActiveTab("invalid")}
                       className="h-7 text-xs"
@@ -507,17 +625,23 @@ export const StudentImportModal: React.FC<StudentImportModalProps> = ({
                 </div>
 
                 <p className="text-xs text-muted-foreground">
-                  Showing {displayedRows.length} row{displayedRows.length !== 1 ? "s" : ""} • Click any cell to edit
+                  Showing {displayedRows.length} row
+                  {displayedRows.length !== 1 ? "s" : ""} • Click any cell to
+                  edit
                 </p>
               </div>
 
               {/* Data Table */}
-              <div className="rounded-xl border border-border overflow-x-auto max-h-72">
+              <div className="rounded-xl border border-border/70 overflow-x-auto max-h-72 shadow-sm">
                 <table className="w-full text-xs text-left">
                   <thead className="bg-muted/60 sticky top-0 z-10 border-b border-border">
                     <tr>
-                      <th className="py-2 px-2.5 font-semibold text-muted-foreground w-10">#</th>
-                      <th className="py-2 px-2.5 font-semibold text-foreground">Status</th>
+                      <th className="py-2 px-2.5 font-semibold text-muted-foreground w-10">
+                        #
+                      </th>
+                      <th className="py-2 px-2.5 font-semibold text-foreground">
+                        Status
+                      </th>
                       <th className="py-2 px-2.5 font-semibold text-foreground min-w-[130px]">
                         Enrollment / Roll No*
                       </th>
@@ -536,7 +660,9 @@ export const StudentImportModal: React.FC<StudentImportModalProps> = ({
                       <th className="py-2 px-2.5 font-semibold text-foreground min-w-[150px]">
                         Email
                       </th>
-                      <th className="py-2 px-2.5 font-semibold text-foreground min-w-[70px]">Sem</th>
+                      <th className="py-2 px-2.5 font-semibold text-foreground min-w-[70px]">
+                        Sem
+                      </th>
                       <th className="py-2 px-2.5 font-semibold text-foreground min-w-[110px]">
                         Default Password
                       </th>
@@ -546,7 +672,7 @@ export const StudentImportModal: React.FC<StudentImportModalProps> = ({
                   <tbody className="divide-y divide-border/60">
                     {displayedRows.map((row) => {
                       const originalIndex = rows.findIndex(
-                        (r) => r.rowNumber === row.rowNumber
+                        (r) => r.rowNumber === row.rowNumber,
                       );
                       const expectedPassword =
                         passwordMode === "enrollment"
@@ -598,7 +724,7 @@ export const StudentImportModal: React.FC<StudentImportModalProps> = ({
                                 handleCellChange(
                                   originalIndex,
                                   "roll_number",
-                                  e.target.value
+                                  e.target.value,
                                 )
                               }
                               placeholder="e.g. 21CS101"
@@ -608,9 +734,13 @@ export const StudentImportModal: React.FC<StudentImportModalProps> = ({
                                   : ""
                               }`}
                             />
-                            {row.errors.some((e) => e.includes("Enrollment")) && (
+                            {row.errors.some((e) =>
+                              e.includes("Enrollment"),
+                            ) && (
                               <p className="text-[10px] text-destructive mt-0.5">
-                                {row.errors.find((e) => e.includes("Enrollment"))}
+                                {row.errors.find((e) =>
+                                  e.includes("Enrollment"),
+                                )}
                               </p>
                             )}
                           </td>
@@ -623,7 +753,7 @@ export const StudentImportModal: React.FC<StudentImportModalProps> = ({
                                 handleCellChange(
                                   originalIndex,
                                   "full_name",
-                                  e.target.value
+                                  e.target.value,
                                 )
                               }
                               placeholder="Full Name"
@@ -642,7 +772,7 @@ export const StudentImportModal: React.FC<StudentImportModalProps> = ({
                                 handleCellChange(
                                   originalIndex,
                                   "parent_mobile",
-                                  e.target.value
+                                  e.target.value,
                                 )
                               }
                               placeholder="10 Digits"
@@ -670,17 +800,19 @@ export const StudentImportModal: React.FC<StudentImportModalProps> = ({
                                 handleCellChange(
                                   originalIndex,
                                   "student_mobile",
-                                  e.target.value
+                                  e.target.value,
                                 )
                               }
                               placeholder="10 Digits (Opt)"
                               className={`h-7 text-xs font-mono px-2 ${
-                                row.student_mobile && !isValid10DigitMobile(row.student_mobile)
+                                row.student_mobile &&
+                                !isValid10DigitMobile(row.student_mobile)
                                   ? "border-destructive focus-visible:ring-destructive bg-destructive/10"
                                   : ""
                               }`}
                               title={
-                                row.student_mobile && !isValid10DigitMobile(row.student_mobile)
+                                row.student_mobile &&
+                                !isValid10DigitMobile(row.student_mobile)
                                   ? "Must be exactly 10 digits if provided"
                                   : ""
                               }
@@ -695,7 +827,7 @@ export const StudentImportModal: React.FC<StudentImportModalProps> = ({
                                 handleCellChange(
                                   originalIndex,
                                   "reg_number",
-                                  e.target.value
+                                  e.target.value,
                                 )
                               }
                               placeholder="REG-No"
@@ -711,7 +843,7 @@ export const StudentImportModal: React.FC<StudentImportModalProps> = ({
                                 handleCellChange(
                                   originalIndex,
                                   "email",
-                                  e.target.value
+                                  e.target.value,
                                 )
                               }
                               placeholder="Auto-generated if empty"
@@ -728,7 +860,8 @@ export const StudentImportModal: React.FC<StudentImportModalProps> = ({
                                 handleCellChange(
                                   originalIndex,
                                   "semester",
-                                  parseInt(e.target.value, 10) || defaultSemester
+                                  parseInt(e.target.value, 10) ||
+                                    defaultSemester,
                                 )
                               }
                               className="h-7 text-xs px-1 w-14 text-center font-mono"
@@ -763,7 +896,8 @@ export const StudentImportModal: React.FC<StudentImportModalProps> = ({
               {/* Status footer with row remarks */}
               <div className="flex flex-wrap items-center justify-between text-[11px] text-muted-foreground px-1">
                 <span>
-                  Tip: You can edit roll numbers, names, and phone numbers directly in the table before importing.
+                  Tip: You can edit roll numbers, names, and phone numbers
+                  directly in the table before importing.
                 </span>
                 {createAccounts && (
                   <span>
@@ -781,7 +915,7 @@ export const StudentImportModal: React.FC<StudentImportModalProps> = ({
         </div>
 
         {/* Modal Action Controls */}
-        <div className="pt-3 border-t border-border/60 shrink-0 flex flex-col-reverse sm:flex-row sm:items-center sm:justify-between gap-3">
+        <div className="shrink-0 flex flex-col-reverse gap-3 border-t border-border/60 bg-card/95 px-6 py-4 backdrop-blur sm:flex-row sm:items-center sm:justify-between">
           <Button
             variant="outline"
             size="sm"
@@ -807,7 +941,8 @@ export const StudentImportModal: React.FC<StudentImportModalProps> = ({
                 ) : (
                   <>
                     <UserPlus className="h-4 w-4 mr-2" />
-                    Confirm & Import {validCount} Student{validCount !== 1 ? "s" : ""}
+                    Confirm & Import {validCount} Student
+                    {validCount !== 1 ? "s" : ""}
                   </>
                 )}
               </Button>
