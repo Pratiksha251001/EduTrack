@@ -404,7 +404,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
       return { ok: false, message };
     };
 
-    if (rawInput.includes("@")) {
+    // Admin and student accounts are provisioned in Supabase Auth.
+    // HOD, coordinator, and teacher emails continue through the institutional
+    // record and credential checks below until those roles are provisioned.
+    if (
+      (targetRole === "admin" || targetRole === "student") &&
+      rawInput.includes("@")
+    ) {
       const { data: authData, error: authError } =
         await supabase.auth.signInWithPassword({
           email: rawInput.toLowerCase(),
