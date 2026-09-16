@@ -5,14 +5,21 @@ import { localDb, isSupabaseConfigured } from "../lib/supabase";
 import { college } from "../lib/college";
 import { Badge } from "../components/ui/badge";
 import { Button } from "../components/ui/button";
-import { Database, FileSpreadsheet, Trash2 } from "lucide-react";
+import {
+  Database,
+  FileSpreadsheet,
+  Trash2,
+  Terminal as TerminalIcon,
+} from "lucide-react";
 import { DatabaseSetupModal } from "../components/DatabaseSetupModal";
 import { StudentImportModal } from "../components/StudentImportModal";
+import { BackendTerminalModal } from "../components/BackendTerminalModal";
 
 export const Students: React.FC = () => {
   const [departments, setDepartments] = useState(localDb.departments);
   const [dbModalOpen, setDbModalOpen] = useState(false);
   const [importModalOpen, setImportModalOpen] = useState(false);
+  const [terminalModalOpen, setTerminalModalOpen] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
 
   useEffect(() => {
@@ -101,6 +108,15 @@ export const Students: React.FC = () => {
             <Button
               variant="outline"
               size="sm"
+              onClick={() => setTerminalModalOpen(true)}
+              className="text-xs h-9 gap-1.5 font-mono bg-slate-900 text-slate-100 hover:bg-slate-800 dark:bg-slate-800"
+            >
+              <TerminalIcon className="h-3.5 w-3.5 text-emerald-400" />
+              Terminal Setup
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
               onClick={handleClearDefaultData}
               title="Remove default sample students to start fresh"
               className="text-xs h-9 gap-1.5 text-destructive hover:bg-destructive/10 hover:text-destructive"
@@ -134,8 +150,19 @@ export const Students: React.FC = () => {
             })),
           },
           { key: "parent_name", label: "Parent / Guardian Name" },
-          { key: "parent_mobile", label: "Parent Mobile (For SMS Alerts)" },
-          { key: "student_mobile", label: "Student Mobile" },
+          {
+            key: "parent_mobile",
+            label: "Parent Mobile (For SMS Alerts)",
+            required: true,
+            helperText:
+              "Strictly 10 digits required for parent SMS & WhatsApp alerts.",
+          },
+          {
+            key: "student_mobile",
+            label: "Student Mobile",
+            helperText: "Optional 10-digit mobile number for student.",
+          },
+          { key: "date_of_birth", label: "Date of Birth", type: "date" },
           { key: "email", label: "Student Email", type: "email" },
           {
             key: "status",
@@ -235,6 +262,10 @@ export const Students: React.FC = () => {
         }}
       />
       <DatabaseSetupModal open={dbModalOpen} onOpenChange={setDbModalOpen} />
+      <BackendTerminalModal
+        open={terminalModalOpen}
+        onOpenChange={setTerminalModalOpen}
+      />
     </div>
   );
 };

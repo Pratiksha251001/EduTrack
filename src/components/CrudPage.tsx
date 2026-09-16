@@ -2,9 +2,16 @@ import React, { useState, useMemo, useEffect } from "react";
 import { Search, Plus, Edit, Trash2, Loader2 } from "lucide-react";
 import { localDb } from "../lib/supabase";
 import { saveCredential } from "../lib/authUtils";
+import {
+  cleanMobile,
+  isValid10DigitMobile,
+  getMobileValidationError,
+  sanitizeMobileInput,
+} from "../lib/validation";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { Select } from "./ui/select";
+import { DatePicker } from "./ui/date-picker";
 import {
   Table,
   TableHeader,
@@ -17,10 +24,11 @@ import {
 export interface CrudField {
   key: string;
   label: string;
-  type?: "text" | "number" | "email" | "password" | "select";
+  type?: "text" | "number" | "email" | "password" | "select" | "date";
   required?: boolean;
   defaultValue?: string;
   options?: Array<{ value: string; label: string }>;
+  helperText?: string;
 }
 
 export interface CrudColumn<T> {
@@ -98,22 +106,54 @@ export function CrudPage<T extends { id: string }>({
 
   const openEdit = (item: T) => {
     setEditingItem(item);
-    setFormData({ ...(item as any) });
+    const formInit: any = { ...(item as any) };
+    if (table === "subjects") {
+      const currentTs = localDb.teacher_subjects.find(
+        (ts) => ts.subject_id === item.id,
+      );
+      formInit.teacher_id =
+        currentTs?.teacher_id || (item as any).teacher_id || "";
+    }
+    setFormData(formInit);
     setModalOpen(true);
+  };
+
+  const isMobileField = (f: CrudField) => {
+    const k = f.key.toLowerCase();
+    const l = f.label.toLowerCase();
+    return (
+      k === "mobile" ||
+      k === "phone" ||
+      k === "parent_mobile" ||
+      k === "student_mobile" ||
+      k.endsWith("_mobile") ||
+      k.endsWith("_phone") ||
+      l.includes("mobile") ||
+      l.includes("phone")
+    );
   };
 
   const handleSave = async () => {
     setSaving(true);
-    if (
-      table === "teachers" &&
-      formData.role === "hod" &&
-      !editingItem &&
-      (!formData.email || !formData.password || !formData.department_id)
-    ) {
-      alert("HOD department, email, and login password are required.");
-      setSaving(false);
-      return;
+
+    // Validate 10-digit mobile number fields strictly
+    for (const f of fields) {
+      if (isMobileField(f)) {
+        const rawVal = formData[f.key];
+        if (f.required || (rawVal && String(rawVal).trim().length > 0)) {
+          const err = getMobileValidationError(rawVal, f.label, !!f.required);
+          if (err) {
+            alert(err);
+            setSaving(false);
+            return;
+          }
+        }
+      }
     }
+
+    // Flexible HOD & Faculty creation:
+    // HODs, Coordinators, and Lecturers do not require hardcoded fields upfront.
+    // If password/email/department are not provided, sensible defaults are automatically provisioned.
 
     const saveData =
       table === "teachers" && formData.role
@@ -121,7 +161,14 @@ export function CrudPage<T extends { id: string }>({
             ...formData,
             is_class_coordinator: formData.role === "class_coordinator",
           }
-        : formData;
+        : { ...formData };
+
+    // Clean all mobile numbers to standard 10 digits before saving
+    for (const f of fields) {
+      if (isMobileField(f) && saveData[f.key]) {
+        saveData[f.key] = cleanMobile(saveData[f.key]) || null;
+      }
+    }
 
     const rawPassword = formData.password?.trim();
     if ("password" in saveData) {
@@ -223,6 +270,29 @@ export function CrudPage<T extends { id: string }>({
           effectivePwd,
         );
       }
+
+      // 3. UPDATE SUBJECT (Sync Teacher Assignment)
+      if (table === "subjects") {
+        const assignedTeacherId = (saveData as any).teacher_id;
+        const existingTs = localDb.teacher_subjects.filter(
+          (ts) => ts.subject_id === editingItem.id,
+        );
+        for (const ts of existingTs) {
+          await localDb.delete("teacher_subjects", ts.id);
+        }
+        if (assignedTeacherId) {
+          await localDb.insert("teacher_subjects", [
+            {
+              id: `ts-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
+              teacher_id: assignedTeacherId,
+              subject_id: editingItem.id,
+              class_name: null,
+              created_at: new Date().toISOString(),
+            },
+          ]);
+        }
+        window.dispatchEvent(new CustomEvent("edutrack_data_updated"));
+      }
     } else {
       // INSERT NEW RECORD
       const inserted = await localDb.insert(table, saveData);
@@ -295,6 +365,24 @@ export function CrudPage<T extends { id: string }>({
           effectivePwd,
         );
       }
+
+      // 3. INSERT SUBJECT (Sync Teacher Assignment)
+      if (table === "subjects" && inserted[0]) {
+        const sub = inserted[0];
+        const assignedTeacherId = (saveData as any).teacher_id;
+        if (assignedTeacherId) {
+          await localDb.insert("teacher_subjects", [
+            {
+              id: `ts-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
+              teacher_id: assignedTeacherId,
+              subject_id: sub.id,
+              class_name: null,
+              created_at: new Date().toISOString(),
+            },
+          ]);
+        }
+        window.dispatchEvent(new CustomEvent("edutrack_data_updated"));
+      }
     }
 
     const updated = await localDb.get(table);
@@ -306,6 +394,15 @@ export function CrudPage<T extends { id: string }>({
   const handleDelete = async (id: string) => {
     if (window.confirm("Are you sure you want to delete this record?")) {
       await localDb.delete(table, id);
+      if (table === "subjects") {
+        const toDelete = localDb.teacher_subjects.filter(
+          (ts) => ts.subject_id === id,
+        );
+        for (const ts of toDelete) {
+          await localDb.delete("teacher_subjects", ts.id);
+        }
+        window.dispatchEvent(new CustomEvent("edutrack_data_updated"));
+      }
       const updated = await localDb.get(table);
       setData([...updated]);
     }
@@ -343,37 +440,95 @@ export function CrudPage<T extends { id: string }>({
             </Button>
           </div>
           <div className="grid gap-4 sm:grid-cols-2">
-            {fields.map((f) => (
-              <div key={f.key} className="space-y-1.5">
-                <label className="text-xs font-semibold text-muted-foreground">
-                  {f.label}{" "}
-                  {f.required && <span className="text-destructive">*</span>}
-                </label>
-                {f.type === "select" ? (
-                  <Select
-                    value={formData[f.key] || ""}
-                    onChange={(e) =>
-                      setFormData((prev) => ({
-                        ...prev,
-                        [f.key]: e.target.value,
-                      }))
-                    }
-                    options={f.options}
-                  />
-                ) : (
-                  <Input
-                    type={f.type || "text"}
-                    value={formData[f.key] || ""}
-                    onChange={(e) =>
-                      setFormData((prev) => ({
-                        ...prev,
-                        [f.key]: e.target.value,
-                      }))
-                    }
-                  />
-                )}
-              </div>
-            ))}
+            {fields.map((f) => {
+              const isMobile = isMobileField(f);
+              const currentVal = formData[f.key] || "";
+              const isInvalidMobile = isMobile && currentVal && !isValid10DigitMobile(currentVal);
+
+              return (
+                <div key={f.key} className="space-y-1.5">
+                  <label className="text-xs font-semibold text-muted-foreground flex items-center justify-between">
+                    <span>
+                      {f.label}{" "}
+                      {f.required && <span className="text-destructive">*</span>}
+                    </span>
+                    {isMobile && currentVal && (
+                      <span
+                        className={`text-[10px] font-mono ${
+                          currentVal.length === 10
+                            ? "text-emerald-600 font-bold"
+                            : "text-muted-foreground"
+                        }`}
+                      >
+                        {currentVal.length}/10 digits
+                      </span>
+                    )}
+                  </label>
+                  {f.type === "select" ? (
+                    <Select
+                      value={formData[f.key] || ""}
+                      onChange={(e) =>
+                        setFormData((prev) => ({
+                          ...prev,
+                          [f.key]: e.target.value,
+                        }))
+                      }
+                      options={f.options}
+                    />
+                  ) : f.type === "date" ? (
+                    <DatePicker
+                      value={formData[f.key] || ""}
+                      onChange={(val) =>
+                        setFormData((prev) => ({
+                          ...prev,
+                          [f.key]: val,
+                        }))
+                      }
+                    />
+                  ) : isMobile ? (
+                    <Input
+                      type="tel"
+                      inputMode="numeric"
+                      pattern="[0-9]*"
+                      maxLength={10}
+                      placeholder="9876543210 (10 digits)"
+                      value={currentVal}
+                      onChange={(e) =>
+                        setFormData((prev) => ({
+                          ...prev,
+                          [f.key]: sanitizeMobileInput(e.target.value),
+                        }))
+                      }
+                      className={`font-mono ${
+                        isInvalidMobile
+                          ? "border-destructive focus-visible:ring-destructive bg-destructive/5"
+                          : ""
+                      }`}
+                    />
+                  ) : (
+                    <Input
+                      type={f.type || "text"}
+                      value={formData[f.key] || ""}
+                      onChange={(e) =>
+                        setFormData((prev) => ({
+                          ...prev,
+                          [f.key]: e.target.value,
+                        }))
+                      }
+                    />
+                  )}
+                  {f.helperText ? (
+                    <p className="text-[11px] text-muted-foreground leading-tight">
+                      {f.helperText}
+                    </p>
+                  ) : isMobile ? (
+                    <p className="text-[11px] text-muted-foreground leading-tight">
+                      Must be strictly 10 digits (e.g. 9876543210).
+                    </p>
+                  ) : null}
+                </div>
+              );
+            })}
           </div>
           <div className="flex justify-end gap-2 border-t border-border pt-3">
             <Button variant="outline" onClick={() => setModalOpen(false)}>

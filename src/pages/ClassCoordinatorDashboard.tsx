@@ -16,11 +16,17 @@ import {
   ShieldCheck,
   MessageSquare,
   Globe,
+  BookOpen,
+  UserCheck,
+  Users,
+  Building2,
+  Sparkles,
+  Layers,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { localDb } from '../lib/supabase';
 import { saveCredential } from '../lib/authUtils';
-import { Student } from '../lib/types';
+import { Student, Subject } from '../lib/types';
 import { college } from '../lib/college';
 import {
   sanitizeMobileInput,
@@ -66,6 +72,7 @@ import {
 
 export const ClassCoordinatorDashboard: React.FC = () => {
   const { user } = useAuth();
+  const [activeMainTab, setActiveMainTab] = useState<'students' | 'subjects'>('students');
   const [search, setSearch] = useState('');
   const [semesterFilter, setSemesterFilter] = useState<string>('all');
   const [studentDialogOpen, setStudentDialogOpen] = useState(false);
@@ -76,6 +83,23 @@ export const ClassCoordinatorDashboard: React.FC = () => {
   const [successToastMsg, setSuccessToastMsg] = useState<string | null>(null);
   const [editingStudent, setEditingStudent] = useState<Student | null>(null);
   const [version, setVersion] = useState(0);
+
+  // Subject management state
+  const [subjectSearch, setSubjectSearch] = useState('');
+  const [subjectSemesterFilter, setSubjectSemesterFilter] = useState<string>('all');
+  const [subjectDialogOpen, setSubjectDialogOpen] = useState(false);
+  const [editingSubject, setEditingSubject] = useState<Subject | null>(null);
+  const [assignFacultyModalOpen, setAssignFacultyModalOpen] = useState(false);
+  const [targetSubjectForAssign, setTargetSubjectForAssign] = useState<Subject | null>(null);
+  const [selectedFacultyForAssign, setSelectedFacultyForAssign] = useState('');
+  const [subjectForm, setSubjectForm] = useState({
+    code: '',
+    name: '',
+    semester: '5',
+    department_id: '',
+    credits: '3',
+    teacher_id: '',
+  });
 
   const [studentForm, setStudentForm] = useState({
     roll_number: '',
@@ -95,6 +119,8 @@ export const ClassCoordinatorDashboard: React.FC = () => {
   const departments = localDb.departments;
   const students = localDb.students;
   const teachers = localDb.teachers;
+  const allSubjects = localDb.subjects;
+  const teacherSubjects = localDb.teacher_subjects;
 
   const me = teachers.find(
     t =>
@@ -104,7 +130,56 @@ export const ClassCoordinatorDashboard: React.FC = () => {
       (t.is_class_coordinator && t.department_id === (user?.department_id || 'dept-1'))
   );
   const myDepartmentId = user?.department_id || me?.department_id || 'dept-1';
+  const myDepartment = departments.find(d => d.id === myDepartmentId);
   const myAssignedSemester = me?.assigned_semester || 5;
+
+  // Faculty members belonging to coordinator's department (imported or created by HOD)
+  const departmentTeachers = useMemo(() => {
+    return teachers.filter(t => !myDepartmentId || t.department_id === myDepartmentId);
+  }, [teachers, myDepartmentId, version]);
+
+  // Subjects for coordinator's department / semester
+  const coordinatorSubjects = useMemo(() => {
+    let list = allSubjects.filter(s => !myDepartmentId || s.department_id === myDepartmentId);
+    if (subjectSemesterFilter !== 'all') {
+      list = list.filter(s => s.semester === Number(subjectSemesterFilter));
+    }
+    if (subjectSearch) {
+      const q = subjectSearch.toLowerCase();
+      list = list.filter(s => {
+        const assignedT = departmentTeachers.find(t => t.id === (s as any).teacher_id);
+        const tsMapped = teacherSubjects.filter(ts => ts.subject_id === s.id);
+        const mappedNames = tsMapped
+          .map(ts => teachers.find(t => t.id === ts.teacher_id)?.full_name || '')
+          .join(' ')
+          .toLowerCase();
+        return (
+          s.code.toLowerCase().includes(q) ||
+          s.name.toLowerCase().includes(q) ||
+          (assignedT && assignedT.full_name.toLowerCase().includes(q)) ||
+          mappedNames.includes(q)
+        );
+      });
+    }
+    return list;
+  }, [allSubjects, myDepartmentId, subjectSemesterFilter, subjectSearch, departmentTeachers, teacherSubjects, version]);
+
+  const subjectStats = useMemo(() => {
+    const deptSubs = allSubjects.filter(s => !myDepartmentId || s.department_id === myDepartmentId);
+    const total = deptSubs.length;
+    const assigned = deptSubs.filter(s => {
+      const hasDirect = !!(s as any).teacher_id;
+      const hasMapping = teacherSubjects.some(ts => ts.subject_id === s.id);
+      return hasDirect || hasMapping;
+    }).length;
+    const unassigned = total - assigned;
+    return {
+      total,
+      assigned,
+      unassigned,
+      facultyCount: departmentTeachers.length,
+    };
+  }, [allSubjects, myDepartmentId, teacherSubjects, departmentTeachers, version]);
 
   const myStudents = useMemo(() => {
     let list = students.filter(s => !myDepartmentId || s.department_id === myDepartmentId);
@@ -235,8 +310,8 @@ export const ClassCoordinatorDashboard: React.FC = () => {
       department_id: user?.department_id,
       semester: Number(studentForm.semester),
       parent_name: studentForm.parent_name?.trim() || null,
-      parent_mobile: studentForm.parent_mobile.trim(),
-      student_mobile: studentForm.student_mobile?.trim() || null,
+      parent_mobile: cleanMobile(studentForm.parent_mobile),
+      student_mobile: cleanMobile(studentForm.student_mobile) || null,
       email: studentForm.email?.trim() || null,
       address: studentForm.address?.trim() || null,
       date_of_birth: studentForm.date_of_birth || null,
@@ -307,6 +382,192 @@ export const ClassCoordinatorDashboard: React.FC = () => {
     setVersion(v => v + 1);
   };
 
+  // SUBJECT & TEACHER ASSIGNMENT HANDLERS
+  const handleOpenAddSubject = () => {
+    setEditingSubject(null);
+    setSubjectForm({
+      code: '',
+      name: '',
+      semester: String(myAssignedSemester || 5),
+      department_id: myDepartmentId,
+      credits: '3',
+      teacher_id: '',
+    });
+    setSubjectDialogOpen(true);
+  };
+
+  const handleOpenEditSubject = (s: Subject) => {
+    setEditingSubject(s);
+    const currentTs = teacherSubjects.find(ts => ts.subject_id === s.id);
+    setSubjectForm({
+      code: s.code,
+      name: s.name,
+      semester: String(s.semester),
+      department_id: s.department_id || myDepartmentId,
+      credits: String(s.credits || 3),
+      teacher_id: currentTs?.teacher_id || (s as any).teacher_id || '',
+    });
+    setSubjectDialogOpen(true);
+  };
+
+  const handleSaveSubject = async () => {
+    if (!subjectForm.code.trim()) {
+      alert('Please enter a subject code (e.g. CS501).');
+      return;
+    }
+    if (!subjectForm.name.trim()) {
+      alert('Please enter a subject name.');
+      return;
+    }
+
+    const codeNorm = subjectForm.code.trim().toUpperCase();
+    const duplicate = allSubjects.find(
+      s =>
+        s.code.trim().toUpperCase() === codeNorm &&
+        s.department_id === myDepartmentId &&
+        (!editingSubject || s.id !== editingSubject.id)
+    );
+    if (duplicate) {
+      alert(`Subject code '${codeNorm}' already exists in this department (${duplicate.name}).`);
+      return;
+    }
+
+    const assignedTeacher = departmentTeachers.find(t => t.id === subjectForm.teacher_id);
+
+    if (editingSubject) {
+      await localDb.update('subjects', editingSubject.id, {
+        code: codeNorm,
+        name: subjectForm.name.trim(),
+        department_id: subjectForm.department_id || myDepartmentId,
+        semester: Number(subjectForm.semester),
+        credits: Number(subjectForm.credits) || 3,
+        teacher_id: subjectForm.teacher_id || null,
+      });
+
+      const existingTs = teacherSubjects.filter(ts => ts.subject_id === editingSubject.id);
+      for (const ts of existingTs) {
+        await localDb.delete('teacher_subjects', ts.id);
+      }
+      if (subjectForm.teacher_id) {
+        await localDb.insert('teacher_subjects', [{
+          id: `ts-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
+          teacher_id: subjectForm.teacher_id,
+          subject_id: editingSubject.id,
+          class_name: null,
+          created_at: new Date().toISOString(),
+        }]);
+      }
+
+      setSuccessToastMsg(
+        `Updated subject ${codeNorm} - ${subjectForm.name.trim()}${
+          assignedTeacher ? ` and mapped to ${assignedTeacher.full_name} (Imported by HOD)` : ''
+        }!`
+      );
+    } else {
+      const newSubjectId = `sub-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
+      const inserted = await localDb.insert('subjects', [{
+        id: newSubjectId,
+        code: codeNorm,
+        name: subjectForm.name.trim(),
+        department_id: subjectForm.department_id || myDepartmentId,
+        semester: Number(subjectForm.semester),
+        credits: Number(subjectForm.credits) || 3,
+        teacher_id: subjectForm.teacher_id || null,
+        created_at: new Date().toISOString(),
+      }]);
+
+      if (subjectForm.teacher_id && inserted[0]) {
+        await localDb.insert('teacher_subjects', [{
+          id: `ts-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
+          teacher_id: subjectForm.teacher_id,
+          subject_id: inserted[0].id,
+          class_name: null,
+          created_at: new Date().toISOString(),
+        }]);
+      }
+
+      setSuccessToastMsg(
+        `Created subject ${codeNorm} - ${subjectForm.name.trim()}${
+          assignedTeacher ? ` and assigned to ${assignedTeacher.full_name} (Imported by HOD)` : ''
+        }!`
+      );
+    }
+
+    window.dispatchEvent(new CustomEvent('edutrack_data_updated'));
+    setSubjectDialogOpen(false);
+    setVersion(v => v + 1);
+    setTimeout(() => setSuccessToastMsg(null), 5000);
+  };
+
+  const handleDeleteSubject = async (s: Subject) => {
+    if (!confirm(`Are you sure you want to delete subject '${s.code} - ${s.name}'?`)) return;
+    await localDb.delete('subjects', s.id);
+    const existingTs = teacherSubjects.filter(ts => ts.subject_id === s.id);
+    for (const ts of existingTs) {
+      await localDb.delete('teacher_subjects', ts.id);
+    }
+    window.dispatchEvent(new CustomEvent('edutrack_data_updated'));
+    setSuccessToastMsg(`Subject ${s.code} deleted successfully.`);
+    setVersion(v => v + 1);
+    setTimeout(() => setSuccessToastMsg(null), 4000);
+  };
+
+  const handleOpenQuickAssign = (s: Subject) => {
+    setTargetSubjectForAssign(s);
+    const currentTs = teacherSubjects.find(ts => ts.subject_id === s.id);
+    setSelectedFacultyForAssign(currentTs?.teacher_id || (s as any).teacher_id || '');
+    setAssignFacultyModalOpen(true);
+  };
+
+  const handleSaveQuickAssign = async () => {
+    if (!targetSubjectForAssign) return;
+
+    await localDb.update('subjects', targetSubjectForAssign.id, {
+      teacher_id: selectedFacultyForAssign || null,
+    });
+
+    const existingTs = teacherSubjects.filter(ts => ts.subject_id === targetSubjectForAssign.id);
+    for (const ts of existingTs) {
+      await localDb.delete('teacher_subjects', ts.id);
+    }
+
+    const assignedTeacher = departmentTeachers.find(t => t.id === selectedFacultyForAssign);
+
+    if (selectedFacultyForAssign) {
+      await localDb.insert('teacher_subjects', [{
+        id: `ts-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
+        teacher_id: selectedFacultyForAssign,
+        subject_id: targetSubjectForAssign.id,
+        class_name: null,
+        created_at: new Date().toISOString(),
+      }]);
+      setSuccessToastMsg(
+        `Assigned ${assignedTeacher?.full_name || 'Faculty'} (Imported by HOD) to ${targetSubjectForAssign.code}!`
+      );
+    } else {
+      setSuccessToastMsg(`Unassigned faculty from ${targetSubjectForAssign.code}.`);
+    }
+
+    window.dispatchEvent(new CustomEvent('edutrack_data_updated'));
+    setAssignFacultyModalOpen(false);
+    setTargetSubjectForAssign(null);
+    setVersion(v => v + 1);
+    setTimeout(() => setSuccessToastMsg(null), 4000);
+  };
+
+  const handleUnassignFaculty = async (s: Subject) => {
+    if (!confirm(`Unassign teacher from ${s.code} - ${s.name}?`)) return;
+    await localDb.update('subjects', s.id, { teacher_id: null });
+    const existingTs = teacherSubjects.filter(ts => ts.subject_id === s.id);
+    for (const ts of existingTs) {
+      await localDb.delete('teacher_subjects', ts.id);
+    }
+    window.dispatchEvent(new CustomEvent('edutrack_data_updated'));
+    setSuccessToastMsg(`Teacher unassigned from ${s.code}.`);
+    setVersion(v => v + 1);
+    setTimeout(() => setSuccessToastMsg(null), 4000);
+  };
+
   const statCards = [
     {
       label: myAssignedSemester ? `Semester ${myAssignedSemester} Students` : 'Dept Students',
@@ -342,6 +603,44 @@ export const ClassCoordinatorDashboard: React.FC = () => {
     },
   ];
 
+  const subjectStatCards = [
+    {
+      label: 'Curriculum Subjects',
+      value: String(subjectStats.total),
+      sub: `${myDepartment?.name || 'Department'} Courses`,
+      icon: BookOpen,
+      border: 'border-blue-500/20',
+      iconBg: 'bg-blue-500/10 text-blue-600 dark:text-blue-400',
+    },
+    {
+      label: 'Assigned to Faculty',
+      value: String(subjectStats.assigned),
+      sub: 'Teachers Mapped',
+      icon: UserCheck,
+      border: 'border-emerald-500/20',
+      iconBg: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400',
+    },
+    {
+      label: 'Pending Assignment',
+      value: String(subjectStats.unassigned),
+      sub: subjectStats.unassigned > 0 ? 'Needs Teacher Assignment' : 'All Subjects Assigned',
+      icon: subjectStats.unassigned > 0 ? XCircle : CheckCircle2,
+      border: subjectStats.unassigned > 0 ? 'border-amber-500/20' : 'border-emerald-500/20',
+      iconBg:
+        subjectStats.unassigned > 0
+          ? 'bg-amber-500/10 text-amber-600 dark:text-amber-400'
+          : 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400',
+    },
+    {
+      label: 'HOD Faculty Pool',
+      value: String(subjectStats.facultyCount),
+      sub: 'Imported Teachers Available',
+      icon: Users,
+      border: 'border-violet-500/20',
+      iconBg: 'bg-violet-500/10 text-violet-600 dark:text-violet-400',
+    },
+  ];
+
   return (
     <div className="space-y-6">
       {/* Toast Alert */}
@@ -360,17 +659,51 @@ export const ClassCoordinatorDashboard: React.FC = () => {
         </div>
       )}
 
-      <div>
-        <h1 className="font-display text-2xl font-bold tracking-tight text-foreground">
-          Class Coordinator Dashboard
-        </h1>
-        <p className="text-sm text-muted-foreground mt-0.5">
-          Manage student roster, bulk imports via Excel/CSV, and validate parent contact details.
-        </p>
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div>
+          <h1 className="font-display text-2xl font-bold tracking-tight text-foreground">
+            Class Coordinator Dashboard
+          </h1>
+          <p className="text-sm text-muted-foreground mt-0.5">
+            Manage student roster, create curriculum subjects, and assign teaching faculty imported by HOD.
+          </p>
+        </div>
+
+        {/* Tab Switcher */}
+        <div className="flex items-center gap-1.5 p-1 bg-muted/60 rounded-xl border border-border/60 self-start sm:self-auto">
+          <button
+            onClick={() => setActiveMainTab('students')}
+            className={`inline-flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+              activeMainTab === 'students'
+                ? 'bg-card text-foreground shadow-xs border border-border/80'
+                : 'text-muted-foreground hover:text-foreground'
+            }`}
+          >
+            <ClipboardList className="h-3.5 w-3.5" />
+            <span>Student Roster</span>
+            <Badge variant="secondary" className="text-[10px] px-1 py-0 h-4">
+              {myStudents.length}
+            </Badge>
+          </button>
+          <button
+            onClick={() => setActiveMainTab('subjects')}
+            className={`inline-flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+              activeMainTab === 'subjects'
+                ? 'bg-card text-foreground shadow-xs border border-border/80'
+                : 'text-muted-foreground hover:text-foreground'
+            }`}
+          >
+            <BookOpen className="h-3.5 w-3.5" />
+            <span>Subjects & Faculty</span>
+            <Badge variant="secondary" className="text-[10px] px-1 py-0 h-4">
+              {coordinatorSubjects.length}
+            </Badge>
+          </button>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        {statCards.map((s, i) => {
+        {(activeMainTab === 'students' ? statCards : subjectStatCards).map((s, i) => {
           const Icon = s.icon;
           return (
             <Card key={i} className={`border ${s.border} p-5 relative overflow-hidden`}>
@@ -387,7 +720,9 @@ export const ClassCoordinatorDashboard: React.FC = () => {
         })}
       </div>
 
-      <Card className="p-5">
+      {/* STUDENT ROSTER TAB */}
+      {activeMainTab === 'students' && (
+        <Card className="p-5">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
           <div>
             <h2 className="font-display font-bold text-lg flex items-center gap-2">
@@ -642,6 +977,404 @@ export const ClassCoordinatorDashboard: React.FC = () => {
           </div>
         </div>
       </Card>
+      )}
+
+      {/* SUBJECTS & TEACHER ASSIGNMENT TAB */}
+      {activeMainTab === 'subjects' && (
+        <Card className="p-5">
+          {/* Informational Guidance Banner */}
+          <div className="p-4 mb-5 rounded-xl bg-blue-500/10 border border-blue-500/20 text-foreground flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div className="space-y-1">
+              <div className="flex items-center gap-2 text-blue-700 dark:text-blue-400 font-semibold text-sm">
+                <Sparkles className="h-4 w-4" />
+                <span>Class Coordinator Curriculum & Faculty Mapping</span>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Define and organize courses for <strong className="text-foreground">{myDepartment?.name || 'Department'}</strong> (Semester {myAssignedSemester || 'All'}), and assign lecturers from faculty members imported or managed by your Head of Department (HOD).
+              </p>
+            </div>
+            <div className="flex items-center gap-2 shrink-0">
+              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg bg-blue-500/15 text-blue-700 dark:text-blue-400 text-xs font-semibold">
+                <Users className="h-3.5 w-3.5" />
+                <span>{departmentTeachers.length} Faculty in Department Pool</span>
+              </span>
+            </div>
+          </div>
+
+          {/* Action and Filter Controls */}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
+            <div>
+              <h2 className="font-display font-bold text-lg flex items-center gap-2">
+                <BookOpen className="h-5 w-5 text-primary" />
+                Class Subjects
+              </h2>
+              <p className="text-xs text-muted-foreground">
+                {coordinatorSubjects.length} subject{coordinatorSubjects.length !== 1 ? 's' : ''} in curriculum
+              </p>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-2">
+              <Button size="sm" onClick={handleOpenAddSubject} className="text-xs font-semibold">
+                <Plus className="h-4 w-4 mr-1.5" /> Create Subject
+              </Button>
+            </div>
+          </div>
+
+          <div className="flex flex-col sm:flex-row gap-3 mb-4">
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Search subject code, subject title, or assigned lecturer..."
+                value={subjectSearch}
+                onChange={e => setSubjectSearch(e.target.value)}
+                className="pl-9 text-xs"
+              />
+            </div>
+            <Select value={subjectSemesterFilter} onValueChange={setSubjectSemesterFilter}>
+              <SelectTrigger className="w-[170px] text-xs">
+                <SelectValue placeholder="Semester" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Semesters</SelectItem>
+                {college.semesters.map(s => (
+                  <SelectItem key={s} value={String(s)}>Semester {s}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          {/* Subjects Table */}
+          <div className="rounded-lg border border-border overflow-hidden">
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="w-[110px]">Code</TableHead>
+                    <TableHead>Subject Name</TableHead>
+                    <TableHead className="w-[90px]">Sem</TableHead>
+                    <TableHead className="w-[80px]">Credits</TableHead>
+                    <TableHead>Assigned Faculty (Imported by HOD)</TableHead>
+                    <TableHead className="text-right w-[140px]">Actions</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {coordinatorSubjects.length === 0 && (
+                    <TableRow>
+                      <TableCell colSpan={6} className="text-center py-12 text-sm text-muted-foreground">
+                        <div className="flex flex-col items-center justify-center gap-2">
+                          <BookOpen className="h-8 w-8 text-muted-foreground/50" />
+                          <p className="font-semibold text-foreground">No subjects found</p>
+                          <p className="text-xs">Click "Create Subject" to add curriculum courses and assign HOD faculty.</p>
+                          <Button size="sm" onClick={handleOpenAddSubject} className="mt-2 text-xs">
+                            <Plus className="h-3.5 w-3.5 mr-1" /> Create First Subject
+                          </Button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  )}
+                  {coordinatorSubjects.map(sub => {
+                    const directTeacher = departmentTeachers.find(t => t.id === (sub as any).teacher_id);
+                    const tsMappings = teacherSubjects.filter(ts => ts.subject_id === sub.id);
+                    const mappedTeachers = tsMappings
+                      .map(ts => teachers.find(t => t.id === ts.teacher_id))
+                      .filter(Boolean);
+                    const assignedList = mappedTeachers.length > 0 ? mappedTeachers : (directTeacher ? [directTeacher] : []);
+
+                    return (
+                      <TableRow key={sub.id}>
+                        <TableCell>
+                          <span className="font-mono font-bold text-xs px-2 py-1 rounded bg-muted text-foreground border border-border/80">
+                            {sub.code}
+                          </span>
+                        </TableCell>
+                        <TableCell>
+                          <div className="font-semibold text-sm text-foreground">{sub.name}</div>
+                          <div className="text-[11px] text-muted-foreground">
+                            {departments.find(d => d.id === sub.department_id)?.name || 'General Department'}
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <Badge variant="outline" className="text-xs font-semibold">
+                            Sem {sub.semester}
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="text-xs font-medium text-foreground">
+                          {sub.credits || 3} Cr
+                        </TableCell>
+                        <TableCell>
+                          {assignedList.length > 0 ? (
+                            <div className="flex flex-wrap items-center gap-2">
+                              {assignedList.map((t: any) => (
+                                <div
+                                  key={t.id}
+                                  className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-emerald-500/10 border border-emerald-500/20 text-emerald-700 dark:text-emerald-400 text-xs font-medium"
+                                >
+                                  <UserCheck className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400" />
+                                  <span>{t.full_name}</span>
+                                  <span className="text-[10px] text-muted-foreground">({t.employee_id})</span>
+                                  <span className="text-[10px] px-1 py-0.2 rounded bg-emerald-500/20 text-emerald-800 dark:text-emerald-300">
+                                    {t.designation || (t.role === 'hod' ? 'HOD & Lecturer' : 'Faculty')}
+                                  </span>
+                                </div>
+                              ))}
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => handleOpenQuickAssign(sub)}
+                                className="h-6 text-[11px] px-2 text-primary hover:bg-primary/10"
+                                title="Change or reassign teacher"
+                              >
+                                Reassign
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => handleUnassignFaculty(sub)}
+                                className="h-6 text-[11px] px-1.5 text-rose-500 hover:bg-rose-500/10"
+                                title="Unassign teacher"
+                              >
+                                <X className="h-3 w-3" />
+                              </Button>
+                            </div>
+                          ) : (
+                            <div className="flex items-center gap-2">
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-semibold bg-amber-500/10 text-amber-700 dark:text-amber-400 border border-amber-500/20">
+                                ⚠️ No Teacher Assigned
+                              </span>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => handleOpenQuickAssign(sub)}
+                                className="h-7 text-xs border-primary/40 text-primary hover:bg-primary/10 font-semibold"
+                              >
+                                <UserCheck className="h-3.5 w-3.5 mr-1" /> Assign Teacher
+                              </Button>
+                            </div>
+                          )}
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <div className="flex justify-end gap-1">
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => handleOpenQuickAssign(sub)}
+                              className="h-7 w-7 text-muted-foreground hover:text-emerald-600 hover:bg-emerald-500/10"
+                              title="Assign / Reassign Teacher (Imported by HOD)"
+                            >
+                              <UserCheck className="h-3.5 w-3.5" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => handleOpenEditSubject(sub)}
+                              className="h-7 w-7 text-muted-foreground hover:text-primary hover:bg-primary/10"
+                              title="Edit Subject"
+                            >
+                              <Edit3 className="h-3.5 w-3.5" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => handleDeleteSubject(sub)}
+                              className="h-7 w-7 text-red-500 hover:text-red-500 hover:bg-red-500/10"
+                              title="Delete Subject"
+                            >
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </Button>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
+                </TableBody>
+              </Table>
+            </div>
+          </div>
+        </Card>
+      )}
+
+      {/* Create / Edit Subject Dialog */}
+      <Dialog open={subjectDialogOpen} onOpenChange={setSubjectDialogOpen}>
+        <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>
+              {editingSubject ? `Edit Subject: ${editingSubject.code}` : 'Create New Subject'}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3.5 py-3">
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="text-xs font-semibold text-muted-foreground mb-1 block">
+                  Subject Code *
+                </label>
+                <Input
+                  value={subjectForm.code}
+                  onChange={e => setSubjectForm({ ...subjectForm, code: e.target.value })}
+                  placeholder="CS501"
+                  className="font-mono uppercase"
+                />
+              </div>
+              <div>
+                <label className="text-xs font-semibold text-muted-foreground mb-1 block">
+                  Credits
+                </label>
+                <Input
+                  type="number"
+                  min={1}
+                  max={6}
+                  value={subjectForm.credits}
+                  onChange={e => setSubjectForm({ ...subjectForm, credits: e.target.value })}
+                  placeholder="3"
+                />
+              </div>
+            </div>
+
+            <div>
+              <label className="text-xs font-semibold text-muted-foreground mb-1 block">
+                Subject Title / Name *
+              </label>
+              <Input
+                value={subjectForm.name}
+                onChange={e => setSubjectForm({ ...subjectForm, name: e.target.value })}
+                placeholder="e.g. Compiler Design & Construction"
+              />
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="text-xs font-semibold text-muted-foreground mb-1 block">
+                  Semester *
+                </label>
+                <Select
+                  value={subjectForm.semester}
+                  onValueChange={v => setSubjectForm({ ...subjectForm, semester: v })}
+                >
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {college.semesters.map(s => (
+                      <SelectItem key={s} value={String(s)}>Semester {s}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div>
+                <label className="text-xs font-semibold text-muted-foreground mb-1 block">
+                  Department
+                </label>
+                <Select
+                  value={subjectForm.department_id}
+                  onValueChange={v => setSubjectForm({ ...subjectForm, department_id: v })}
+                >
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {departments.map(d => (
+                      <SelectItem key={d.id} value={d.id}>{d.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            {/* Assigned Teacher Section */}
+            <div className="pt-2 border-t border-border/80">
+              <div className="flex items-center justify-between mb-1.5">
+                <label className="text-xs font-semibold text-foreground flex items-center gap-1.5">
+                  <UserCheck className="h-3.5 w-3.5 text-primary" />
+                  Assign Teacher / Lecturer (Imported by HOD)
+                </label>
+                <span className="text-[10px] text-muted-foreground">
+                  {departmentTeachers.length} available
+                </span>
+              </div>
+              <Select
+                value={subjectForm.teacher_id}
+                onValueChange={v => setSubjectForm({ ...subjectForm, teacher_id: v })}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="-- Select Faculty Member --" />
+                </SelectTrigger>
+                <SelectContent className="max-h-60">
+                  <SelectItem value="">-- Unassigned (Assign Later) --</SelectItem>
+                  {departmentTeachers.map(t => (
+                    <SelectItem key={t.id} value={t.id}>
+                      {t.full_name} ({t.employee_id}) — {t.designation || (t.role === 'hod' ? 'HOD & Lecturer' : 'Faculty')}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <p className="text-[11px] text-muted-foreground mt-1">
+                Lists all teachers imported via Excel/CSV or added to this department by the Head of Department (HOD).
+              </p>
+            </div>
+          </div>
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button variant="outline" onClick={() => setSubjectDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button onClick={handleSaveSubject}>
+              {editingSubject ? 'Save Changes' : 'Create Subject'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Quick Teacher Assignment Modal */}
+      <Dialog open={assignFacultyModalOpen} onOpenChange={setAssignFacultyModalOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <UserCheck className="h-5 w-5 text-primary" />
+              Assign Teacher to Subject
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3.5 py-3">
+            {targetSubjectForAssign && (
+              <div className="p-3 rounded-lg bg-muted/60 border border-border/80 text-xs">
+                <div className="font-bold text-sm text-foreground">
+                  {targetSubjectForAssign.code} — {targetSubjectForAssign.name}
+                </div>
+                <div className="text-muted-foreground mt-0.5">
+                  Semester {targetSubjectForAssign.semester} • {targetSubjectForAssign.credits || 3} Credits
+                </div>
+              </div>
+            )}
+
+            <div>
+              <label className="text-xs font-semibold text-foreground mb-1.5 block">
+                Select Teaching Faculty (Imported by HOD):
+              </label>
+              <Select
+                value={selectedFacultyForAssign}
+                onValueChange={setSelectedFacultyForAssign}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="-- Select Teacher / Lecturer --" />
+                </SelectTrigger>
+                <SelectContent className="max-h-60">
+                  <SelectItem value="">-- Unassigned (No Teacher) --</SelectItem>
+                  {departmentTeachers.map(t => (
+                    <SelectItem key={t.id} value={t.id}>
+                      {t.full_name} ({t.employee_id}) — {t.designation || (t.role === 'hod' ? 'HOD & Lecturer' : 'Faculty')}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <p className="text-[11px] text-muted-foreground mt-1.5">
+                The assigned teacher will be able to conduct lectures, take attendance, and track student compliance for this subject.
+              </p>
+            </div>
+          </div>
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button variant="outline" onClick={() => setAssignFacultyModalOpen(false)}>
+              Cancel
+            </Button>
+            <Button onClick={handleSaveQuickAssign}>
+              Save Assignment
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Student Bulk Excel/CSV Import Modal */}
       <StudentImportModal

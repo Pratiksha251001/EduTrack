@@ -24,20 +24,42 @@ export const ClassTeacherDashboard: React.FC = () => {
   const { user } = useAuth();
   const todayStr = new Date().toISOString().split("T")[0];
 
+  const teacherId = user?.teacher_id || user?.id;
+
   const mySubjects = useMemo(() => {
+    const assignedIds = new Set(
+      localDb.teacher_subjects
+        .filter((ts) => ts.teacher_id === teacherId)
+        .map((ts) => ts.subject_id)
+    );
+    localDb.subjects.forEach((s) => {
+      if ((s as any).teacher_id === teacherId) {
+        assignedIds.add(s.id);
+      }
+    });
+
+    if (assignedIds.size > 0) {
+      return localDb.subjects.filter((s) => assignedIds.has(s.id));
+    }
+    // Fallback if no specific subject is assigned yet
     return localDb.subjects.filter(
       (s) => !user?.department_id || s.department_id === user.department_id,
     );
-  }, [user]);
+  }, [teacherId, user]);
+
+  const assignedSubjectIds = useMemo(() => new Set(mySubjects.map((s) => s.id)), [mySubjects]);
+  const assignedSemesters = useMemo(() => new Set(mySubjects.map((s) => s.semester)), [mySubjects]);
 
   const todayAttendance = useMemo(() => {
-    return localDb.attendance.filter((a) => a.date === todayStr);
-  }, [todayStr]);
+    return localDb.attendance.filter(
+      (a) => a.date === todayStr && assignedSubjectIds.has(a.subject_id)
+    );
+  }, [todayStr, assignedSubjectIds]);
 
-  const [smsLogs, setSmsLogs] = React.useState<any[]>(() => localDb.getSmsLogs());
+  const [allSmsLogs, setAllSmsLogs] = React.useState<any[]>(() => localDb.getSmsLogs());
 
   React.useEffect(() => {
-    const handleUpdate = () => setSmsLogs(localDb.getSmsLogs());
+    const handleUpdate = () => setAllSmsLogs(localDb.getSmsLogs());
     window.addEventListener("edutrack_sms_logs_updated", handleUpdate);
     window.addEventListener("storage", handleUpdate);
     return () => {
@@ -46,19 +68,31 @@ export const ClassTeacherDashboard: React.FC = () => {
     };
   }, []);
 
+  const smsLogs = useMemo(() => {
+    if (assignedSubjectIds.size > 0) {
+      return allSmsLogs.filter((l) => l.subject_id && assignedSubjectIds.has(l.subject_id));
+    }
+    return allSmsLogs;
+  }, [allSmsLogs, assignedSubjectIds]);
+
   const todaySmsLogs = useMemo(() => {
-    return smsLogs.filter((l) => l.attendance_date === todayStr || (l.sent_at && l.sent_at.startsWith(todayStr)));
+    return smsLogs.filter(
+      (l) => l.attendance_date === todayStr || (l.sent_at && l.sent_at.startsWith(todayStr))
+    );
   }, [smsLogs, todayStr]);
 
   const recentSmsLogs = useMemo(() => {
     return smsLogs.slice(0, 5);
   }, [smsLogs]);
 
-  const totalStudents = localDb.students.filter(
-    (st) =>
-      st.status === "active" &&
-      (!user?.department_id || st.department_id === user.department_id),
-  ).length;
+  const totalStudents = useMemo(() => {
+    return localDb.students.filter(
+      (st) =>
+        st.status === "active" &&
+        (!user?.department_id || st.department_id === user.department_id) &&
+        (assignedSemesters.size === 0 || assignedSemesters.has(st.semester))
+    ).length;
+  }, [user, assignedSemesters]);
 
   return (
     <div className="space-y-6">

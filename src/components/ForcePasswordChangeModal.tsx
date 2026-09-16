@@ -22,6 +22,7 @@ export const ForcePasswordChangeModal: React.FC = () => {
   const {
     user,
     role,
+    isDemo,
     mustChangePassword,
     updateUserPassword,
     openLogoutConfirm,
@@ -36,7 +37,7 @@ export const ForcePasswordChangeModal: React.FC = () => {
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
   // If user is admin or mustChangePassword is false, do not render
-  if (!user || role === "admin" || !mustChangePassword) {
+  if (!user || role === "admin" || isDemo || !mustChangePassword) {
     return null;
   }
 

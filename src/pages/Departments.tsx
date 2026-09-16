@@ -4,12 +4,14 @@ import { Department } from "../lib/types";
 import { Badge } from "../components/ui/badge";
 import { localDb, isSupabaseConfigured } from "../lib/supabase";
 import { Button } from "../components/ui/button";
-import { Database, Trash2 } from "lucide-react";
+import { Database, Trash2, Terminal as TerminalIcon } from "lucide-react";
 import { DatabaseSetupModal } from "../components/DatabaseSetupModal";
+import { BackendTerminalModal } from "../components/BackendTerminalModal";
 
 export const Departments: React.FC = () => {
   const [teachers, setTeachers] = useState(localDb.teachers);
   const [dbModalOpen, setDbModalOpen] = useState(false);
+  const [terminalModalOpen, setTerminalModalOpen] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
 
   useEffect(() => {
@@ -83,6 +85,16 @@ export const Departments: React.FC = () => {
             <Button
               variant="outline"
               size="sm"
+              onClick={() => setTerminalModalOpen(true)}
+              className="text-xs h-9 gap-1.5 font-mono bg-slate-900 text-slate-100 hover:bg-slate-800 dark:bg-slate-800"
+            >
+              <TerminalIcon className="h-3.5 w-3.5 text-emerald-400" />
+              Terminal Setup
+            </Button>
+
+            <Button
+              variant="outline"
+              size="sm"
               onClick={handleClearDefaultData}
               title="Remove default sample data to start fresh"
               className="text-xs h-9 gap-1.5 text-destructive hover:bg-destructive/10 hover:text-destructive"
@@ -97,13 +109,15 @@ export const Departments: React.FC = () => {
           { key: "code", label: "Department Code (e.g. CSE)", required: true },
           {
             key: "hod_id",
-            label: "HOD",
+            label: "HOD (Department Head & Senior Lecturer)",
             type: "select",
+            helperText: "Assign a faculty member as Head of Department. HODs can also teach subjects & mark lecture attendance.",
             options: [
-              { value: "", label: "Unassigned" },
-              ...teachers
-                .filter((t) => t.role === "hod")
-                .map((t) => ({ value: t.id, label: t.full_name })),
+              { value: "", label: "Unassigned (Assign later or leave empty)" },
+              ...teachers.map((t) => ({
+                value: t.id,
+                label: `${t.full_name} (${t.employee_id}${t.role === "hod" ? " - HOD" : " - " + t.role})`,
+              })),
             ],
           },
           {
@@ -148,6 +162,7 @@ export const Departments: React.FC = () => {
       />
 
       <DatabaseSetupModal open={dbModalOpen} onOpenChange={setDbModalOpen} />
+      <BackendTerminalModal open={terminalModalOpen} onOpenChange={setTerminalModalOpen} />
     </div>
   );
 };

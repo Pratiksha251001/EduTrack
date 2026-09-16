@@ -18,6 +18,12 @@ import {
 } from "lucide-react";
 import { Teacher, Department } from "../lib/types";
 import { localDb } from "../lib/supabase";
+import {
+  cleanMobile,
+  isValid10DigitMobile,
+  getMobileValidationError,
+  sanitizeMobileInput,
+} from "../lib/validation";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "./ui/dialog";
 import { Badge } from "./ui/badge";
 import { Button } from "./ui/button";
@@ -53,11 +59,19 @@ export const TeacherProfileModal: React.FC<TeacherProfileModalProps> = ({
   };
 
   const handleSaveMobile = async () => {
+    if (mobileVal) {
+      const err = getMobileValidationError(mobileVal, "Faculty Mobile", false);
+      if (err) {
+        alert(err);
+        return;
+      }
+    }
     setIsSavingMobile(true);
+    const cleaned = cleanMobile(mobileVal) || null;
     await localDb.update("teachers", teacher.id, {
-      mobile: mobileVal.trim() || null,
+      mobile: cleaned,
     });
-    teacher.mobile = mobileVal.trim() || null;
+    teacher.mobile = cleaned;
     setIsSavingMobile(false);
     setEditingMobile(false);
     onUpdated?.();
@@ -291,30 +305,54 @@ export const TeacherProfileModal: React.FC<TeacherProfileModalProps> = ({
             </h4>
 
             {editingMobile ? (
-              <div className="flex items-center gap-2">
-                <Input
-                  value={mobileVal}
-                  onChange={(e) => setMobileVal(e.target.value)}
-                  placeholder="+91 98765 43210 or (555) 019-2834"
-                  className="h-9 text-xs"
-                />
-                <Button
-                  size="sm"
-                  onClick={handleSaveMobile}
-                  disabled={isSavingMobile}
-                  className="h-9 text-xs"
-                >
-                  <Check className="h-3.5 w-3.5 mr-1" />
-                  Save
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setEditingMobile(false)}
-                  className="h-9 text-xs"
-                >
-                  <X className="h-3.5 w-3.5" />
-                </Button>
+              <div className="space-y-1.5">
+                <div className="flex items-center gap-2">
+                  <Input
+                    type="tel"
+                    inputMode="numeric"
+                    pattern="[0-9]*"
+                    maxLength={10}
+                    value={mobileVal}
+                    onChange={(e) => setMobileVal(sanitizeMobileInput(e.target.value))}
+                    placeholder="9876543210 (10 digits)"
+                    className={`h-9 text-xs font-mono ${
+                      mobileVal && !isValid10DigitMobile(mobileVal)
+                        ? "border-destructive focus-visible:ring-destructive bg-destructive/5"
+                        : ""
+                    }`}
+                  />
+                  <Button
+                    size="sm"
+                    onClick={handleSaveMobile}
+                    disabled={isSavingMobile}
+                    className="h-9 text-xs"
+                  >
+                    <Check className="h-3.5 w-3.5 mr-1" />
+                    Save
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setEditingMobile(false)}
+                    className="h-9 text-xs"
+                  >
+                    <X className="h-3.5 w-3.5" />
+                  </Button>
+                </div>
+                <div className="flex items-center justify-between text-[11px] text-muted-foreground">
+                  <span>Strictly 10 digits (numbers only)</span>
+                  {mobileVal && (
+                    <span
+                      className={`font-mono font-bold ${
+                        mobileVal.length === 10
+                          ? "text-emerald-600"
+                          : "text-muted-foreground"
+                      }`}
+                    >
+                      {mobileVal.length}/10 digits
+                    </span>
+                  )}
+                </div>
               </div>
             ) : (
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs">

@@ -26,6 +26,7 @@ import { HODClasses } from "./pages/HODClasses";
 import { HODStudents } from "./pages/HODStudents";
 import { ClassTeacherLogin } from "./pages/ClassTeacherLogin";
 import { ClassTeacherDashboard } from "./pages/ClassTeacherDashboard";
+import { Notifications } from "./pages/Notifications";
 import { ForcePasswordChangeModal } from "./components/ForcePasswordChangeModal";
 import { LogoutConfirmDialog } from "./components/LogoutConfirmDialog";
 
@@ -93,6 +94,7 @@ const RoleDashboard: React.FC = () => {
   if (role === "hod") return <HODDashboard />;
   if (role === "class_coordinator") return <ClassCoordinatorDashboard />;
   if (role === "student") return <StudentDashboard />;
+  if (role === "teacher") return <ClassTeacherDashboard />;
   return <Dashboard />;
 };
 
@@ -151,7 +153,7 @@ export const App: React.FC = () => {
               <Route
                 path="/attendance"
                 element={
-                  <ProtectedRoute denyAdmin denyStudent denyHod>
+                  <ProtectedRoute denyAdmin denyStudent>
                     <Attendance />
                   </ProtectedRoute>
                 }
@@ -175,7 +177,7 @@ export const App: React.FC = () => {
               <Route
                 path="/subjects"
                 element={
-                  <ProtectedRoute adminOnly>
+                  <ProtectedRoute denyStudent>
                     <Subjects />
                   </ProtectedRoute>
                 }
@@ -220,6 +222,7 @@ export const App: React.FC = () => {
                   </ProtectedRoute>
                 }
               />
+              <Route path="/notifications" element={<Notifications />} />
               <Route path="/profile" element={<UserProfile />} />
               <Route path="/student/profile" element={<Navigate to="/profile" replace />} />
               <Route

@@ -142,3 +142,38 @@ export interface Notice {
   status: "published" | "draft";
   created_at?: string;
 }
+
+export type NotificationType =
+  | "security_login_failed"
+  | "attendance_submitted"
+  | "general";
+
+export interface AppNotification {
+  id: string;
+  type: NotificationType;
+  title: string;
+  message: string;
+  severity: "warning" | "info" | "success" | "danger";
+  target_roles: UserRoleType[];
+  department_id?: string | null;
+  semester?: number | null;
+  subject_id?: string | null;
+  teacher_id?: string | null;
+  created_at: string;
+  read?: boolean;
+  read_by?: string[];
+  metadata?: {
+    attempted_role?: string;
+    identifier?: string;
+    reason?: string;
+    teacher_name?: string;
+    subject_name?: string;
+    subject_code?: string;
+    date?: string;
+    total_students?: number;
+    present_count?: number;
+    absent_count?: number;
+    sms_count?: number;
+    [key: string]: any;
+  };
+}

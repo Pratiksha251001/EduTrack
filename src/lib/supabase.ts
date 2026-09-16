@@ -452,6 +452,21 @@ class LocalDatabase {
     }
   }
 
+  /**
+   * Ensures mock records (departments, teachers, students, subjects, attendance) are present
+   * when entering demo / study mode so all role dashboards and dummy profiles are fully populated.
+   */
+  public ensureDemoDataLoaded() {
+    if (
+      this.departments.length === 0 ||
+      this.teachers.length === 0 ||
+      this.students.length === 0 ||
+      this.subjects.length === 0
+    ) {
+      this.restoreDemoData();
+    }
+  }
+
   getSmsLogs(): any[] {
     try {
       const saved = localStorage.getItem(`${this.storageKey}_sms_logs`);

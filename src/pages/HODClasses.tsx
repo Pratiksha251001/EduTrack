@@ -164,7 +164,6 @@ export const HODClasses: React.FC = () => {
           </div>
         </Card>
       )}
-      +{" "}
       <Card className="p-5">
         <div className="relative mb-4 max-w-md">
           <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />

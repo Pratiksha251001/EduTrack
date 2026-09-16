@@ -15,6 +15,7 @@ import {
   Moon,
   Sun,
   UserCog,
+  Bell,
 } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import { useTheme } from "../context/ThemeContext";
@@ -22,16 +23,53 @@ import { college } from "../lib/college";
 import { Button } from "./ui/button";
 import { Badge } from "./ui/badge";
 import { EduTrackLogo } from "./EduTrackLogo";
+import { NotificationBell } from "./NotificationBell";
+import {
+  getNotificationsForUser,
+  getStoredNotifications,
+  isNotificationRead,
+} from "../lib/notificationService";
+import { AppNotification } from "../lib/types";
+import { DemoStudyBanner } from "./DemoStudyBanner";
 
 export const AppShell: React.FC = () => {
-  const { user, role, openLogoutConfirm } = useAuth();
+  const { user, role, isDemo, openLogoutConfirm } = useAuth();
   const { theme, toggleTheme } = useTheme();
   const location = useLocation();
   const navigate = useNavigate();
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [notifications, setNotifications] = useState<AppNotification[]>(() =>
+    getStoredNotifications()
+  );
+
+  React.useEffect(() => {
+    const handleUpdate = () => setNotifications(getStoredNotifications());
+    window.addEventListener("edutrack_notifications_updated", handleUpdate);
+    window.addEventListener("storage", handleUpdate);
+    return () => {
+      window.removeEventListener("edutrack_notifications_updated", handleUpdate);
+      window.removeEventListener("storage", handleUpdate);
+    };
+  }, []);
+
+  const userKey = user?.id || user?.email || role || "anon";
+  const userNotifications = React.useMemo(() => {
+    if (!role) return [];
+    return getNotificationsForUser(user, role, notifications);
+  }, [user, role, notifications]);
+
+  const unreadNotifCount = React.useMemo(() => {
+    return userNotifications.filter((n) => !isNotificationRead(n, userKey)).length;
+  }, [userNotifications, userKey]);
 
   const navItems = [
     { label: "Dashboard", path: "/dashboard", icon: LayoutDashboard },
+    {
+      label: "Notifications",
+      path: "/notifications",
+      icon: Bell,
+      badge: unreadNotifCount > 0 ? unreadNotifCount : undefined,
+    },
     { label: "My Profile", path: "/profile", icon: UserCog },
     ...(role === "hod"
       ? [
@@ -41,10 +79,13 @@ export const AppShell: React.FC = () => {
           { label: "Students", path: "/hod/students", icon: GraduationCap },
         ]
       : []),
-    ...(role !== "admin" && role !== "student" && role !== "hod"
+    ...(role === "class_coordinator"
+      ? [{ label: "Class Subjects", path: "/subjects", icon: BookOpen }]
+      : []),
+    ...(role !== "admin" && role !== "student"
       ? [
           {
-            label: "Mark Attendance",
+            label: role === "hod" ? "Mark Attendance (Lecture)" : "Mark Attendance",
             path: "/attendance",
             icon: ClipboardCheck,
           },
@@ -99,9 +140,16 @@ export const AppShell: React.FC = () => {
         >
           <div className="flex items-center justify-between">
             <div className="min-w-0 flex-1">
-              <p className="truncate text-xs font-semibold">
-                {user?.full_name || "User"}
-              </p>
+              <div className="flex items-center gap-1.5">
+                <p className="truncate text-xs font-semibold">
+                  {user?.full_name || "User"}
+                </p>
+                {isDemo && (
+                  <span className="rounded bg-amber-400/20 px-1 py-0.2 text-[9px] font-bold text-amber-300 uppercase">
+                    Demo
+                  </span>
+                )}
+              </div>
               <p className="truncate text-[10px] opacity-70">{user?.email}</p>
             </div>
             <Badge
@@ -134,7 +182,18 @@ export const AppShell: React.FC = () => {
                       : "opacity-75"
                   }`}
                 />
-                <span className="truncate">{item.label}</span>
+                <span className="truncate flex-1">{item.label}</span>
+                {Boolean(item.badge) && (
+                  <span
+                    className={`ml-auto flex h-5 min-w-5 items-center justify-center rounded-full px-1.5 text-[10px] font-bold shadow-2xs ${
+                      active
+                        ? "bg-white text-primary"
+                        : "bg-destructive text-destructive-foreground"
+                    }`}
+                  >
+                    {item.badge}
+                  </span>
+                )}
               </Link>
             );
           })}
@@ -169,6 +228,7 @@ export const AppShell: React.FC = () => {
         </div>
       </aside>
       <div className="flex min-w-0 flex-1 flex-col overflow-x-hidden lg:ml-72">
+        {/* Mobile Header */}
         <header className="flex h-16 items-center justify-between border-b border-border bg-card px-4 lg:hidden">
           <div className="flex items-center gap-3">
             <button
@@ -180,6 +240,7 @@ export const AppShell: React.FC = () => {
             <EduTrackLogo size="sm" variant="horizontal" />
           </div>
           <div className="flex items-center gap-2">
+            <NotificationBell />
             <Badge variant="outline" className="capitalize text-xs font-semibold">
               {role?.replace("_", " ")}
             </Badge>
@@ -195,6 +256,52 @@ export const AppShell: React.FC = () => {
             </Button>
           </div>
         </header>
+
+        {/* Desktop Header Topbar */}
+        <header className="hidden lg:flex h-16 items-center justify-between border-b border-border/80 bg-card/60 px-8 backdrop-blur-md sticky top-0 z-30">
+          <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2 text-xs text-muted-foreground">
+              <span className="font-semibold text-foreground tracking-wide">{college.shortName}</span>
+              <span>•</span>
+              <span className="capitalize font-medium text-primary">
+                {role?.replace("_", " ")} Portal
+              </span>
+              {user?.department_id && (
+                <>
+                  <span>•</span>
+                  <span className="truncate max-w-56">{user.department_id}</span>
+                </>
+              )}
+            </div>
+          </div>
+
+          <div className="flex items-center gap-3">
+            <NotificationBell />
+            <button
+              type="button"
+              onClick={toggleTheme}
+              className="flex h-9 w-9 items-center justify-center rounded-xl border border-border/70 bg-card text-foreground hover:bg-muted/80 transition-colors"
+              title={theme === "light" ? "Switch to dark mode" : "Switch to light mode"}
+            >
+              {theme === "light" ? <Moon className="h-4 w-4" /> : <Sun className="h-4 w-4" />}
+            </button>
+            <Link
+              to="/profile"
+              className="flex items-center gap-2 rounded-xl border border-border/70 bg-card px-3 py-1.5 hover:bg-muted/60 transition-colors"
+            >
+              <div className="flex h-6 w-6 items-center justify-center rounded-lg bg-primary/15 text-primary text-xs font-bold">
+                {user?.full_name ? user.full_name[0].toUpperCase() : "U"}
+              </div>
+              <span className="text-xs font-medium text-foreground max-w-32 truncate">
+                {user?.full_name || "Profile"}
+              </span>
+            </Link>
+          </div>
+        </header>
+
+        {/* Demo / Study Mode Banner */}
+        <DemoStudyBanner />
+
         <main className="flex-1 p-6 md:p-8 max-w-7xl mx-auto w-full">
           <Outlet />
         </main>

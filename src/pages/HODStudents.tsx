@@ -1,12 +1,33 @@
-import React, { useMemo, useState } from "react";
-import { GraduationCap, Plus, Search, Trash2 } from "lucide-react";
+import React, { useMemo, useState, useEffect } from "react";
+import {
+  GraduationCap,
+  Plus,
+  Search,
+  Trash2,
+  Phone,
+  MessageSquare,
+  ClipboardCheck,
+  AlertTriangle,
+  Users,
+  Send,
+  ExternalLink,
+  Percent,
+} from "lucide-react";
+import { Link } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { localDb } from "../lib/supabase";
 import { saveCredential } from "../lib/authUtils";
 import { Button } from "../components/ui/button";
-import { Card } from "../components/ui/card";
+import {
+  Card,
+  CardHeader,
+  CardTitle,
+  CardContent,
+} from "../components/ui/card";
 import { Input } from "../components/ui/input";
 import { Select } from "../components/ui/select";
+import { Badge } from "../components/ui/badge";
+import { ParentAlertModal } from "../components/ParentAlertModal";
 import {
   sanitizeMobileInput,
   getMobileValidationError,
@@ -27,11 +48,48 @@ export const HODStudents: React.FC = () => {
   const department = localDb.departments.find(
     (item) => item.id === departmentId,
   );
+
   const [students, setStudents] = useState(() =>
-    localDb.students.filter((item) => item.department_id === departmentId),
+    localDb.students.filter(
+      (item) => !departmentId || item.department_id === departmentId,
+    ),
   );
   const [search, setSearch] = useState("");
+  const [selectedSemester, setSelectedSemester] = useState<string>("__all");
   const [open, setOpen] = useState(false);
+  const [attendanceRecords, setAttendanceRecords] = useState(
+    () => localDb.attendance,
+  );
+  const [smsLogs, setSmsLogs] = useState(() => localDb.getSmsLogs());
+
+  // Parent Alert Modal State
+  const [alertModalOpen, setAlertModalOpen] = useState(false);
+  const [selectedStudentForAlert, setSelectedStudentForAlert] = useState<
+    any | null
+  >(null);
+
+  const refresh = () => {
+    setStudents(
+      localDb.students.filter(
+        (item) => !departmentId || item.department_id === departmentId,
+      ),
+    );
+    setAttendanceRecords([...localDb.attendance]);
+    setSmsLogs(localDb.getSmsLogs());
+  };
+
+  useEffect(() => {
+    const handleUpdate = () => refresh();
+    window.addEventListener("edutrack_data_updated", handleUpdate);
+    window.addEventListener("edutrack_sms_logs_updated", handleUpdate);
+    window.addEventListener("storage", handleUpdate);
+    return () => {
+      window.removeEventListener("edutrack_data_updated", handleUpdate);
+      window.removeEventListener("edutrack_sms_logs_updated", handleUpdate);
+      window.removeEventListener("storage", handleUpdate);
+    };
+  }, [departmentId]);
+
   const [form, setForm] = useState({
     roll_number: "",
     full_name: "",
@@ -41,22 +99,100 @@ export const HODStudents: React.FC = () => {
     email: "",
     password: "",
   });
-  const filtered = useMemo(
-    () =>
-      students.filter((student) => {
-        const query = search.toLowerCase();
-        return (
-          !query ||
-          student.full_name.toLowerCase().includes(query) ||
-          student.roll_number.toLowerCase().includes(query)
-        );
-      }),
-    [students, search],
-  );
-  const refresh = () =>
-    setStudents(
-      localDb.students.filter((item) => item.department_id === departmentId),
-    );
+
+  // Calculate attendance & SMS stats per student
+  const studentStatsMap = useMemo(() => {
+    const map = new Map<
+      string,
+      { total: number; present: number; rate: number; smsCount: number }
+    >();
+
+    // Group attendance by student
+    attendanceRecords.forEach((att) => {
+      const existing = map.get(att.student_id) || {
+        total: 0,
+        present: 0,
+        rate: 0,
+        smsCount: 0,
+      };
+      existing.total += 1;
+      if (att.status === "present") {
+        existing.present += 1;
+      }
+      map.set(att.student_id, existing);
+    });
+
+    // Group SMS logs by student
+    smsLogs.forEach((log) => {
+      if (log.student_id) {
+        const existing = map.get(log.student_id) || {
+          total: 0,
+          present: 0,
+          rate: 0,
+          smsCount: 0,
+        };
+        existing.smsCount += 1;
+        map.set(log.student_id, existing);
+      }
+    });
+
+    // Compute rates
+    map.forEach((value) => {
+      value.rate =
+        value.total > 0 ? Math.round((value.present / value.total) * 100) : 100;
+    });
+
+    return map;
+  }, [attendanceRecords, smsLogs]);
+
+  // Overall department metrics
+  const departmentMetrics = useMemo(() => {
+    const totalCount = students.length;
+    let totalClasses = 0;
+    let totalPresent = 0;
+    let defaulterCount = 0;
+
+    students.forEach((st) => {
+      const stat = studentStatsMap.get(st.id);
+      if (stat && stat.total > 0) {
+        totalClasses += stat.total;
+        totalPresent += stat.present;
+        if (stat.rate < 75) {
+          defaulterCount += 1;
+        }
+      }
+    });
+
+    const avgRate =
+      totalClasses > 0 ? Math.round((totalPresent / totalClasses) * 100) : 100;
+    const deptSmsCount = smsLogs.filter((l) => {
+      const st = students.find((s) => s.id === l.student_id);
+      return Boolean(st);
+    }).length;
+
+    return { totalCount, avgRate, defaulterCount, deptSmsCount };
+  }, [students, studentStatsMap, smsLogs]);
+
+  const filtered = useMemo(() => {
+    return students.filter((student) => {
+      if (
+        selectedSemester !== "__all" &&
+        String(student.semester) !== selectedSemester
+      ) {
+        return false;
+      }
+      const query = search.toLowerCase();
+      return (
+        !query ||
+        student.full_name.toLowerCase().includes(query) ||
+        student.roll_number.toLowerCase().includes(query) ||
+        (student.parent_name &&
+          student.parent_name.toLowerCase().includes(query)) ||
+        (student.parent_mobile && student.parent_mobile.includes(query))
+      );
+    });
+  }, [students, search, selectedSemester]);
+
   const save = async () => {
     const errs: string[] = [];
     const rollErr = getRollNumberValidationError(form.roll_number);
@@ -64,7 +200,9 @@ export const HODStudents: React.FC = () => {
 
     if (
       localDb.students.some(
-        (student) => student.roll_number.toLowerCase() === form.roll_number.trim().toLowerCase(),
+        (student) =>
+          student.roll_number.toLowerCase() ===
+          form.roll_number.trim().toLowerCase(),
       )
     ) {
       errs.push("This roll number already exists in institutional records.");
@@ -73,7 +211,11 @@ export const HODStudents: React.FC = () => {
     const nameErr = getNameValidationError(form.full_name);
     if (nameErr) errs.push(nameErr);
 
-    const mobileErr = getMobileValidationError(form.parent_mobile, "Parent Mobile", true);
+    const mobileErr = getMobileValidationError(
+      form.parent_mobile,
+      "Parent Mobile",
+      true,
+    );
     if (mobileErr) errs.push(mobileErr);
 
     if (form.email && !isValidEmail(form.email)) {
@@ -109,7 +251,9 @@ export const HODStudents: React.FC = () => {
         {
           id: accountId,
           full_name: student.full_name,
-          email: student.email || `${student.roll_number.toLowerCase()}@student.edutrack.edu`,
+          email:
+            student.email ||
+            `${student.roll_number.toLowerCase()}@student.edutrack.edu`,
           role: "student",
           department_id: departmentId,
           student_id: student.id,
@@ -118,12 +262,7 @@ export const HODStudents: React.FC = () => {
       ]);
       const effectivePwd = form.password.trim() || student.roll_number || "123";
       saveCredential(
-        [
-          accountId,
-          student.id,
-          student.roll_number,
-          student.email,
-        ],
+        [accountId, student.id, student.roll_number, student.email],
         effectivePwd,
       );
     }
@@ -140,6 +279,7 @@ export const HODStudents: React.FC = () => {
     setOpen(false);
     refresh();
   };
+
   const remove = async (student: (typeof students)[number]) => {
     if (!confirm(`Delete ${student.full_name}?`)) return;
     await localDb.delete("students", student.id);
@@ -148,28 +288,115 @@ export const HODStudents: React.FC = () => {
 
   return (
     <div className="space-y-6">
+      {/* Header */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <p className="text-xs font-bold uppercase tracking-[0.18em] text-primary">
-            HOD Portal · {department?.code || "Department"}
-          </p>
-          <h1 className="mt-1 font-display text-3xl font-bold">
-            Department Students
+          <div className="flex items-center gap-2">
+            <Badge className="bg-primary/15 text-primary border-primary/20 text-xs">
+              HOD PORTAL · {department?.code || "DEPARTMENT"}
+            </Badge>
+            <span className="text-xs text-muted-foreground font-medium">
+              All Classes Student Directory
+            </span>
+          </div>
+          <h1 className="mt-1.5 font-display text-2xl sm:text-3xl font-bold tracking-tight">
+            Department Students & Attendance
           </h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            View and add students belonging only to{" "}
-            {department?.name || "your department"}.
+            Complete overview of all students across semesters in{" "}
+            {department?.name || "your department"}, including attendance
+            tracking and parent communication logs.
           </p>
         </div>
-        <Button onClick={() => setOpen(true)}>
-          <Plus className="mr-2 h-4 w-4" /> Add Student
-        </Button>
+        <div className="flex items-center gap-2">
+          <Link to="/sms-logs">
+            <Button variant="outline" size="sm">
+              <MessageSquare className="mr-1.5 h-4 w-4 text-primary" />
+              Department SMS Logs
+            </Button>
+          </Link>
+          <Button onClick={() => setOpen(true)} size="sm">
+            <Plus className="mr-1.5 h-4 w-4" /> Add Student
+          </Button>
+        </div>
       </div>
-      +{" "}
+
+      {/* Overview Stat Cards */}
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <Card className="p-4 border-border shadow-xs">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-semibold uppercase text-muted-foreground">
+              Total Students
+            </span>
+            <Users className="h-4 w-4 text-primary" />
+          </div>
+          <div className="mt-2 flex items-baseline gap-2">
+            <span className="text-2xl font-bold text-foreground">
+              {departmentMetrics.totalCount}
+            </span>
+            <span className="text-xs text-muted-foreground">
+              across all classes
+            </span>
+          </div>
+        </Card>
+
+        <Card className="p-4 border-border shadow-xs">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-semibold uppercase text-muted-foreground">
+              Average Attendance
+            </span>
+            <ClipboardCheck className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
+          </div>
+          <div className="mt-2 flex items-baseline gap-2">
+            <span className="text-2xl font-bold text-foreground">
+              {departmentMetrics.avgRate}%
+            </span>
+            <span className="text-xs text-muted-foreground">
+              overall department rate
+            </span>
+          </div>
+        </Card>
+
+        <Card className="p-4 border-border shadow-xs">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-semibold uppercase text-muted-foreground">
+              Defaulter Warnings
+            </span>
+            <AlertTriangle className="h-4 w-4 text-amber-500" />
+          </div>
+          <div className="mt-2 flex items-baseline gap-2">
+            <span className="text-2xl font-bold text-amber-600 dark:text-amber-400">
+              {departmentMetrics.defaulterCount}
+            </span>
+            <span className="text-xs text-muted-foreground">
+              &lt; 75% attendance
+            </span>
+          </div>
+        </Card>
+
+        <Card className="p-4 border-border shadow-xs">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-semibold uppercase text-muted-foreground">
+              Parent SMS Alerts
+            </span>
+            <MessageSquare className="h-4 w-4 text-rose-500" />
+          </div>
+          <div className="mt-2 flex items-baseline gap-2">
+            <span className="text-2xl font-bold text-foreground">
+              {departmentMetrics.deptSmsCount}
+            </span>
+            <span className="text-xs text-muted-foreground">
+              alerts dispatched
+            </span>
+          </div>
+        </Card>
+      </div>
+
+      {/* Add Student Card */}
       {open && (
         <Card className="border-primary/30 bg-primary/[0.03] p-5">
           <div className="mb-4 flex items-center justify-between">
-            <h2 className="font-display text-lg font-bold">Add Student</h2>
+            <h2 className="font-display text-lg font-bold">Add New Student</h2>
             <Button variant="ghost" size="sm" onClick={() => setOpen(false)}>
               Cancel
             </Button>
@@ -209,7 +436,9 @@ export const HODStudents: React.FC = () => {
             <div className="space-y-1">
               <div className="flex justify-between items-center text-xs text-muted-foreground">
                 <span>Parent Mobile (10 Digits) *</span>
-                <span className={`font-mono ${form.parent_mobile.length === 10 ? "text-emerald-500 font-bold" : ""}`}>
+                <span
+                  className={`font-mono ${form.parent_mobile.length === 10 ? "text-emerald-500 font-bold" : ""}`}
+                >
                   {form.parent_mobile.length}/10
                 </span>
               </div>
@@ -220,9 +449,17 @@ export const HODStudents: React.FC = () => {
                 placeholder="e.g. 9876543210"
                 value={form.parent_mobile}
                 onChange={(event) =>
-                  setForm({ ...form, parent_mobile: sanitizeMobileInput(event.target.value) })
+                  setForm({
+                    ...form,
+                    parent_mobile: sanitizeMobileInput(event.target.value),
+                  })
                 }
-                className={form.parent_mobile && !isValid10DigitMobile(form.parent_mobile) ? "border-destructive" : ""}
+                className={
+                  form.parent_mobile &&
+                  !isValid10DigitMobile(form.parent_mobile)
+                    ? "border-destructive"
+                    : ""
+                }
               />
             </div>
             <Input
@@ -243,60 +480,181 @@ export const HODStudents: React.FC = () => {
                 }
               />
               <p className="text-[11px] text-muted-foreground">
-                Students can log in with their Roll Number and password (default is their Roll Number).
+                Students can log in with their Roll Number and password (default
+                is their Roll Number).
               </p>
             </div>
           </div>
-          <div className="mt-4 flex justify-end">
+          <div className="mt-4 flex justify-end gap-2">
+            <Button variant="outline" onClick={() => setOpen(false)}>
+              Cancel
+            </Button>
             <Button onClick={save}>Save Student</Button>
           </div>
         </Card>
       )}
+
+      {/* Filter and Students Grid */}
       <Card className="p-5">
-        <div className="relative mb-4 max-w-md">
-          <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
-          <Input
-            className="pl-9"
-            placeholder="Search students..."
-            value={search}
-            onChange={(event) => setSearch(event.target.value)}
-          />
+        <div className="flex flex-col sm:flex-row gap-3 items-stretch sm:items-center justify-between mb-4">
+          <div className="relative flex-1 max-w-md">
+            <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
+            <Input
+              className="pl-9"
+              placeholder="Search by Roll No, Student or Parent..."
+              value={search}
+              onChange={(event) => setSearch(event.target.value)}
+            />
+          </div>
+
+          <div className="flex items-center gap-2">
+            <span className="text-xs font-semibold text-muted-foreground whitespace-nowrap">
+              Class / Sem:
+            </span>
+            <Select
+              className="w-44 text-xs"
+              value={selectedSemester}
+              onChange={(event) => setSelectedSemester(event.target.value)}
+              options={[
+                { value: "__all", label: "All Classes / Semesters" },
+                ...[1, 2, 3, 4, 5, 6, 7, 8].map((sem) => ({
+                  value: String(sem),
+                  label: `Semester ${sem}`,
+                })),
+              ]}
+            />
+          </div>
         </div>
-        <div className="grid gap-3 md:grid-cols-2">
+
+        {/* Student Cards List */}
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
           {filtered.length === 0 ? (
-            <p className="py-10 text-center text-sm text-muted-foreground md:col-span-2">
-              No students found.
-            </p>
+            <div className="py-12 text-center text-sm text-muted-foreground sm:col-span-2 lg:col-span-3">
+              No students found matching the selected filters.
+            </div>
           ) : (
-            filtered.map((student) => (
-              <div
-                key={student.id}
-                className="flex items-center justify-between rounded-lg border border-border p-4"
-              >
-                <div className="flex items-center gap-3">
-                  <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/10 text-primary">
-                    <GraduationCap className="h-4 w-4" />
-                  </div>
+            filtered.map((student) => {
+              const stat = studentStatsMap.get(student.id) || {
+                total: 0,
+                present: 0,
+                rate: 100,
+                smsCount: 0,
+              };
+              const isDefaulter = stat.total > 0 && stat.rate < 75;
+
+              return (
+                <div
+                  key={student.id}
+                  className="flex flex-col justify-between rounded-xl border border-border p-4 bg-card hover:border-primary/40 transition-colors shadow-2xs"
+                >
                   <div>
-                    <p className="text-sm font-semibold">{student.full_name}</p>
-                    <p className="text-xs font-mono text-muted-foreground">
-                      {student.roll_number} · Semester {student.semester}
-                    </p>
+                    {/* Top Row: Roll, Sem, Attendance Rate */}
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-1.5">
+                          <span className="font-mono text-xs font-bold text-primary">
+                            {student.roll_number}
+                          </span>
+                          <Badge
+                            variant="outline"
+                            className="text-[10px] px-1.5 py-0"
+                          >
+                            Sem {student.semester}
+                          </Badge>
+                        </div>
+                        <p className="font-semibold text-sm text-foreground truncate mt-0.5">
+                          {student.full_name}
+                        </p>
+                      </div>
+
+                      <Badge
+                        variant={isDefaulter ? "destructive" : "success"}
+                        className="shrink-0 text-xs font-bold"
+                      >
+                        {stat.rate}%
+                      </Badge>
+                    </div>
+
+                    {/* Attendance summary pill */}
+                    <div className="mt-3 flex items-center justify-between text-[11px] text-muted-foreground bg-muted/30 rounded-lg px-2.5 py-1.5">
+                      <span>Attendance Record:</span>
+                      <span className="font-medium text-foreground">
+                        {stat.present} / {stat.total} Sessions
+                      </span>
+                    </div>
+
+                    {/* Parent contact info */}
+                    <div className="mt-2 space-y-1 text-xs">
+                      <div className="flex items-center justify-between text-muted-foreground">
+                        <span>Parent:</span>
+                        <span className="text-foreground font-medium truncate max-w-[140px]">
+                          {student.parent_name || "Not listed"}
+                        </span>
+                      </div>
+                      <div className="flex items-center justify-between text-muted-foreground">
+                        <span>Mobile:</span>
+                        <span className="font-mono text-foreground font-medium">
+                          {student.parent_mobile || "Missing"}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Actions footer */}
+                  <div className="mt-4 pt-3 border-t border-border/70 flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-1 text-[11px] text-muted-foreground">
+                      <MessageSquare className="h-3 w-3 text-primary" />
+                      <span>{stat.smsCount} SMS sent</span>
+                    </div>
+
+                    <div className="flex items-center gap-1.5">
+                      {student.parent_mobile && (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="h-7 px-2 text-[11px] font-semibold"
+                          onClick={() => {
+                            setSelectedStudentForAlert(student);
+                            setAlertModalOpen(true);
+                          }}
+                        >
+                          <Send className="mr-1 h-3 w-3 text-primary" />
+                          Alert
+                        </Button>
+                      )}
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => remove(student)}
+                        className="h-7 w-7 text-muted-foreground hover:text-destructive"
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </Button>
+                    </div>
                   </div>
                 </div>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  onClick={() => remove(student)}
-                  className="text-destructive"
-                >
-                  <Trash2 className="h-4 w-4" />
-                </Button>
-              </div>
-            ))
+              );
+            })
           )}
         </div>
       </Card>
+
+      {/* Parent Alert Modal for HOD */}
+      {selectedStudentForAlert && (
+        <ParentAlertModal
+          open={alertModalOpen}
+          onOpenChange={setAlertModalOpen}
+          studentId={selectedStudentForAlert.id}
+          studentName={selectedStudentForAlert.full_name}
+          parentMobile={selectedStudentForAlert.parent_mobile}
+          parentName={selectedStudentForAlert.parent_name || "Parent"}
+          date={new Date().toISOString().split("T")[0]}
+          onSuccess={() => {
+            setAlertModalOpen(false);
+            refresh();
+          }}
+        />
+      )}
     </div>
   );
 };
