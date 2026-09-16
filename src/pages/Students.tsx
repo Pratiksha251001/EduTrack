@@ -5,12 +5,14 @@ import { localDb, isSupabaseConfigured } from "../lib/supabase";
 import { college } from "../lib/college";
 import { Badge } from "../components/ui/badge";
 import { Button } from "../components/ui/button";
-import { Database, Trash2 } from "lucide-react";
+import { Database, FileSpreadsheet, Trash2 } from "lucide-react";
 import { DatabaseSetupModal } from "../components/DatabaseSetupModal";
+import { StudentImportModal } from "../components/StudentImportModal";
 
 export const Students: React.FC = () => {
   const [departments, setDepartments] = useState(localDb.departments);
   const [dbModalOpen, setDbModalOpen] = useState(false);
+  const [importModalOpen, setImportModalOpen] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
 
   useEffect(() => {
@@ -30,7 +32,9 @@ export const Students: React.FC = () => {
       )
     ) {
       localDb.clearDemoStudents();
-      setNotice("Default demo data removed. You can now add your real students.");
+      setNotice(
+        "Default demo data removed. You can now add your real students.",
+      );
       setTimeout(() => setNotice(null), 4000);
     }
   };
@@ -65,12 +69,25 @@ export const Students: React.FC = () => {
             >
               <span
                 className={`h-2 w-2 rounded-full ${
-                  isSupabaseConfigured ? "bg-emerald-500 animate-pulse" : "bg-amber-500"
+                  isSupabaseConfigured
+                    ? "bg-emerald-500 animate-pulse"
+                    : "bg-amber-500"
                 }`}
               />
-              <span>{isSupabaseConfigured ? "Supabase Live" : "Local Database"}</span>
+              <span>
+                {isSupabaseConfigured ? "Supabase Live" : "Local Database"}
+              </span>
             </span>
 
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setImportModalOpen(true)}
+              className="text-xs h-9 gap-1.5"
+            >
+              <FileSpreadsheet className="h-3.5 w-3.5 text-primary" />
+              Import Students
+            </Button>
             <Button
               variant="outline"
               size="sm"
@@ -167,7 +184,9 @@ export const Students: React.FC = () => {
             header: "Parent / Guardian",
             render: (s) => (
               <div>
-                <div className="text-xs font-medium">{s.parent_name || "—"}</div>
+                <div className="text-xs font-medium">
+                  {s.parent_name || "—"}
+                </div>
                 {s.parent_mobile && (
                   <div className="text-[11px] font-mono text-muted-foreground">
                     {s.parent_mobile}
@@ -186,7 +205,9 @@ export const Students: React.FC = () => {
                   </div>
                 )}
                 {s.email && (
-                  <div className="text-[11px] text-muted-foreground">{s.email}</div>
+                  <div className="text-[11px] text-muted-foreground">
+                    {s.email}
+                  </div>
                 )}
               </div>
             ),
@@ -202,6 +223,17 @@ export const Students: React.FC = () => {
         ]}
       />
 
+      <StudentImportModal
+        open={importModalOpen}
+        onOpenChange={setImportModalOpen}
+        defaultSemester={1}
+        onImportComplete={(count) => {
+          setNotice(
+            `${count} student${count === 1 ? "" : "s"} imported successfully.`,
+          );
+          setTimeout(() => setNotice(null), 4000);
+        }}
+      />
       <DatabaseSetupModal open={dbModalOpen} onOpenChange={setDbModalOpen} />
     </div>
   );

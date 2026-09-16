@@ -62,7 +62,11 @@ function normalizeDateValue(raw: any): string {
     return `${year}-${month}-${day}`;
   }
   const parsed = new Date(str);
-  if (!isNaN(parsed.getTime()) && parsed.getFullYear() > 1950 && parsed.getFullYear() < 2035) {
+  if (
+    !isNaN(parsed.getTime()) &&
+    parsed.getFullYear() > 1950 &&
+    parsed.getFullYear() < 2035
+  ) {
     return parsed.toISOString().split("T")[0];
   }
   return str;
@@ -73,7 +77,7 @@ function normalizeDateValue(raw: any): string {
  */
 export async function parseStudentSpreadsheet(
   file: File,
-  defaultSemester: number = 1
+  defaultSemester: number = 1,
 ): Promise<ParsedStudentRow[]> {
   const arrayBuffer = await file.arrayBuffer();
   const workbook = XLSX.read(arrayBuffer, {
@@ -89,7 +93,7 @@ export async function parseStudentSpreadsheet(
 
   const rawRows: Record<string, any>[] = XLSX.utils.sheet_to_json(
     workbook.Sheets[sheetName],
-    { defval: "", raw: true }
+    { defval: "", raw: true },
   );
 
   if (!rawRows || rawRows.length === 0) {
@@ -98,7 +102,7 @@ export async function parseStudentSpreadsheet(
 
   const existingStudents = localDb.students;
   const existingRolls = new Set(
-    existingStudents.map((s) => s.roll_number.trim().toLowerCase())
+    existingStudents.map((s) => s.roll_number.trim().toLowerCase()),
   );
   const seenRollsInFile = new Set<string>();
 
@@ -117,7 +121,10 @@ export async function parseStudentSpreadsheet(
     const getVal = (...possibleKeys: string[]): string => {
       for (const k of possibleKeys) {
         const normK = normalizeKey(k);
-        if (normalizedRow[normK] !== undefined && normalizedRow[normK] !== null) {
+        if (
+          normalizedRow[normK] !== undefined &&
+          normalizedRow[normK] !== null
+        ) {
           const val = String(normalizedRow[normK]).trim();
           if (val) return val;
         }
@@ -128,6 +135,8 @@ export async function parseStudentSpreadsheet(
     // 1. Enrollment / Roll Number (Unique Primary Key)
     let rollNumber = getVal(
       "enrollment_number",
+      "enrollment_number_roll_no",
+      "enrollment_roll_number",
       "enrollment_no",
       "enrollment",
       "enrolment_no",
@@ -138,7 +147,7 @@ export async function parseStudentSpreadsheet(
       "roll",
       "student_id",
       "usn",
-      "admission_no"
+      "admission_no",
     );
 
     // 2. University Registration Number
@@ -148,7 +157,7 @@ export async function parseStudentSpreadsheet(
       "regno",
       "registration_number",
       "university_reg_no",
-      "university_reg_number"
+      "university_reg_number",
     );
 
     // If rollNumber was omitted but regNumber was provided, use it
@@ -162,7 +171,7 @@ export async function parseStudentSpreadsheet(
       "name",
       "student_name",
       "student_full_name",
-      "candidate_name"
+      "candidate_name",
     );
 
     // 4. Semester
@@ -176,28 +185,30 @@ export async function parseStudentSpreadsheet(
       "father_name",
       "mother_name",
       "parent",
-      "guardian"
+      "guardian",
     );
 
     // 6. Parent Mobile (MANDATORY for attendance SMS alerts)
     const parentMobile = getVal(
       "parent_mobile",
+      "parent_mobile_10_digits",
       "parent_phone",
       "guardian_mobile",
       "guardian_phone",
       "father_mobile",
       "mother_mobile",
-      "parent_contact"
+      "parent_contact",
     );
 
     // 7. Student Mobile
     let studentMobile = getVal(
       "student_mobile",
+      "student_mobile_10_digits",
       "student_phone",
       "student_contact",
       "mobile",
       "phone",
-      "contact"
+      "contact",
     );
     // If "mobile" matched and is equal to parentMobile, don't duplicate
     if (studentMobile === parentMobile) {
@@ -208,7 +219,8 @@ export async function parseStudentSpreadsheet(
     const email = getVal("email", "student_email", "mail");
 
     // 9. Date of Birth
-    const rawDob = normalizedRow[normalizeKey("date_of_birth")] ??
+    const rawDob =
+      normalizedRow[normalizeKey("date_of_birth")] ??
       normalizedRow[normalizeKey("dob")] ??
       normalizedRow[normalizeKey("birth_date")] ??
       "";
@@ -222,7 +234,12 @@ export async function parseStudentSpreadsheet(
     else if (rawGender.startsWith("o")) gender = "other";
 
     // 11. Address
-    const address = getVal("address", "city", "location", "residential_address");
+    const address = getVal(
+      "address",
+      "city",
+      "location",
+      "residential_address",
+    );
 
     // Clean mobile numbers to 10-digit format
     const cleanedParentMobile = cleanMobile(parentMobile);
@@ -236,10 +253,14 @@ export async function parseStudentSpreadsheet(
     } else {
       const normRoll = rollNumber.toLowerCase();
       if (existingRolls.has(normRoll)) {
-        errors.push(`Enrollment '${rollNumber}' already exists in institutional records.`);
+        errors.push(
+          `Enrollment '${rollNumber}' already exists in institutional records.`,
+        );
       }
       if (seenRollsInFile.has(normRoll)) {
-        errors.push(`Duplicate Enrollment '${rollNumber}' in uploaded spreadsheet.`);
+        errors.push(
+          `Duplicate Enrollment '${rollNumber}' in uploaded spreadsheet.`,
+        );
       }
       seenRollsInFile.add(normRoll);
     }
@@ -250,9 +271,15 @@ export async function parseStudentSpreadsheet(
 
     // Parent mobile validation (Mandatory 10 digits)
     if (!parentMobile) {
-      errors.push("Parent Mobile is required (10-digit mobile number needed for SMS alerts).");
+      errors.push(
+        "Parent Mobile is required (10-digit mobile number needed for SMS alerts).",
+      );
     } else {
-      const parentErr = getMobileValidationError(parentMobile, "Parent Mobile", true);
+      const parentErr = getMobileValidationError(
+        parentMobile,
+        "Parent Mobile",
+        true,
+      );
       if (parentErr) {
         errors.push(parentErr);
       }
@@ -260,15 +287,25 @@ export async function parseStudentSpreadsheet(
 
     // Student mobile validation (Optional, but if provided must be valid 10 digits)
     if (studentMobile) {
-      const studentErr = getMobileValidationError(studentMobile, "Student Mobile", false);
+      const studentErr = getMobileValidationError(
+        studentMobile,
+        "Student Mobile",
+        false,
+      );
       if (studentErr) {
         warnings.push(studentErr);
       }
     }
 
     // Duplicate check between parent and student mobile
-    if (cleanedParentMobile && cleanedStudentMobile && cleanedParentMobile === cleanedStudentMobile) {
-      errors.push("Parent Mobile and Student Mobile cannot be identical (distinct numbers required).");
+    if (
+      cleanedParentMobile &&
+      cleanedStudentMobile &&
+      cleanedParentMobile === cleanedStudentMobile
+    ) {
+      errors.push(
+        "Parent Mobile and Student Mobile cannot be identical (distinct numbers required).",
+      );
     }
 
     // Email validation
@@ -277,7 +314,9 @@ export async function parseStudentSpreadsheet(
         warnings.push(`Student Email '${email}' has an invalid format.`);
       }
     } else {
-      warnings.push("Email missing (institutional @student.edutrack.edu will be auto-generated).");
+      warnings.push(
+        "Email missing (institutional @student.edutrack.edu will be auto-generated).",
+      );
     }
 
     // Date of Birth validation
@@ -363,7 +402,6 @@ export function downloadStudentExcelTemplate(semester: number = 1) {
       "Suresh Verma",
       "9876543214",
       "9876543215",
-      "",
       "rohan.v@student.edu",
       "2003-11-05",
       "male",
@@ -451,7 +489,7 @@ export function downloadStudentCsvTemplate(semester: number = 1) {
           }
           return str;
         })
-        .join(",")
+        .join(","),
     ),
   ].join("\n");
 
