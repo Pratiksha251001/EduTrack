@@ -11,6 +11,9 @@ export const college = {
   semesters: [1, 2, 3, 4, 5, 6, 7, 8],
 };
 
+export const ACADEMIC_YEARS = ["2025-26", "2026-27", "2027-28"];
+export const CURRENT_ACADEMIC_YEAR = "2025-26";
+
 export interface SmsLanguageOption {
   id: SmsLanguage;
   label: string;
@@ -19,12 +22,32 @@ export interface SmsLanguageOption {
 }
 
 export const SMS_LANGUAGES: SmsLanguageOption[] = [
-  { id: "trilingual", label: "त्रिभाषिक (All 3)", subLabel: "English + मराठी + हिंदी", flag: "🌐" },
-  { id: "mr", label: "मराठी", subLabel: "Marathi (स्थानिक पालकांसाठी)", flag: "🌐" },
+  {
+    id: "trilingual",
+    label: "त्रिभाषिक (All 3)",
+    subLabel: "English + मराठी + हिंदी",
+    flag: "🌐",
+  },
+  {
+    id: "mr",
+    label: "मराठी",
+    subLabel: "Marathi (स्थानिक पालकांसाठी)",
+    flag: "🌐",
+  },
   { id: "hi", label: "हिंदी", subLabel: "Hindi (सरल हिंदी संदेश)", flag: "🌐" },
   { id: "en", label: "English", subLabel: "Standard English", flag: "🌐" },
-  { id: "bilingual_mr", label: "Eng + मराठी", subLabel: "English & Marathi", flag: "🌐" },
-  { id: "bilingual_hi", label: "Eng + हिंदी", subLabel: "English & Hindi", flag: "🌐" },
+  {
+    id: "bilingual_mr",
+    label: "Eng + मराठी",
+    subLabel: "English & Marathi",
+    flag: "🌐",
+  },
+  {
+    id: "bilingual_hi",
+    label: "Eng + हिंदी",
+    subLabel: "English & Hindi",
+    flag: "🌐",
+  },
 ];
 
 /**
@@ -47,19 +70,35 @@ export function cleanSmsMessage(msg: string): string {
 /**
  * Single language generator functions
  */
-export function getEnglishAbsenceMessage(studentName: string, date: string, subjectName: string): string {
+export function getEnglishAbsenceMessage(
+  studentName: string,
+  date: string,
+  subjectName: string,
+): string {
   return `Dear Parent,\nYour child, ${studentName}, was marked ABSENT today (${date}) for the lecture "${subjectName}".\n\nPlease ensure regular attendance. Kindly contact the class coordinator for queries.\n\nRegards,\nAttendance System`;
 }
 
-export function getMarathiAbsenceMessage(studentName: string, date: string, subjectName: string): string {
+export function getMarathiAbsenceMessage(
+  studentName: string,
+  date: string,
+  subjectName: string,
+): string {
   return `आदरणीय पालक,\nआपला पाल्य ${studentName} आज दिनांक ${date} रोजी "${subjectName}" या विषयाच्या तासाला गैरहजर (अनुपस्थित) होता/होती.\n\nकृपया आपल्या पाल्याच्या नियमित उपस्थितीची खात्री करावी. अधिक माहितीसाठी वर्ग समन्वयकांशी संपर्क साधावा.\n\nसस्नेह,\nउपस्थिती प्रणाली`;
 }
 
-export function getHindiAbsenceMessage(studentName: string, date: string, subjectName: string): string {
+export function getHindiAbsenceMessage(
+  studentName: string,
+  date: string,
+  subjectName: string,
+): string {
   return `आदरणीय अभिभावक,\nआपका बच्चा ${studentName} आज दिनांक ${date} को "${subjectName}" विषय की कक्षा में अनुपस्थित (ABSENT) था/थी।\n\nकृपया नियमित उपस्थिति सुनिश्चित करें। किसी भी जानकारी के लिए वर्ग समन्वयक से संपर्क करें।\n\nसादर,\nउपस्थिति प्रणाली`;
 }
 
-export function getTrilingualAbsenceMessage(studentName: string, date: string, subjectName: string): string {
+export function getTrilingualAbsenceMessage(
+  studentName: string,
+  date: string,
+  subjectName: string,
+): string {
   return `Dear Parent, your child ${studentName} was marked ABSENT today (${date}) for the lecture "${subjectName}". Please ensure regular attendance.
 
 आदरणीय पालक, आपला पाल्य ${studentName} आज दिनांक ${date} रोजी "${subjectName}" या विषयाच्या तासाला गैरहजर (अनुपस्थित) होता/होती. कृपया नियमित उपस्थितीची खात्री करावी.
@@ -69,11 +108,19 @@ export function getTrilingualAbsenceMessage(studentName: string, date: string, s
 - Attendance System`;
 }
 
-export function getBilingualMrMessage(studentName: string, date: string, subjectName: string): string {
+export function getBilingualMrMessage(
+  studentName: string,
+  date: string,
+  subjectName: string,
+): string {
   return getTrilingualAbsenceMessage(studentName, date, subjectName);
 }
 
-export function getBilingualHiMessage(studentName: string, date: string, subjectName: string): string {
+export function getBilingualHiMessage(
+  studentName: string,
+  date: string,
+  subjectName: string,
+): string {
   return getTrilingualAbsenceMessage(studentName, date, subjectName);
 }
 
@@ -84,7 +131,7 @@ export function generateSmsMessage(
   studentName: string,
   date: string,
   subjectName: string,
-  _lang: SmsLanguage = "trilingual"
+  _lang: SmsLanguage = "trilingual",
 ): string {
   return getTrilingualAbsenceMessage(studentName, date, subjectName);
 }
@@ -105,4 +152,3 @@ export function getParentWhatsAppUrl(phone: string, message: string): string {
   const cleanPhone = formatParentPhoneForWhatsApp(phone);
   return `https://wa.me/${cleanPhone}?text=${encodeURIComponent(message)}`;
 }
-

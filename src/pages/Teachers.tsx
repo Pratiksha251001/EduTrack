@@ -1,17 +1,14 @@
 import React, { useState, useEffect } from "react";
 import { CrudPage } from "../components/CrudPage";
 import { Teacher } from "../lib/types";
-import { localDb, isSupabaseConfigured } from "../lib/supabase";
+import { ACADEMIC_YEARS, CURRENT_ACADEMIC_YEAR, college } from "../lib/college";
+import { localDb } from "../lib/supabase";
 import { Badge } from "../components/ui/badge";
 import { Button } from "../components/ui/button";
-import { Database, Trash2, Terminal as TerminalIcon } from "lucide-react";
-import { DatabaseSetupModal } from "../components/DatabaseSetupModal";
-import { BackendTerminalModal } from "../components/BackendTerminalModal";
+import { Trash2 } from "lucide-react";
 
 export const Teachers: React.FC = () => {
   const [departments, setDepartments] = useState(localDb.departments);
-  const [dbModalOpen, setDbModalOpen] = useState(false);
-  const [terminalModalOpen, setTerminalModalOpen] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
 
   useEffect(() => {
@@ -41,17 +38,10 @@ export const Teachers: React.FC = () => {
   return (
     <div className="space-y-4">
       {notice && (
-        <div className="rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-4 py-2.5 text-xs font-semibold text-emerald-700 dark:text-emerald-300 flex items-center justify-between animate-in fade-in">
-          <span>{notice}</span>
-          <button
-            onClick={() => setNotice(null)}
-            className="text-muted-foreground hover:text-foreground font-bold ml-4"
-          >
-            ✕
-          </button>
+        <div className="rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-4 py-2.5 text-xs font-semibold text-emerald-700 dark:text-emerald-300">
+          {notice}
         </div>
       )}
-
       <CrudPage<Teacher>
         title="Teachers & Faculty"
         description="Faculty staff directory including HODs, Class Coordinators (CC), and Lecturers. Accounts link automatically."
@@ -62,57 +52,16 @@ export const Teachers: React.FC = () => {
           { hod: 0, class_coordinator: 1, lecturer: 2 }[b.role]
         }
         extraHeaderActions={
-          <div className="flex items-center gap-2 flex-wrap">
-            <span
-              className={`hidden sm:inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold border ${
-                isSupabaseConfigured
-                  ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
-                  : "border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-300"
-              }`}
-            >
-              <span
-                className={`h-2 w-2 rounded-full ${
-                  isSupabaseConfigured
-                    ? "bg-emerald-500 animate-pulse"
-                    : "bg-amber-500"
-                }`}
-              />
-              <span>
-                {isSupabaseConfigured ? "Supabase Live" : "Local Database"}
-              </span>
-            </span>
-
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setDbModalOpen(true)}
-              className="text-xs h-9 gap-1.5"
-            >
-              <Database className="h-3.5 w-3.5 text-primary" />
-              Database & SQL Query
-            </Button>
-
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setTerminalModalOpen(true)}
-              className="text-xs h-9 gap-1.5 font-mono bg-slate-900 text-slate-100 hover:bg-slate-800 dark:bg-slate-800"
-            >
-              <TerminalIcon className="h-3.5 w-3.5 text-emerald-400" />
-              Terminal Setup
-            </Button>
-
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={handleClearDefaultData}
-              title="Remove default sample data to start fresh"
-              className="text-xs h-9 gap-1.5 text-destructive hover:bg-destructive/10 hover:text-destructive"
-            >
-              <Trash2 className="h-3.5 w-3.5" />
-              Clear Default Data
-            </Button>
-          </div>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleClearDefaultData}
+            title="Remove default sample data to start fresh"
+            className="text-xs h-9 gap-1.5 text-destructive hover:bg-destructive/10 hover:text-destructive"
+          >
+            <Trash2 className="h-3.5 w-3.5" />
+            Clear Default Data
+          </Button>
         }
         emptyStateAction={{
           label: "Restore sample teachers",
@@ -167,8 +116,9 @@ export const Teachers: React.FC = () => {
           },
           {
             key: "assigned_semester",
-            label: "Assigned Semester (for Class Coordinator: 1 to 8)",
+            label: "Assigned Semester",
             type: "select",
+            visibleWhen: (data) => data.role === "lecturer",
             options: [
               { value: "", label: "Not Assigned" },
               { value: "1", label: "Semester 1" },
@@ -180,6 +130,28 @@ export const Teachers: React.FC = () => {
               { value: "7", label: "Semester 7" },
               { value: "8", label: "Semester 8" },
             ],
+          },
+          {
+            key: "assigned_year",
+            label: "Engineering Year",
+            type: "select",
+            visibleWhen: (data) => data.role === "lecturer",
+            options: college.engineeringYears.map((year) => ({
+              value: String(year),
+              label: `${["FE", "SE", "TE", "BE"][year - 1]} · Year ${year}`,
+            })),
+          },
+          {
+            key: "academic_year",
+            label: "Academic Session",
+            type: "select",
+            visibleWhen: (data) =>
+              data.role === "hod" || data.role === "class_coordinator",
+            defaultValue: CURRENT_ACADEMIC_YEAR,
+            options: ACADEMIC_YEARS.map((year) => ({
+              value: year,
+              label: year,
+            })),
           },
           {
             key: "department_id",
@@ -274,12 +246,6 @@ export const Teachers: React.FC = () => {
             ),
           },
         ]}
-      />
-
-      <DatabaseSetupModal open={dbModalOpen} onOpenChange={setDbModalOpen} />
-      <BackendTerminalModal
-        open={terminalModalOpen}
-        onOpenChange={setTerminalModalOpen}
       />
     </div>
   );

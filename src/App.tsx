@@ -224,7 +224,7 @@ export const App: React.FC = () => {
               <Route
                 path="/reports"
                 element={
-                  <ProtectedRoute denyStudent>
+                  <ProtectedRoute>
                     <Reports />
                   </ProtectedRoute>
                 }

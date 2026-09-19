@@ -32,6 +32,8 @@ import {
 } from "../lib/types";
 import {
   college,
+  ACADEMIC_YEARS,
+  CURRENT_ACADEMIC_YEAR,
   ENGINEERING_YEARS,
   getEngineeringYearFromSemester,
   getSemesterEngineeringLabel,
@@ -84,12 +86,17 @@ export const HODDashboard: React.FC = () => {
   const [editingTeacher, setEditingTeacher] = useState<Teacher | null>(null);
   const [expandedSemester, setExpandedSemester] = useState<number | null>(null);
   const [assignmentDrafts, setAssignmentDrafts] = useState<
-    Record<string, { subjectId: string; className: string; classNames?: string[] }>
+    Record<
+      string,
+      { subjectId: string; className: string; classNames?: string[] }
+    >
   >({});
   const [, refresh] = useState(0);
   const [studentDialogOpen, setStudentDialogOpen] = useState(false);
   const [classDialogOpen, setClassDialogOpen] = useState(false);
-  const [selectedTrackFilter, setSelectedTrackFilter] = useState<"all" | "odd" | "even">("all");
+  const [selectedTrackFilter, setSelectedTrackFilter] = useState<
+    "all" | "odd" | "even"
+  >("all");
   const [classForm, setClassForm] = useState({
     name: "",
     year: "1",
@@ -113,6 +120,9 @@ export const HODDashboard: React.FC = () => {
     mobile: "",
     password: "",
     role: "lecturer" as Teacher["role"],
+    academic_year: CURRENT_ACADEMIC_YEAR,
+    assigned_year: "2",
+    assigned_semester: "3",
   });
 
   const [assignForm, setAssignForm] = useState({
@@ -253,11 +263,18 @@ export const HODDashboard: React.FC = () => {
     const empErr = getEmployeeIdValidationError(teacherForm.employee_id);
     if (empErr) errs.push(empErr);
 
-    const nameErr = getNameValidationError(teacherForm.full_name, "Teacher Full Name");
+    const nameErr = getNameValidationError(
+      teacherForm.full_name,
+      "Teacher Full Name",
+    );
     if (nameErr) errs.push(nameErr);
 
     if (teacherForm.mobile) {
-      const mobileErr = getMobileValidationError(teacherForm.mobile, "Faculty Mobile", false);
+      const mobileErr = getMobileValidationError(
+        teacherForm.mobile,
+        "Faculty Mobile",
+        false,
+      );
       if (mobileErr) errs.push(mobileErr);
     }
 
@@ -273,7 +290,10 @@ export const HODDashboard: React.FC = () => {
     const isCoordinator = teacherForm.role === "class_coordinator";
     const userRole = isCoordinator ? "class_coordinator" : "teacher";
     const defaultPwd = isCoordinator ? "CC@123" : "Teacher@123";
-    const effectivePwd = teacherForm.password?.trim() || teacherForm.employee_id.trim() || defaultPwd;
+    const effectivePwd =
+      teacherForm.password?.trim() ||
+      teacherForm.employee_id.trim() ||
+      defaultPwd;
 
     if (editingTeacher) {
       await localDb.update("teachers", editingTeacher.id, {
@@ -283,9 +303,14 @@ export const HODDashboard: React.FC = () => {
         mobile: cleanMobile(teacherForm.mobile) || null,
         role: teacherForm.role,
         is_class_coordinator: isCoordinator,
+        academic_year: teacherForm.academic_year,
+        assigned_year: Number(teacherForm.assigned_year) || null,
+        assigned_semester: Number(teacherForm.assigned_semester) || null,
       });
 
-      let account = localDb.users.find((u: any) => u.teacher_id === editingTeacher.id);
+      let account = localDb.users.find(
+        (u: any) => u.teacher_id === editingTeacher.id,
+      );
       if (account) {
         await localDb.update("users", account.id, {
           full_name: teacherForm.full_name.trim(),
@@ -299,14 +324,18 @@ export const HODDashboard: React.FC = () => {
           {
             id: accountId,
             full_name: teacherForm.full_name.trim(),
-            email: teacherForm.email?.trim() || `${teacherForm.employee_id.toLowerCase()}@edutrack.edu`,
+            email:
+              teacherForm.email?.trim() ||
+              `${teacherForm.employee_id.toLowerCase()}@edutrack.edu`,
             role: userRole,
             department_id: user?.department_id,
             teacher_id: editingTeacher.id,
             status: "active",
           },
         ]);
-        await localDb.update("teachers", editingTeacher.id, { user_id: accountId });
+        await localDb.update("teachers", editingTeacher.id, {
+          user_id: accountId,
+        });
       }
 
       if (teacherForm.password?.trim() || !account) {
@@ -331,6 +360,9 @@ export const HODDashboard: React.FC = () => {
           mobile: cleanMobile(teacherForm.mobile) || null,
           is_class_coordinator: isCoordinator,
           role: teacherForm.role,
+          academic_year: teacherForm.academic_year,
+          assigned_year: Number(teacherForm.assigned_year) || null,
+          assigned_semester: Number(teacherForm.assigned_semester) || null,
           status: "active",
         },
       ]);
@@ -341,7 +373,9 @@ export const HODDashboard: React.FC = () => {
           {
             id: accountId,
             full_name: teacher.full_name,
-            email: teacher.email || `${teacher.employee_id.toLowerCase()}@edutrack.edu`,
+            email:
+              teacher.email ||
+              `${teacher.employee_id.toLowerCase()}@edutrack.edu`,
             role: userRole,
             department_id: user?.department_id,
             teacher_id: teacher.id,
@@ -350,12 +384,7 @@ export const HODDashboard: React.FC = () => {
         ]);
         await localDb.update("teachers", teacher.id, { user_id: accountId });
         saveCredential(
-          [
-            accountId,
-            teacher.id,
-            teacher.email,
-            teacher.employee_id,
-          ],
+          [accountId, teacher.id, teacher.email, teacher.employee_id],
           effectivePwd,
         );
       }
@@ -389,13 +418,14 @@ export const HODDashboard: React.FC = () => {
     if (!teacherId || !subjectId) return;
     const trimmedClassName = className?.trim() || null;
     const matchedClass = academicClasses.find(
-      (c) => c.name.toLowerCase() === trimmedClassName?.toLowerCase()
+      (c) => c.name.toLowerCase() === trimmedClassName?.toLowerCase(),
     );
     const duplicate = teacherSubjects.some(
       (a) =>
         a.teacher_id === teacherId &&
         a.subject_id === subjectId &&
-        (a.class_name || "").toLowerCase() === (trimmedClassName || "").toLowerCase(),
+        (a.class_name || "").toLowerCase() ===
+          (trimmedClassName || "").toLowerCase(),
     );
     if (duplicate) return;
 
@@ -463,7 +493,9 @@ export const HODDashboard: React.FC = () => {
       assigned_semester: Number(assignForm.semester),
     });
 
-    let account = localDb.users.find((u: any) => u.teacher_id === assignForm.teacher_id);
+    let account = localDb.users.find(
+      (u: any) => u.teacher_id === assignForm.teacher_id,
+    );
     if (account) {
       await localDb.update("users", account.id, { role: "class_coordinator" });
     } else {
@@ -472,7 +504,8 @@ export const HODDashboard: React.FC = () => {
         {
           id: accountId,
           full_name: teacher.full_name,
-          email: teacher.email || `${teacher.employee_id.toLowerCase()}@college.edu`,
+          email:
+            teacher.email || `${teacher.employee_id.toLowerCase()}@college.edu`,
           role: "class_coordinator",
           department_id: user?.department_id,
           teacher_id: teacher.id,
@@ -511,7 +544,9 @@ export const HODDashboard: React.FC = () => {
         role: "lecturer",
         assigned_semester: null,
       });
-      const account = localDb.users.find((u: any) => u.teacher_id === assignment.teacher_id);
+      const account = localDb.users.find(
+        (u: any) => u.teacher_id === assignment.teacher_id,
+      );
       if (account) {
         await localDb.update("users", account.id, { role: "teacher" });
       }
@@ -537,7 +572,9 @@ export const HODDashboard: React.FC = () => {
 
     if (
       students.some(
-        (student) => student.roll_number.toLowerCase() === studentForm.roll_number.trim().toLowerCase(),
+        (student) =>
+          student.roll_number.toLowerCase() ===
+          studentForm.roll_number.trim().toLowerCase(),
       )
     ) {
       errs.push("A student with this roll number already exists.");
@@ -546,7 +583,11 @@ export const HODDashboard: React.FC = () => {
     const nameErr = getNameValidationError(studentForm.full_name);
     if (nameErr) errs.push(nameErr);
 
-    const mobileErr = getMobileValidationError(studentForm.parent_mobile, "Parent Mobile", true);
+    const mobileErr = getMobileValidationError(
+      studentForm.parent_mobile,
+      "Parent Mobile",
+      true,
+    );
     if (mobileErr) errs.push(mobileErr);
 
     if (studentForm.email && !isValidEmail(studentForm.email)) {
@@ -582,7 +623,9 @@ export const HODDashboard: React.FC = () => {
         {
           id: accountId,
           full_name: student.full_name,
-          email: student.email || `${student.roll_number.toLowerCase()}@student.college.edu`,
+          email:
+            student.email ||
+            `${student.roll_number.toLowerCase()}@student.college.edu`,
           role: "student",
           department_id: user?.department_id,
           student_id: student.id,
@@ -590,12 +633,7 @@ export const HODDashboard: React.FC = () => {
         },
       ]);
       saveCredential(
-        [
-          accountId,
-          student.id,
-          student.roll_number,
-          student.email,
-        ],
+        [accountId, student.id, student.roll_number, student.email],
         student.roll_number || "123",
       );
     }
@@ -649,7 +687,12 @@ export const HODDashboard: React.FC = () => {
       },
     ]);
     setClassDialogOpen(false);
-    setClassForm({ name: "", year: "1", semester: "1", coordinator_teacher_id: "" });
+    setClassForm({
+      name: "",
+      year: "1",
+      semester: "1",
+      coordinator_teacher_id: "",
+    });
     refresh((value) => value + 1);
   };
 
@@ -735,7 +778,10 @@ export const HODDashboard: React.FC = () => {
           </div>
           <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
             <Link to="/attendance">
-              <Button size="sm" className="w-full sm:w-auto gap-1.5 bg-primary text-primary-foreground shadow-xs">
+              <Button
+                size="sm"
+                className="w-full sm:w-auto gap-1.5 bg-primary text-primary-foreground shadow-xs"
+              >
                 <ClipboardCheck className="h-4 w-4" />
                 Take Lecture Attendance
               </Button>
@@ -814,7 +860,9 @@ export const HODDashboard: React.FC = () => {
               </Badge>
             </div>
             <p className="text-xs text-muted-foreground mt-1">
-              Engineering runs concurrent parallel tracks: Odd Semesters (1st, 3rd, 5th, 7th) and Even Semesters (2nd, 4th, 6th, 8th). Class Coordinators are fixed per academic year & semester.
+              Engineering runs concurrent parallel tracks: Odd Semesters (1st,
+              3rd, 5th, 7th) and Even Semesters (2nd, 4th, 6th, 8th). Class
+              Coordinators are fixed per academic year & semester.
             </p>
           </div>
 
@@ -862,17 +910,15 @@ export const HODDashboard: React.FC = () => {
         {/* 4 Engineering Year Cards (FE, SE, TE, BE) */}
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
           {ENGINEERING_YEARS.map((engYear) => {
-            const yearStudents = deptStudents.filter(
-              (s) =>
-                (s.year
-                  ? s.year === engYear.year
-                  : getEngineeringYearFromSemester(s.semester) === engYear.year),
+            const yearStudents = deptStudents.filter((s) =>
+              s.year
+                ? s.year === engYear.year
+                : getEngineeringYearFromSemester(s.semester) === engYear.year,
             );
-            const yearClasses = deptClasses.filter(
-              (c) =>
-                (c.year
-                  ? c.year === engYear.year
-                  : getEngineeringYearFromSemester(c.semester) === engYear.year),
+            const yearClasses = deptClasses.filter((c) =>
+              c.year
+                ? c.year === engYear.year
+                : getEngineeringYearFromSemester(c.semester) === engYear.year,
             );
             const yearCoordinators = deptTeachers.filter(
               (t) =>
@@ -880,8 +926,9 @@ export const HODDashboard: React.FC = () => {
                 (t.assigned_year
                   ? t.assigned_year === engYear.year
                   : t.assigned_semester
-                  ? getEngineeringYearFromSemester(t.assigned_semester) === engYear.year
-                  : false),
+                    ? getEngineeringYearFromSemester(t.assigned_semester) ===
+                      engYear.year
+                    : false),
             );
 
             const isOddActive = selectedTrackFilter === "odd";
@@ -901,7 +948,10 @@ export const HODDashboard: React.FC = () => {
                       {engYear.name} ({engYear.shortName})
                     </h3>
                   </div>
-                  <Badge variant="outline" className="text-xs font-mono font-bold bg-muted">
+                  <Badge
+                    variant="outline"
+                    className="text-xs font-mono font-bold bg-muted"
+                  >
                     Sem {engYear.semesters.join(" & ")}
                   </Badge>
                 </div>
@@ -926,7 +976,9 @@ export const HODDashboard: React.FC = () => {
                             : "border-border/40 bg-muted/30 text-muted-foreground opacity-60"
                         }`}
                       >
-                        <div className="text-[11px] font-bold">Semester {sem}</div>
+                        <div className="text-[11px] font-bold">
+                          Semester {sem}
+                        </div>
                         <div className="text-[9px] truncate">
                           {getSemesterEngineeringLabel(sem)}
                         </div>
@@ -939,11 +991,15 @@ export const HODDashboard: React.FC = () => {
                 <div className="pt-2 border-t border-border/60 space-y-2 text-xs">
                   <div className="flex items-center justify-between text-muted-foreground">
                     <span>Enrolled Students</span>
-                    <span className="font-bold text-foreground">{yearStudents.length}</span>
+                    <span className="font-bold text-foreground">
+                      {yearStudents.length}
+                    </span>
                   </div>
                   <div className="flex items-center justify-between text-muted-foreground">
                     <span>Active Classes</span>
-                    <span className="font-bold text-foreground">{yearClasses.length}</span>
+                    <span className="font-bold text-foreground">
+                      {yearClasses.length}
+                    </span>
                   </div>
                   <div>
                     <span className="text-[11px] font-semibold text-muted-foreground block mb-1">
@@ -988,12 +1044,16 @@ export const HODDashboard: React.FC = () => {
               <h2 className="font-display text-lg font-bold text-foreground">
                 My Lecture & Teaching Workload
               </h2>
-              <Badge variant="outline" className="border-primary/30 text-primary text-[10px] font-bold">
+              <Badge
+                variant="outline"
+                className="border-primary/30 text-primary text-[10px] font-bold"
+              >
                 Dual Role: HOD & Lecturer
               </Badge>
             </div>
             <p className="text-xs text-muted-foreground">
-              As Head of Department, you can conduct academic lectures, mark subject attendance, and supervise department faculty.
+              As Head of Department, you can conduct academic lectures, mark
+              subject attendance, and supervise department faculty.
             </p>
           </div>
 
@@ -1033,7 +1093,11 @@ export const HODDashboard: React.FC = () => {
                   </div>
 
                   <Link to="/attendance">
-                    <Button size="sm" variant="outline" className="h-8 text-xs shrink-0 gap-1 hover:bg-primary hover:text-primary-foreground">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="h-8 text-xs shrink-0 gap-1 hover:bg-primary hover:text-primary-foreground"
+                    >
                       <ClipboardCheck className="h-3.5 w-3.5" />
                       Mark
                     </Button>
@@ -1045,14 +1109,21 @@ export const HODDashboard: React.FC = () => {
             <div className="flex flex-col sm:flex-row items-center justify-between gap-3 rounded-xl border border-dashed border-border bg-background/50 p-4 text-xs text-muted-foreground">
               <div className="space-y-0.5 text-center sm:text-left">
                 <p className="font-semibold text-foreground">
-                  Ready to take lectures for {myDepartment?.code || "your department"}
+                  Ready to take lectures for{" "}
+                  {myDepartment?.code || "your department"}
                 </p>
                 <p>
-                  You can conduct lectures for any course in your department or map specific subjects to your profile under Subject Assignments.
+                  You can conduct lectures for any course in your department or
+                  map specific subjects to your profile under Subject
+                  Assignments.
                 </p>
               </div>
               <Link to="/attendance" className="shrink-0">
-                <Button size="sm" variant="secondary" className="gap-1.5 text-xs">
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  className="gap-1.5 text-xs"
+                >
                   <ClipboardCheck className="h-3.5 w-3.5 text-primary" />
                   Select Subject & Take Attendance
                 </Button>
@@ -1111,7 +1182,10 @@ export const HODDashboard: React.FC = () => {
                 Add and manage faculty members
               </p>
             </div>
-            <Dialog open={teacherDialogOpen} onOpenChange={setTeacherDialogOpen}>
+            <Dialog
+              open={teacherDialogOpen}
+              onOpenChange={setTeacherDialogOpen}
+            >
               <DialogContent>
                 <DialogHeader>
                   <DialogTitle>
@@ -1171,7 +1245,9 @@ export const HODDashboard: React.FC = () => {
                         Mobile
                       </label>
                       {teacherForm.mobile && (
-                        <span className={`text-[10px] font-mono ${teacherForm.mobile.length === 10 ? "text-emerald-500 font-bold" : "text-muted-foreground"}`}>
+                        <span
+                          className={`text-[10px] font-mono ${teacherForm.mobile.length === 10 ? "text-emerald-500 font-bold" : "text-muted-foreground"}`}
+                        >
                           {teacherForm.mobile.length}/10
                         </span>
                       )}
@@ -1188,7 +1264,12 @@ export const HODDashboard: React.FC = () => {
                         })
                       }
                       placeholder="9876543210 (Optional 10 digits)"
-                      className={teacherForm.mobile && !isValid10DigitMobile(teacherForm.mobile) ? "border-destructive focus-visible:ring-destructive" : ""}
+                      className={
+                        teacherForm.mobile &&
+                        !isValid10DigitMobile(teacherForm.mobile)
+                          ? "border-destructive focus-visible:ring-destructive"
+                          : ""
+                      }
                     />
                   </div>
                   <div>
@@ -1212,6 +1293,65 @@ export const HODDashboard: React.FC = () => {
                       ]}
                     />
                   </div>
+                  {teacherForm.role === "class_coordinator" ? (
+                    <div>
+                      <label className="text-xs font-semibold text-muted-foreground mb-1 block">
+                        Academic Session
+                      </label>
+                      <Select
+                        value={teacherForm.academic_year}
+                        onChange={(e) =>
+                          setTeacherForm({
+                            ...teacherForm,
+                            academic_year: e.target.value,
+                          })
+                        }
+                        options={ACADEMIC_YEARS.map((year) => ({
+                          value: year,
+                          label: year,
+                        }))}
+                      />
+                    </div>
+                  ) : (
+                    <>
+                      <div>
+                        <label className="text-xs font-semibold text-muted-foreground mb-1 block">
+                          Engineering Year
+                        </label>
+                        <Select
+                          value={teacherForm.assigned_year}
+                          onChange={(e) =>
+                            setTeacherForm({
+                              ...teacherForm,
+                              assigned_year: e.target.value,
+                            })
+                          }
+                          options={ENGINEERING_YEARS.map((year) => ({
+                            value: String(year.year),
+                            label: `${year.shortName} · ${year.name}`,
+                          }))}
+                        />
+                      </div>
+                      <div>
+                        <label className="text-xs font-semibold text-muted-foreground mb-1 block">
+                          Semester
+                        </label>
+                        <Select
+                          value={teacherForm.assigned_semester}
+                          onChange={(e) =>
+                            setTeacherForm({
+                              ...teacherForm,
+                              assigned_semester: e.target.value,
+                            })
+                          }
+                          options={college.semesters.map((semester) => ({
+                            value: String(semester),
+                            label: `Semester ${semester}`,
+                          }))}
+                        />
+                      </div>
+                    </>
+                  )}
                   <div>
                     <label className="text-xs font-semibold text-muted-foreground mb-1 block">
                       Login Password
@@ -1229,8 +1369,8 @@ export const HODDashboard: React.FC = () => {
                         editingTeacher
                           ? "Leave blank to keep current password"
                           : teacherForm.role === "class_coordinator"
-                          ? "Default: CC@123 or Employee ID"
-                          : "Default: Teacher@123 or Employee ID"
+                            ? "Default: CC@123 or Employee ID"
+                            : "Default: Teacher@123 or Employee ID"
                       }
                     />
                     <p className="text-[11px] text-muted-foreground mt-1">
@@ -1352,8 +1492,11 @@ export const HODDashboard: React.FC = () => {
               const uniqueClasses = Array.from(
                 new Set(assigned.map((a) => a.class_name).filter(Boolean)),
               );
-              const selectedSubjectId = assignmentDrafts[teacher.id]?.subjectId || "";
-              const selectedSub = deptSubjects.find((s) => s.id === selectedSubjectId);
+              const selectedSubjectId =
+                assignmentDrafts[teacher.id]?.subjectId || "";
+              const selectedSub = deptSubjects.find(
+                (s) => s.id === selectedSubjectId,
+              );
               const relevantClasses = academicClasses.filter((c) =>
                 selectedSub ? c.semester === selectedSub.semester : true,
               );
@@ -1369,16 +1512,28 @@ export const HODDashboard: React.FC = () => {
                         {teacher.full_name}
                       </span>
                       <p className="text-xs text-muted-foreground">
-                        {teacher.designation || (teacher.is_class_coordinator ? "Class Coordinator" : "Faculty Member")} · {teacher.employee_id}
+                        {teacher.designation ||
+                          (teacher.is_class_coordinator
+                            ? "Class Coordinator"
+                            : "Faculty Member")}{" "}
+                        · {teacher.employee_id}
                       </p>
                     </div>
                     <div className="flex items-center gap-1.5 flex-wrap">
-                      <Badge variant="outline" className="text-[11px] font-medium border-primary/20 bg-primary/5 text-primary">
-                        {assigned.length} Subject Assignment{assigned.length === 1 ? "" : "s"}
+                      <Badge
+                        variant="outline"
+                        className="text-[11px] font-medium border-primary/20 bg-primary/5 text-primary"
+                      >
+                        {assigned.length} Subject Assignment
+                        {assigned.length === 1 ? "" : "s"}
                       </Badge>
                       {uniqueClasses.length > 0 && (
-                        <Badge variant="outline" className="text-[11px] font-medium border-emerald-500/30 bg-emerald-500/10 text-emerald-800 dark:text-emerald-300">
-                          {uniqueClasses.length} Class Division{uniqueClasses.length === 1 ? "" : "s"}
+                        <Badge
+                          variant="outline"
+                          className="text-[11px] font-medium border-emerald-500/30 bg-emerald-500/10 text-emerald-800 dark:text-emerald-300"
+                        >
+                          {uniqueClasses.length} Class Division
+                          {uniqueClasses.length === 1 ? "" : "s"}
                         </Badge>
                       )}
                     </div>
@@ -1395,9 +1550,17 @@ export const HODDashboard: React.FC = () => {
                             key={a.id}
                             className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium border border-border bg-muted/60 text-foreground"
                           >
-                            <span className="font-semibold text-primary">{subject?.code || "SUB"}</span>
+                            <span className="font-semibold text-primary">
+                              {subject?.code || "SUB"}
+                            </span>
                             <span className="text-muted-foreground">·</span>
-                            <span className="font-medium">{subject?.name ? (subject.name.length > 18 ? subject.name.slice(0, 18) + "…" : subject.name) : ""}</span>
+                            <span className="font-medium">
+                              {subject?.name
+                                ? subject.name.length > 18
+                                  ? subject.name.slice(0, 18) + "…"
+                                  : subject.name
+                                : ""}
+                            </span>
                             <span className="px-1.5 py-0.2 rounded text-[10px] font-bold bg-primary/10 text-primary">
                               {a.class_name || "All Divs"}
                             </span>
@@ -1541,7 +1704,8 @@ export const HODDashboard: React.FC = () => {
                       value={assignForm.year}
                       onValueChange={(v) => {
                         const y = Number(v) || 1;
-                        const defaultSem = y === 1 ? "1" : y === 2 ? "3" : y === 3 ? "5" : "7";
+                        const defaultSem =
+                          y === 1 ? "1" : y === 2 ? "3" : y === 3 ? "5" : "7";
                         setAssignForm({
                           ...assignForm,
                           year: v,
@@ -1752,7 +1916,8 @@ export const HODDashboard: React.FC = () => {
                       value={classForm.year}
                       onChange={(event) => {
                         const y = Number(event.target.value) || 1;
-                        const defaultSem = y === 1 ? "1" : y === 2 ? "3" : y === 3 ? "5" : "7";
+                        const defaultSem =
+                          y === 1 ? "1" : y === 2 ? "3" : y === 3 ? "5" : "7";
                         setClassForm({
                           ...classForm,
                           year: event.target.value,
@@ -1772,7 +1937,10 @@ export const HODDashboard: React.FC = () => {
                     <Select
                       value={classForm.semester}
                       onChange={(event) =>
-                        setClassForm({ ...classForm, semester: event.target.value })
+                        setClassForm({
+                          ...classForm,
+                          semester: event.target.value,
+                        })
                       }
                       options={(
                         ENGINEERING_YEARS.find(
@@ -1916,7 +2084,8 @@ export const HODDashboard: React.FC = () => {
                       value={studentForm.year}
                       onChange={(e) => {
                         const y = Number(e.target.value) || 1;
-                        const defaultSem = y === 1 ? "1" : y === 2 ? "3" : y === 3 ? "5" : "7";
+                        const defaultSem =
+                          y === 1 ? "1" : y === 2 ? "3" : y === 3 ? "5" : "7";
                         setStudentForm({
                           ...studentForm,
                           year: e.target.value,
@@ -1936,7 +2105,10 @@ export const HODDashboard: React.FC = () => {
                     <Select
                       value={studentForm.semester}
                       onChange={(e) =>
-                        setStudentForm({ ...studentForm, semester: e.target.value })
+                        setStudentForm({
+                          ...studentForm,
+                          semester: e.target.value,
+                        })
                       }
                       options={(
                         ENGINEERING_YEARS.find(
@@ -1962,7 +2134,9 @@ export const HODDashboard: React.FC = () => {
                 <div className="space-y-1">
                   <div className="flex justify-between items-center text-xs text-muted-foreground">
                     <span>Parent Mobile (10 digits) *</span>
-                    <span className={`font-mono ${studentForm.parent_mobile.length === 10 ? "text-emerald-500 font-bold" : ""}`}>
+                    <span
+                      className={`font-mono ${studentForm.parent_mobile.length === 10 ? "text-emerald-500 font-bold" : ""}`}
+                    >
                       {studentForm.parent_mobile.length}/10
                     </span>
                   </div>
@@ -1978,7 +2152,12 @@ export const HODDashboard: React.FC = () => {
                         parent_mobile: sanitizeMobileInput(e.target.value),
                       })
                     }
-                    className={studentForm.parent_mobile && !isValid10DigitMobile(studentForm.parent_mobile) ? "border-destructive focus-visible:ring-destructive" : ""}
+                    className={
+                      studentForm.parent_mobile &&
+                      !isValid10DigitMobile(studentForm.parent_mobile)
+                        ? "border-destructive focus-visible:ring-destructive"
+                        : ""
+                    }
                   />
                 </div>
                 <Input

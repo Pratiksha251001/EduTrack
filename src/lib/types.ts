@@ -30,6 +30,7 @@ export interface Teacher {
   assigned_semesters?: number[] | null;
   assigned_classes?: string[] | null;
   assigned_class_ids?: string[] | null;
+  academic_year?: string | null;
   role: "hod" | "class_coordinator" | "lecturer";
   status: "active" | "inactive";
   designation?: string | null;
@@ -76,6 +77,7 @@ export interface TeacherSubject {
 export interface Student {
   id: string;
   roll_number: string;
+  prn_number?: string | null;
   reg_number?: string | null;
   full_name: string;
   department_id?: string | null;
@@ -109,7 +111,13 @@ export interface AttendanceRecord {
   created_at?: string;
 }
 
-export type SmsLanguage = 'en' | 'mr' | 'hi' | 'trilingual' | 'bilingual_mr' | 'bilingual_hi';
+export type SmsLanguage =
+  | "en"
+  | "mr"
+  | "hi"
+  | "trilingual"
+  | "bilingual_mr"
+  | "bilingual_hi";
 
 export interface SmsLog {
   id: string;

@@ -109,7 +109,7 @@ export const AppShell: React.FC = () => {
           { label: "Notices", path: "/notices", icon: MessageSquare },
         ]
       : []),
-    ...(role !== "student"
+    ...(role
       ? [
           {
             label: "Reports & PDF",

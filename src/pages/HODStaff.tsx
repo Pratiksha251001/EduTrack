@@ -25,9 +25,17 @@ import {
 import { useAuth } from "../context/AuthContext";
 import { localDb } from "../lib/supabase";
 import { saveCredential } from "../lib/authUtils";
-import { Teacher, AcademicClass, TeacherSubject, Subject, ClassCoordinatorAssignment } from "../lib/types";
+import {
+  Teacher,
+  AcademicClass,
+  TeacherSubject,
+  Subject,
+  ClassCoordinatorAssignment,
+} from "../lib/types";
 import {
   college,
+  ACADEMIC_YEARS,
+  CURRENT_ACADEMIC_YEAR,
   ENGINEERING_YEARS,
   getEngineeringYearFromSemester,
   getSemesterEngineeringLabel,
@@ -91,16 +99,23 @@ export const HODStaff: React.FC<HODStaffProps> = ({ mode }) => {
   const linkedTeacher = teachers.find(
     (teacher) => teacher.id === user?.teacher_id,
   );
-  const departmentId = user?.department_id || linkedTeacher?.department_id || "dept-1";
+  const departmentId =
+    user?.department_id || linkedTeacher?.department_id || "dept-1";
   const department = departments.find((item) => item.id === departmentId);
 
   const departmentClasses = useMemo(
-    () => academicClasses.filter((c) => !departmentId || c.department_id === departmentId),
+    () =>
+      academicClasses.filter(
+        (c) => !departmentId || c.department_id === departmentId,
+      ),
     [academicClasses, departmentId, version],
   );
 
   const departmentSubjects = useMemo(
-    () => (localDb.subjects || []).filter((s: any) => !departmentId || s.department_id === departmentId) as Subject[],
+    () =>
+      (localDb.subjects || []).filter(
+        (s: any) => !departmentId || s.department_id === departmentId,
+      ) as Subject[],
     [departmentId, version],
   );
 
@@ -109,8 +124,10 @@ export const HODStaff: React.FC<HODStaffProps> = ({ mode }) => {
   const [editing, setEditing] = useState<Teacher | null>(null);
   const [formOpen, setFormOpen] = useState(false);
   const [importModalOpen, setImportModalOpen] = useState(false);
-  const [profileModalTeacher, setProfileModalTeacher] = useState<Teacher | null>(null);
-  const [passwordModalTeacher, setPasswordModalTeacher] = useState<Teacher | null>(null);
+  const [profileModalTeacher, setProfileModalTeacher] =
+    useState<Teacher | null>(null);
+  const [passwordModalTeacher, setPasswordModalTeacher] =
+    useState<Teacher | null>(null);
   const [alertSuccess, setAlertSuccess] = useState<string | null>(null);
 
   const photoFileInputRef = useRef<HTMLInputElement>(null);
@@ -137,11 +154,14 @@ export const HODStaff: React.FC<HODStaffProps> = ({ mode }) => {
     mobile: "",
     photo_url: "",
     password: "",
-    role: (mode === "coordinators" ? "class_coordinator" : "lecturer") as Teacher["role"],
+    role: (mode === "coordinators"
+      ? "class_coordinator"
+      : "lecturer") as Teacher["role"],
     assigned_year: "2",
     assigned_semester: "3",
     teaching_year: "2",
     teaching_semester: "3",
+    academic_year: CURRENT_ACADEMIC_YEAR,
   });
 
   const departmentTeachers = useMemo(
@@ -172,9 +192,13 @@ export const HODStaff: React.FC<HODStaffProps> = ({ mode }) => {
     // Filter by year / parallel track, taking multi-class assignments into account
     const teacherCcas = assignments.filter((a) => a.teacher_id === teacher.id);
     const teacherCoordinatedClasses = departmentClasses.filter(
-      (c) => c.coordinator_teacher_id === teacher.id || teacherCcas.some((a) => a.class_id === c.id),
+      (c) =>
+        c.coordinator_teacher_id === teacher.id ||
+        teacherCcas.some((a) => a.class_id === c.id),
     );
-    const teacherTs = teacherSubjects.filter((ts) => ts.teacher_id === teacher.id);
+    const teacherTs = teacherSubjects.filter(
+      (ts) => ts.teacher_id === teacher.id,
+    );
 
     const allYears = Array.from(
       new Set(
@@ -183,7 +207,9 @@ export const HODStaff: React.FC<HODStaffProps> = ({ mode }) => {
           teacher.year,
           ...(teacher.assigned_years || []),
           ...teacherCcas.map((a) => a.year).filter(Boolean),
-          ...teacherCoordinatedClasses.map((c) => c.year || getEngineeringYearFromSemester(c.semester)),
+          ...teacherCoordinatedClasses.map(
+            (c) => c.year || getEngineeringYearFromSemester(c.semester),
+          ),
           ...teacherTs.map((ts) => ts.year).filter(Boolean),
         ].filter(Boolean) as number[],
       ),
@@ -207,7 +233,8 @@ export const HODStaff: React.FC<HODStaffProps> = ({ mode }) => {
     } else if (selectedYearFilter === "even") {
       if (allSems.length > 0 && allSems.every((s) => s % 2 !== 0)) return false;
     } else if (selectedYearFilter !== "all") {
-      if (allYears.length > 0 && !allYears.includes(Number(selectedYearFilter))) return false;
+      if (allYears.length > 0 && !allYears.includes(Number(selectedYearFilter)))
+        return false;
     }
 
     const query = search.toLowerCase();
@@ -244,36 +271,61 @@ export const HODStaff: React.FC<HODStaffProps> = ({ mode }) => {
       assigned_semester: "3",
       teaching_year: "2",
       teaching_semester: "3",
+      academic_year: CURRENT_ACADEMIC_YEAR,
     });
     setFormOpen(true);
   };
 
   const openEdit = (teacher: Teacher) => {
     setEditing(teacher);
-    const yr = teacher.assigned_year || teacher.year || (teacher.assigned_semester ? getEngineeringYearFromSemester(teacher.assigned_semester) : 2);
-    const sem = teacher.assigned_semester || teacher.semester || (yr === 1 ? 1 : yr === 2 ? 3 : yr === 3 ? 5 : 7);
+    const yr =
+      teacher.assigned_year ||
+      teacher.year ||
+      (teacher.assigned_semester
+        ? getEngineeringYearFromSemester(teacher.assigned_semester)
+        : 2);
+    const sem =
+      teacher.assigned_semester ||
+      teacher.semester ||
+      (yr === 1 ? 1 : yr === 2 ? 3 : yr === 3 ? 5 : 7);
 
     // Populate coordinator class assignments
     const teacherCcas = assignments.filter((a) => a.teacher_id === teacher.id);
-    const classIdsFromCca = teacherCcas.map((a) => a.class_id).filter(Boolean) as string[];
+    const classIdsFromCca = teacherCcas
+      .map((a) => a.class_id)
+      .filter(Boolean) as string[];
     const classesFromAcademic = departmentClasses
       .filter((c) => c.coordinator_teacher_id === teacher.id)
       .map((c) => c.id);
     const matchedClassNames = departmentClasses
-      .filter((c) => (teacher.assigned_classes || []).includes(c.name) || teacherCcas.some((a) => a.class_name === c.name))
+      .filter(
+        (c) =>
+          (teacher.assigned_classes || []).includes(c.name) ||
+          teacherCcas.some((a) => a.class_name === c.name),
+      )
       .map((c) => c.id);
 
     const initialSelectedClasses = Array.from(
-      new Set([...classIdsFromCca, ...classesFromAcademic, ...matchedClassNames, ...(teacher.assigned_class_ids || [])]),
+      new Set([
+        ...classIdsFromCca,
+        ...classesFromAcademic,
+        ...matchedClassNames,
+        ...(teacher.assigned_class_ids || []),
+      ]),
     );
     setSelectedClassIds(initialSelectedClasses);
 
     // Populate teaching assignments grouped by subject
-    const teacherTs = teacherSubjects.filter((ts) => ts.teacher_id === teacher.id);
+    const teacherTs = teacherSubjects.filter(
+      (ts) => ts.teacher_id === teacher.id,
+    );
     const groupedTeaching: Record<string, string[]> = {};
     for (const ts of teacherTs) {
       if (!groupedTeaching[ts.subject_id]) groupedTeaching[ts.subject_id] = [];
-      if (ts.class_name && !groupedTeaching[ts.subject_id].includes(ts.class_name)) {
+      if (
+        ts.class_name &&
+        !groupedTeaching[ts.subject_id].includes(ts.class_name)
+      ) {
         groupedTeaching[ts.subject_id].push(ts.class_name);
       }
     }
@@ -292,7 +344,9 @@ export const HODStaff: React.FC<HODStaffProps> = ({ mode }) => {
       department_id: teacher.department_id || departmentId,
       qualification: teacher.qualification || "",
       date_of_birth: teacher.date_of_birth || "",
-      experience_years: teacher.experience_years ? String(teacher.experience_years) : "",
+      experience_years: teacher.experience_years
+        ? String(teacher.experience_years)
+        : "",
       email: teacher.email || "",
       mobile: teacher.mobile || "",
       photo_url: teacher.photo_url || "",
@@ -302,6 +356,7 @@ export const HODStaff: React.FC<HODStaffProps> = ({ mode }) => {
       assigned_semester: String(sem),
       teaching_year: String(yr),
       teaching_semester: String(sem),
+      academic_year: teacher.academic_year || CURRENT_ACADEMIC_YEAR,
     });
     setFormOpen(true);
   };
@@ -327,7 +382,11 @@ export const HODStaff: React.FC<HODStaffProps> = ({ mode }) => {
     }
 
     if (form.mobile) {
-      const mobErr = getMobileValidationError(form.mobile, "Faculty Mobile", false);
+      const mobErr = getMobileValidationError(
+        form.mobile,
+        "Faculty Mobile",
+        false,
+      );
       if (mobErr) {
         alert(mobErr);
         return;
@@ -336,17 +395,28 @@ export const HODStaff: React.FC<HODStaffProps> = ({ mode }) => {
 
     const isCoordinator = form.role === "class_coordinator";
     const selectedYear = isCoordinator
-      ? (Number(form.assigned_year) || 2)
-      : (Number(form.teaching_year) || null);
+      ? Number(form.assigned_year) || 2
+      : Number(form.teaching_year) || null;
     const selectedSem = isCoordinator
-      ? (Number(form.assigned_semester) || (selectedYear === 1 ? 1 : selectedYear === 2 ? 3 : selectedYear === 3 ? 5 : 7))
-      : (Number(form.teaching_semester) || null);
+      ? Number(form.assigned_semester) ||
+        (selectedYear === 1
+          ? 1
+          : selectedYear === 2
+            ? 3
+            : selectedYear === 3
+              ? 5
+              : 7)
+      : Number(form.teaching_semester) || null;
 
-    const selectedClasses = departmentClasses.filter((c) => selectedClassIds.includes(c.id));
+    const selectedClasses = departmentClasses.filter((c) =>
+      selectedClassIds.includes(c.id),
+    );
     const assignedYears = Array.from(
       new Set(
         selectedClasses.length > 0
-          ? selectedClasses.map((c) => c.year || getEngineeringYearFromSemester(c.semester))
+          ? selectedClasses.map(
+              (c) => c.year || getEngineeringYearFromSemester(c.semester),
+            )
           : [selectedYear || 2],
       ),
     );
@@ -380,6 +450,7 @@ export const HODStaff: React.FC<HODStaffProps> = ({ mode }) => {
       assigned_semesters: assignedSemesters,
       assigned_classes: assignedClassNames,
       assigned_class_ids: assignedClassIds,
+      academic_year: form.academic_year,
       status: "active" as const,
     };
 
@@ -477,7 +548,8 @@ export const HODStaff: React.FC<HODStaffProps> = ({ mode }) => {
       if (isCoordinator) {
         if (selectedClasses.length > 0) {
           for (const cls of selectedClasses) {
-            const cYear = cls.year || getEngineeringYearFromSemester(cls.semester);
+            const cYear =
+              cls.year || getEngineeringYearFromSemester(cls.semester);
             await localDb.insert("class_coordinator_assignments", [
               {
                 teacher_id: targetTeacherId,
@@ -506,23 +578,32 @@ export const HODStaff: React.FC<HODStaffProps> = ({ mode }) => {
         for (const cls of departmentClasses) {
           if (selectedClassIds.includes(cls.id)) {
             if (cls.coordinator_teacher_id !== targetTeacherId) {
-              await localDb.update("academic_classes", cls.id, { coordinator_teacher_id: targetTeacherId });
+              await localDb.update("academic_classes", cls.id, {
+                coordinator_teacher_id: targetTeacherId,
+              });
             }
           } else if (cls.coordinator_teacher_id === targetTeacherId) {
-            await localDb.update("academic_classes", cls.id, { coordinator_teacher_id: null });
+            await localDb.update("academic_classes", cls.id, {
+              coordinator_teacher_id: null,
+            });
           }
         }
       } else {
         // Not a coordinator, clear any classes coordinated by this teacher
         for (const cls of departmentClasses) {
           if (cls.coordinator_teacher_id === targetTeacherId) {
-            await localDb.update("academic_classes", cls.id, { coordinator_teacher_id: null });
+            await localDb.update("academic_classes", cls.id, {
+              coordinator_teacher_id: null,
+            });
           }
         }
       }
 
       // Sync teaching assignments (teacher_subjects) across multiple classes and subjects concurrently
-      if (teachingAssignments.length > 0 || (editing && form.role === "lecturer")) {
+      if (
+        teachingAssignments.length > 0 ||
+        (editing && form.role === "lecturer")
+      ) {
         const existingTs = localDb.teacher_subjects.filter(
           (ts: any) => ts.teacher_id === targetTeacherId,
         );
@@ -532,7 +613,8 @@ export const HODStaff: React.FC<HODStaffProps> = ({ mode }) => {
 
         for (const ta of teachingAssignments) {
           const sub = departmentSubjects.find((s) => s.id === ta.subject_id);
-          const subYear = sub?.year || (sub?.semester ? Math.ceil(sub.semester / 2) : 1);
+          const subYear =
+            sub?.year || (sub?.semester ? Math.ceil(sub.semester / 2) : 1);
           const subSem = sub?.semester || 1;
 
           if (ta.class_names.length === 0) {
@@ -574,13 +656,16 @@ export const HODStaff: React.FC<HODStaffProps> = ({ mode }) => {
   };
 
   const remove = async (teacher: Teacher) => {
-    if (!confirm(`Delete ${teacher.full_name}? This action cannot be undone.`)) return;
+    if (!confirm(`Delete ${teacher.full_name}? This action cannot be undone.`))
+      return;
     await localDb.delete("teachers", teacher.id);
     setVersion((v) => v + 1);
   };
 
   const handleImportSuccess = (count: number) => {
-    setAlertSuccess(`Successfully imported ${count} teachers from spreadsheet!`);
+    setAlertSuccess(
+      `Successfully imported ${count} teachers from spreadsheet!`,
+    );
     setVersion((v) => v + 1);
   };
 
@@ -682,7 +767,8 @@ export const HODStaff: React.FC<HODStaffProps> = ({ mode }) => {
                   : `Add ${mode === "teachers" ? "Teacher" : "Class Coordinator"}`}
               </h2>
               <p className="text-xs text-muted-foreground mt-0.5">
-                Please provide faculty designations, qualification credentials, reference ID, and optional phone.
+                Please provide faculty designations, qualification credentials,
+                reference ID, and optional phone.
               </p>
             </div>
             <Button
@@ -875,23 +961,51 @@ export const HODStaff: React.FC<HODStaffProps> = ({ mode }) => {
 
             {/* Engineering Academic Year & Semester Assignment */}
             {form.role === "class_coordinator" && (
+              <div className="space-y-1">
+                <label className="text-xs font-semibold text-foreground">
+                  Academic Session
+                </label>
+                <Select
+                  value={form.academic_year}
+                  onChange={(event) =>
+                    setForm({ ...form, academic_year: event.target.value })
+                  }
+                  options={ACADEMIC_YEARS.map((year) => ({
+                    value: year,
+                    label: year,
+                  }))}
+                />
+              </div>
+            )}
+
+            {form.role === "class_coordinator" && (
               <div className="sm:col-span-2 rounded-xl border border-emerald-500/30 bg-emerald-500/5 p-4 space-y-3.5">
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                   <div className="flex items-center gap-2 text-emerald-700 dark:text-emerald-400 font-semibold text-xs">
                     <Layers className="h-4 w-4" />
-                    <span>Class Coordinator (CC) Multi-Class & Multi-Semester Assignment</span>
+                    <span>
+                      Class Coordinator (CC) Multi-Class & Multi-Semester
+                      Assignment
+                    </span>
                   </div>
-                  <Badge variant="secondary" className="bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border-emerald-500/20 text-[10px] w-fit font-bold">
+                  <Badge
+                    variant="secondary"
+                    className="bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border-emerald-500/20 text-[10px] w-fit font-bold"
+                  >
                     Multi-Class Concurrent
                   </Badge>
                 </div>
                 <p className="text-xs text-muted-foreground">
-                  Select one or more classes/divisions for this coordinator. A single coordinator can now be assigned to multiple combinations of Year, Semester, and Division concurrently.
+                  Select one or more classes/divisions for this coordinator. A
+                  single coordinator can now be assigned to multiple
+                  combinations of Year, Semester, and Division concurrently.
                 </p>
 
                 {/* Quick Selection Buttons */}
                 <div className="flex flex-wrap items-center gap-1.5 pt-1">
-                  <span className="text-[11px] font-medium text-muted-foreground mr-1">Quick Select:</span>
+                  <span className="text-[11px] font-medium text-muted-foreground mr-1">
+                    Quick Select:
+                  </span>
                   {ENGINEERING_YEARS.map((y) => (
                     <Button
                       key={y.year}
@@ -901,9 +1015,16 @@ export const HODStaff: React.FC<HODStaffProps> = ({ mode }) => {
                       className="h-7 text-[11px] px-2"
                       onClick={() => {
                         const yearClassIds = departmentClasses
-                          .filter((c) => (c.year || getEngineeringYearFromSemester(c.semester)) === y.year)
+                          .filter(
+                            (c) =>
+                              (c.year ||
+                                getEngineeringYearFromSemester(c.semester)) ===
+                              y.year,
+                          )
                           .map((c) => c.id);
-                        setSelectedClassIds((prev) => Array.from(new Set([...prev, ...yearClassIds])));
+                        setSelectedClassIds((prev) =>
+                          Array.from(new Set([...prev, ...yearClassIds])),
+                        );
                       }}
                     >
                       All {y.shortName} ({y.name.split(" ")[0]})
@@ -914,7 +1035,9 @@ export const HODStaff: React.FC<HODStaffProps> = ({ mode }) => {
                     variant="outline"
                     size="sm"
                     className="h-7 text-[11px] px-2 text-emerald-700 dark:text-emerald-400 border-emerald-500/30"
-                    onClick={() => setSelectedClassIds(departmentClasses.map((c) => c.id))}
+                    onClick={() =>
+                      setSelectedClassIds(departmentClasses.map((c) => c.id))
+                    }
                   >
                     Select All Classes
                   </Button>
@@ -934,11 +1057,16 @@ export const HODStaff: React.FC<HODStaffProps> = ({ mode }) => {
                   <div className="grid gap-2 sm:grid-cols-2 md:grid-cols-3 pt-1">
                     {departmentClasses.map((cls) => {
                       const isSelected = selectedClassIds.includes(cls.id);
-                      const clsYear = cls.year || getEngineeringYearFromSemester(cls.semester);
+                      const clsYear =
+                        cls.year ||
+                        getEngineeringYearFromSemester(cls.semester);
                       const isOtherCoordinator =
-                        cls.coordinator_teacher_id && cls.coordinator_teacher_id !== editing?.id;
+                        cls.coordinator_teacher_id &&
+                        cls.coordinator_teacher_id !== editing?.id;
                       const otherTeacher = isOtherCoordinator
-                        ? teachers.find((t) => t.id === cls.coordinator_teacher_id)
+                        ? teachers.find(
+                            (t) => t.id === cls.coordinator_teacher_id,
+                          )
                         : null;
 
                       return (
@@ -955,9 +1083,14 @@ export const HODStaff: React.FC<HODStaffProps> = ({ mode }) => {
                             checked={isSelected}
                             onChange={(e) => {
                               if (e.target.checked) {
-                                setSelectedClassIds((prev) => [...prev, cls.id]);
+                                setSelectedClassIds((prev) => [
+                                  ...prev,
+                                  cls.id,
+                                ]);
                               } else {
-                                setSelectedClassIds((prev) => prev.filter((id) => id !== cls.id));
+                                setSelectedClassIds((prev) =>
+                                  prev.filter((id) => id !== cls.id),
+                                );
                               }
                             }}
                             className="mt-0.5 h-4 w-4 rounded border-border text-emerald-600 focus:ring-emerald-500"
@@ -966,18 +1099,25 @@ export const HODStaff: React.FC<HODStaffProps> = ({ mode }) => {
                             <div className="flex items-center justify-between gap-1">
                               <span
                                 className={`text-xs font-bold ${
-                                  isSelected ? "text-emerald-700 dark:text-emerald-400" : "text-foreground"
+                                  isSelected
+                                    ? "text-emerald-700 dark:text-emerald-400"
+                                    : "text-foreground"
                                 }`}
                               >
                                 {cls.name}
                               </span>
-                              <Badge variant="outline" className="text-[9px] px-1 py-0 font-mono">
+                              <Badge
+                                variant="outline"
+                                className="text-[9px] px-1 py-0 font-mono"
+                              >
                                 Year {clsYear} · Sem {cls.semester}
                               </Badge>
                             </div>
                             <p className="text-[10px] text-muted-foreground truncate mt-0.5">
                               {getSemesterEngineeringLabel(cls.semester)}
-                              {otherTeacher ? ` • Current: ${otherTeacher.full_name}` : ""}
+                              {otherTeacher
+                                ? ` • Current: ${otherTeacher.full_name}`
+                                : ""}
                             </p>
                           </div>
                         </label>
@@ -986,7 +1126,8 @@ export const HODStaff: React.FC<HODStaffProps> = ({ mode }) => {
                   </div>
                 ) : (
                   <p className="text-xs text-muted-foreground italic">
-                    No classes found for this department yet. You can specify the general cohort below.
+                    No classes found for this department yet. You can specify
+                    the general cohort below.
                   </p>
                 )}
 
@@ -1000,7 +1141,8 @@ export const HODStaff: React.FC<HODStaffProps> = ({ mode }) => {
                       value={form.assigned_year}
                       onChange={(e) => {
                         const y = Number(e.target.value) || 1;
-                        const defaultSem = y === 1 ? "1" : y === 2 ? "3" : y === 3 ? "5" : "7";
+                        const defaultSem =
+                          y === 1 ? "1" : y === 2 ? "3" : y === 3 ? "5" : "7";
                         setForm({
                           ...form,
                           assigned_year: e.target.value,
@@ -1036,7 +1178,10 @@ export const HODStaff: React.FC<HODStaffProps> = ({ mode }) => {
 
                 {selectedClassIds.length > 0 && (
                   <div className="p-2 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-xs text-emerald-800 dark:text-emerald-300">
-                    <span className="font-bold">Active multi-class mapping ({selectedClassIds.length} classes): </span>
+                    <span className="font-bold">
+                      Active multi-class mapping ({selectedClassIds.length}{" "}
+                      classes):{" "}
+                    </span>
                     {departmentClasses
                       .filter((c) => selectedClassIds.includes(c.id))
                       .map((c) => c.name)
@@ -1051,25 +1196,33 @@ export const HODStaff: React.FC<HODStaffProps> = ({ mode }) => {
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                   <div className="flex items-center gap-2 text-foreground font-semibold text-xs">
                     <BookOpen className="h-4 w-4 text-primary" />
-                    <span>Faculty Teaching Assignment (Multiple Subjects & Classes Concurrently)</span>
+                    <span>
+                      Faculty Teaching Assignment (Multiple Subjects & Classes
+                      Concurrently)
+                    </span>
                   </div>
                   <Badge variant="outline" className="text-[10px] w-fit">
                     Multi-Class Teaching
                   </Badge>
                 </div>
                 <p className="text-xs text-muted-foreground">
-                  Map this faculty member to multiple subjects and class divisions concurrently (e.g. SE CSE-A and SE CSE-B for Data Structures, TE CSE-A for DBMS).
+                  Map this faculty member to multiple subjects and class
+                  divisions concurrently (e.g. SE CSE-A and SE CSE-B for Data
+                  Structures, TE CSE-A for DBMS).
                 </p>
 
                 {/* Existing Staged Teaching Assignments */}
                 {teachingAssignments.length > 0 && (
                   <div className="space-y-2 pt-1">
                     <p className="text-[11px] font-semibold text-foreground">
-                      Assigned Subjects & Divisions ({teachingAssignments.length}):
+                      Assigned Subjects & Divisions (
+                      {teachingAssignments.length}):
                     </p>
                     <div className="grid gap-2 sm:grid-cols-2">
                       {teachingAssignments.map((ta, idx) => {
-                        const sub = departmentSubjects.find((s) => s.id === ta.subject_id);
+                        const sub = departmentSubjects.find(
+                          (s) => s.id === ta.subject_id,
+                        );
                         return (
                           <div
                             key={idx}
@@ -1110,7 +1263,9 @@ export const HODStaff: React.FC<HODStaffProps> = ({ mode }) => {
                               size="icon"
                               className="h-7 w-7 text-muted-foreground hover:text-destructive"
                               onClick={() =>
-                                setTeachingAssignments((prev) => prev.filter((_, i) => i !== idx))
+                                setTeachingAssignments((prev) =>
+                                  prev.filter((_, i) => i !== idx),
+                                )
                               }
                             >
                               <Trash2 className="h-3.5 w-3.5" />
@@ -1137,7 +1292,9 @@ export const HODStaff: React.FC<HODStaffProps> = ({ mode }) => {
                         onChange={(e) => {
                           const newSubId = e.target.value;
                           setStagedSubjectId(newSubId);
-                          const sub = departmentSubjects.find((s) => s.id === newSubId);
+                          const sub = departmentSubjects.find(
+                            (s) => s.id === newSubId,
+                          );
                           if (sub) {
                             const matchingClassNames = departmentClasses
                               .filter((c) => c.semester === sub.semester)
@@ -1177,7 +1334,10 @@ export const HODStaff: React.FC<HODStaffProps> = ({ mode }) => {
                                 checked={isChecked}
                                 onChange={(e) => {
                                   if (e.target.checked) {
-                                    setStagedClassNames((prev) => [...prev, c.name]);
+                                    setStagedClassNames((prev) => [
+                                      ...prev,
+                                      c.name,
+                                    ]);
                                   } else {
                                     setStagedClassNames((prev) =>
                                       prev.filter((name) => name !== c.name),
@@ -1208,8 +1368,13 @@ export const HODStaff: React.FC<HODStaffProps> = ({ mode }) => {
                       onClick={() => {
                         if (!stagedSubjectId) return;
                         setTeachingAssignments((prev) => [
-                          ...prev.filter((ta) => ta.subject_id !== stagedSubjectId),
-                          { subject_id: stagedSubjectId, class_names: stagedClassNames },
+                          ...prev.filter(
+                            (ta) => ta.subject_id !== stagedSubjectId,
+                          ),
+                          {
+                            subject_id: stagedSubjectId,
+                            class_names: stagedClassNames,
+                          },
                         ]);
                         setStagedSubjectId("");
                         setStagedClassNames([]);
@@ -1230,7 +1395,8 @@ export const HODStaff: React.FC<HODStaffProps> = ({ mode }) => {
                       value={form.teaching_year}
                       onChange={(e) => {
                         const y = Number(e.target.value) || 1;
-                        const defaultSem = y === 1 ? "1" : y === 2 ? "3" : y === 3 ? "5" : "7";
+                        const defaultSem =
+                          y === 1 ? "1" : y === 2 ? "3" : y === 3 ? "5" : "7";
                         setForm({
                           ...form,
                           teaching_year: e.target.value,
@@ -1273,7 +1439,9 @@ export const HODStaff: React.FC<HODStaffProps> = ({ mode }) => {
                 {form.photo_url && (
                   <button
                     type="button"
-                    onClick={() => setForm((prev) => ({ ...prev, photo_url: "" }))}
+                    onClick={() =>
+                      setForm((prev) => ({ ...prev, photo_url: "" }))
+                    }
                     className="text-[11px] text-destructive hover:underline"
                   >
                     Clear Photo
@@ -1333,8 +1501,8 @@ export const HODStaff: React.FC<HODStaffProps> = ({ mode }) => {
                   editing
                     ? "Leave blank to keep current"
                     : form.role === "class_coordinator"
-                    ? "Default: CC@123 or Emp ID"
-                    : "Default: Teacher@123 or Emp ID"
+                      ? "Default: CC@123 or Emp ID"
+                      : "Default: Teacher@123 or Emp ID"
                 }
                 value={form.password}
                 onChange={(event) =>
@@ -1432,10 +1600,15 @@ export const HODStaff: React.FC<HODStaffProps> = ({ mode }) => {
                 No {mode} found matching query
               </p>
               <p className="text-xs text-muted-foreground max-w-sm mx-auto">
-                Add staff manually or use the Excel / CSV import to load multiple faculty teachers at once.
+                Add staff manually or use the Excel / CSV import to load
+                multiple faculty teachers at once.
               </p>
               <div className="flex items-center justify-center gap-2 pt-2">
-                <Button size="sm" variant="outline" onClick={() => setImportModalOpen(true)}>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => setImportModalOpen(true)}
+                >
                   <FileSpreadsheet className="h-4 w-4 mr-1 text-emerald-600" />
                   Import Excel / CSV
                 </Button>
@@ -1493,9 +1666,10 @@ export const HODStaff: React.FC<HODStaffProps> = ({ mode }) => {
 
                       {teacher.experience_years && (
                         <span className="text-[11px]">
-                          • {String(teacher.experience_years).includes("Year")
-                              ? teacher.experience_years
-                              : `${teacher.experience_years} Yrs`}
+                          •{" "}
+                          {String(teacher.experience_years).includes("Year")
+                            ? teacher.experience_years
+                            : `${teacher.experience_years} Yrs`}
                         </span>
                       )}
                     </div>
@@ -1523,32 +1697,55 @@ export const HODStaff: React.FC<HODStaffProps> = ({ mode }) => {
                     {/* Engineering 4-Year Academic Assignment Badges */}
                     <div className="mt-2.5 pt-2 border-t border-border/50 flex flex-wrap items-center gap-1.5">
                       {(() => {
-                        const teacherCcas = assignments.filter((a) => a.teacher_id === teacher.id);
-                        const teacherCoordinatedClasses = departmentClasses.filter(
-                          (c) =>
-                            c.coordinator_teacher_id === teacher.id ||
-                            teacherCcas.some((a) => a.class_id === c.id || a.class_name === c.name) ||
-                            (teacher.assigned_classes || []).includes(c.name),
+                        const teacherCcas = assignments.filter(
+                          (a) => a.teacher_id === teacher.id,
                         );
+                        const teacherCoordinatedClasses =
+                          departmentClasses.filter(
+                            (c) =>
+                              c.coordinator_teacher_id === teacher.id ||
+                              teacherCcas.some(
+                                (a) =>
+                                  a.class_id === c.id ||
+                                  a.class_name === c.name,
+                              ) ||
+                              (teacher.assigned_classes || []).includes(c.name),
+                          );
                         const isCC =
                           teacher.role === "class_coordinator" ||
                           teacher.is_class_coordinator ||
                           teacherCoordinatedClasses.length > 0 ||
                           teacherCcas.length > 0;
 
-                        const teacherTs = teacherSubjects.filter((ts) => ts.teacher_id === teacher.id);
+                        const teacherTs = teacherSubjects.filter(
+                          (ts) => ts.teacher_id === teacher.id,
+                        );
 
                         return (
                           <div className="space-y-1.5 w-full">
                             {isCC && (
                               <div className="flex flex-wrap items-center gap-1.5">
                                 <Badge className="bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border border-emerald-500/30 text-[10px] font-semibold">
-                                  CC ({teacherCoordinatedClasses.length || teacherCcas.length || 1}):{" "}
+                                  CC (
+                                  {teacherCoordinatedClasses.length ||
+                                    teacherCcas.length ||
+                                    1}
+                                  ):{" "}
                                   {teacherCoordinatedClasses.length > 0
-                                    ? teacherCoordinatedClasses.map((c) => `${c.name} (Sem ${c.semester})`).join(", ")
+                                    ? teacherCoordinatedClasses
+                                        .map(
+                                          (c) =>
+                                            `${c.name} (Sem ${c.semester})`,
+                                        )
+                                        .join(", ")
                                     : teacherCcas.length > 0
-                                    ? teacherCcas.map((a) => `${a.class_name || `Sem ${a.semester}`}`).join(", ")
-                                    : `${teacher.assigned_year ? `${teacher.assigned_year === 1 ? "1st" : teacher.assigned_year === 2 ? "2nd" : teacher.assigned_year === 3 ? "3rd" : "4th"} Year` : "2nd Year"} · Sem ${teacher.assigned_semester || 3}`}
+                                      ? teacherCcas
+                                          .map(
+                                            (a) =>
+                                              `${a.class_name || `Sem ${a.semester}`}`,
+                                          )
+                                          .join(", ")
+                                      : `${teacher.assigned_year ? `${teacher.assigned_year === 1 ? "1st" : teacher.assigned_year === 2 ? "2nd" : teacher.assigned_year === 3 ? "3rd" : "4th"} Year` : "2nd Year"} · Sem ${teacher.assigned_semester || 3}`}
                                 </Badge>
                                 <span className="text-[10px] text-muted-foreground font-medium">
                                   Class Coordinator
@@ -1558,35 +1755,63 @@ export const HODStaff: React.FC<HODStaffProps> = ({ mode }) => {
 
                             {teacherTs.length > 0 ? (
                               <div className="flex flex-wrap items-center gap-1">
-                                <span className="text-[10px] text-muted-foreground font-semibold mr-0.5">Teaching:</span>
+                                <span className="text-[10px] text-muted-foreground font-semibold mr-0.5">
+                                  Teaching:
+                                </span>
                                 {(() => {
-                                  const groupedTs: Record<string, string[]> = {};
+                                  const groupedTs: Record<string, string[]> =
+                                    {};
                                   for (const ts of teacherTs) {
-                                    if (!groupedTs[ts.subject_id]) groupedTs[ts.subject_id] = [];
-                                    if (ts.class_name && !groupedTs[ts.subject_id].includes(ts.class_name)) {
-                                      groupedTs[ts.subject_id].push(ts.class_name);
+                                    if (!groupedTs[ts.subject_id])
+                                      groupedTs[ts.subject_id] = [];
+                                    if (
+                                      ts.class_name &&
+                                      !groupedTs[ts.subject_id].includes(
+                                        ts.class_name,
+                                      )
+                                    ) {
+                                      groupedTs[ts.subject_id].push(
+                                        ts.class_name,
+                                      );
                                     }
                                   }
-                                  return Object.entries(groupedTs).map(([sId, cNames]) => {
-                                    const sub = departmentSubjects.find((s) => s.id === sId);
-                                    return (
-                                      <Badge
-                                        key={sId}
-                                        variant="outline"
-                                        className="text-[10px] font-mono bg-muted/40 text-foreground"
-                                      >
-                                        {sub?.code || "SUB"}
-                                        {cNames.length > 0 ? ` (${cNames.join(", ")})` : ""}
-                                      </Badge>
-                                    );
-                                  });
+                                  return Object.entries(groupedTs).map(
+                                    ([sId, cNames]) => {
+                                      const sub = departmentSubjects.find(
+                                        (s) => s.id === sId,
+                                      );
+                                      return (
+                                        <Badge
+                                          key={sId}
+                                          variant="outline"
+                                          className="text-[10px] font-mono bg-muted/40 text-foreground"
+                                        >
+                                          {sub?.code || "SUB"}
+                                          {cNames.length > 0
+                                            ? ` (${cNames.join(", ")})`
+                                            : ""}
+                                        </Badge>
+                                      );
+                                    },
+                                  );
                                 })()}
                               </div>
                             ) : (
                               !isCC && (
                                 <div className="flex flex-wrap items-center gap-1.5">
-                                  <Badge variant="outline" className="text-[10px] font-mono text-muted-foreground bg-muted/40">
-                                    Teaching: {teacher.assigned_year ? `${teacher.assigned_year === 1 ? "1st" : teacher.assigned_year === 2 ? "2nd" : teacher.assigned_year === 3 ? "3rd" : "4th"} Year` : "2nd Year"}, {getSemesterEngineeringLabel(teacher.assigned_semester || 3)} (Sem {teacher.assigned_semester || 3})
+                                  <Badge
+                                    variant="outline"
+                                    className="text-[10px] font-mono text-muted-foreground bg-muted/40"
+                                  >
+                                    Teaching:{" "}
+                                    {teacher.assigned_year
+                                      ? `${teacher.assigned_year === 1 ? "1st" : teacher.assigned_year === 2 ? "2nd" : teacher.assigned_year === 3 ? "3rd" : "4th"} Year`
+                                      : "2nd Year"}
+                                    ,{" "}
+                                    {getSemesterEngineeringLabel(
+                                      teacher.assigned_semester || 3,
+                                    )}{" "}
+                                    (Sem {teacher.assigned_semester || 3})
                                   </Badge>
                                 </div>
                               )

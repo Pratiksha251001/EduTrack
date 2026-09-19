@@ -28,6 +28,7 @@ import { Input } from "../components/ui/input";
 import { Select } from "../components/ui/select";
 import { Badge } from "../components/ui/badge";
 import { ParentAlertModal } from "../components/ParentAlertModal";
+import { StudentDetailsModal } from "../components/StudentDetailsModal";
 import {
   sanitizeMobileInput,
   getMobileValidationError,
@@ -67,6 +68,7 @@ export const HODStudents: React.FC = () => {
   const [selectedStudentForAlert, setSelectedStudentForAlert] = useState<
     any | null
   >(null);
+  const [selectedStudent, setSelectedStudent] = useState<any | null>(null);
 
   const refresh = () => {
     setStudents(
@@ -92,6 +94,7 @@ export const HODStudents: React.FC = () => {
 
   const [form, setForm] = useState({
     roll_number: "",
+    prn_number: "",
     full_name: "",
     semester: "1",
     parent_name: "",
@@ -234,6 +237,7 @@ export const HODStudents: React.FC = () => {
     const inserted = await localDb.insert("students", [
       {
         roll_number: form.roll_number.trim(),
+        prn_number: form.prn_number.trim(),
         full_name: form.full_name.trim(),
         semester: Number(form.semester),
         parent_name: form.parent_name.trim() || null,
@@ -269,6 +273,7 @@ export const HODStudents: React.FC = () => {
 
     setForm({
       roll_number: "",
+      prn_number: "",
       full_name: "",
       semester: "1",
       parent_name: "",
@@ -410,6 +415,13 @@ export const HODStudents: React.FC = () => {
               }
             />
             <Input
+              placeholder="PRN Number *"
+              value={form.prn_number}
+              onChange={(event) =>
+                setForm({ ...form, prn_number: event.target.value })
+              }
+            />
+            <Input
               placeholder="Full Name *"
               value={form.full_name}
               onChange={(event) =>
@@ -494,6 +506,13 @@ export const HODStudents: React.FC = () => {
         </Card>
       )}
 
+      <StudentDetailsModal
+        student={selectedStudent}
+        open={!!selectedStudent}
+        onOpenChange={(open) => !open && setSelectedStudent(null)}
+        departmentName={department?.name}
+      />
+
       {/* Filter and Students Grid */}
       <Card className="p-5">
         <div className="flex flex-col sm:flex-row gap-3 items-stretch sm:items-center justify-between mb-4">
@@ -552,9 +571,13 @@ export const HODStudents: React.FC = () => {
                     <div className="flex items-start justify-between gap-2">
                       <div className="min-w-0">
                         <div className="flex items-center gap-1.5">
-                          <span className="font-mono text-xs font-bold text-primary">
+                          <button
+                            type="button"
+                            onClick={() => setSelectedStudent(student)}
+                            className="font-mono text-xs font-bold text-primary hover:underline"
+                          >
                             {student.roll_number}
-                          </span>
+                          </button>
                           <Badge
                             variant="outline"
                             className="text-[10px] px-1.5 py-0"
@@ -564,6 +587,9 @@ export const HODStudents: React.FC = () => {
                         </div>
                         <p className="font-semibold text-sm text-foreground truncate mt-0.5">
                           {student.full_name}
+                        </p>
+                        <p className="text-[10px] text-muted-foreground font-mono">
+                          PRN: {student.prn_number || "-"}
                         </p>
                       </div>
 

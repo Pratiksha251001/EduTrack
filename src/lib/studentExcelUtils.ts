@@ -11,6 +11,7 @@ import {
 export interface ParsedStudentRow {
   rowNumber: number;
   roll_number: string; // Unique Enrollment / Roll Number
+  prn_number: string;
   reg_number: string; // University Registration Number
   full_name: string;
   semester: number;
@@ -160,6 +161,13 @@ export async function parseStudentSpreadsheet(
       "university_reg_number",
     );
 
+    const prnNumber = getVal(
+      "prn_number",
+      "prn_no",
+      "prn",
+      "permanent_registration_number",
+    );
+
     // If rollNumber was omitted but regNumber was provided, use it
     if (!rollNumber && regNumber) {
       rollNumber = regNumber;
@@ -269,6 +277,10 @@ export async function parseStudentSpreadsheet(
       errors.push("Student Full Name is required.");
     }
 
+    if (!prnNumber) {
+      errors.push("PRN Number is required.");
+    }
+
     // Parent mobile validation (Mandatory 10 digits)
     if (!parentMobile) {
       errors.push(
@@ -330,6 +342,7 @@ export async function parseStudentSpreadsheet(
     return {
       rowNumber,
       roll_number: rollNumber,
+      prn_number: prnNumber,
       reg_number: regNumber,
       full_name: fullName,
       semester,
@@ -355,6 +368,7 @@ export async function parseStudentSpreadsheet(
 export function downloadStudentExcelTemplate(semester: number = 1) {
   const headers = [
     "Enrollment Number / Roll No*",
+    "PRN Number*",
     "University Reg No",
     "Student Full Name*",
     "Semester",
@@ -370,6 +384,7 @@ export function downloadStudentExcelTemplate(semester: number = 1) {
   const sampleData = [
     [
       "21CS101",
+      "PRN-CSE-001",
       "REG-2021-101",
       "Aarav Sharma",
       semester,
@@ -383,6 +398,7 @@ export function downloadStudentExcelTemplate(semester: number = 1) {
     ],
     [
       "21CS102",
+      "PRN-CSE-002",
       "REG-2021-102",
       "Diya Patel",
       semester,
@@ -396,6 +412,7 @@ export function downloadStudentExcelTemplate(semester: number = 1) {
     ],
     [
       "21CS103",
+      "PRN-CSE-003",
       "REG-2021-103",
       "Rohan Verma",
       semester,
@@ -414,6 +431,7 @@ export function downloadStudentExcelTemplate(semester: number = 1) {
   // Set column widths for readability
   ws["!cols"] = [
     { wch: 28 }, // Enrollment
+    { wch: 20 }, // PRN
     { wch: 20 }, // Reg No
     { wch: 24 }, // Name
     { wch: 10 }, // Semester
@@ -437,6 +455,7 @@ export function downloadStudentExcelTemplate(semester: number = 1) {
 export function downloadStudentCsvTemplate(semester: number = 1) {
   const headers = [
     "enrollment_number",
+    "prn_number",
     "reg_number",
     "full_name",
     "semester",
@@ -452,6 +471,7 @@ export function downloadStudentCsvTemplate(semester: number = 1) {
   const sampleRows = [
     [
       "21CS101",
+      "PRN-CSE-001",
       "REG-2021-101",
       "Aarav Sharma",
       semester,
@@ -465,6 +485,7 @@ export function downloadStudentCsvTemplate(semester: number = 1) {
     ],
     [
       "21CS102",
+      "PRN-CSE-002",
       "REG-2021-102",
       "Diya Patel",
       semester,

@@ -1,26 +1,19 @@
 import React, { useState, useEffect } from "react";
 import { CrudPage } from "../components/CrudPage";
 import { Student } from "../lib/types";
-import { localDb, isSupabaseConfigured } from "../lib/supabase";
+import { localDb } from "../lib/supabase";
 import { college } from "../lib/college";
 import { Badge } from "../components/ui/badge";
 import { Button } from "../components/ui/button";
-import {
-  Database,
-  FileSpreadsheet,
-  Trash2,
-  Terminal as TerminalIcon,
-} from "lucide-react";
-import { DatabaseSetupModal } from "../components/DatabaseSetupModal";
+import { FileSpreadsheet, Trash2 } from "lucide-react";
 import { StudentImportModal } from "../components/StudentImportModal";
-import { BackendTerminalModal } from "../components/BackendTerminalModal";
+import { StudentDetailsModal } from "../components/StudentDetailsModal";
 
 export const Students: React.FC = () => {
   const [departments, setDepartments] = useState(localDb.departments);
-  const [dbModalOpen, setDbModalOpen] = useState(false);
   const [importModalOpen, setImportModalOpen] = useState(false);
-  const [terminalModalOpen, setTerminalModalOpen] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
+  const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
 
   useEffect(() => {
     const handleUpdate = () => {
@@ -67,25 +60,6 @@ export const Students: React.FC = () => {
         searchKeys={["full_name", "roll_number", "reg_number", "parent_mobile"]}
         extraHeaderActions={
           <div className="flex items-center gap-2 flex-wrap">
-            <span
-              className={`hidden sm:inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold border ${
-                isSupabaseConfigured
-                  ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
-                  : "border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-300"
-              }`}
-            >
-              <span
-                className={`h-2 w-2 rounded-full ${
-                  isSupabaseConfigured
-                    ? "bg-emerald-500 animate-pulse"
-                    : "bg-amber-500"
-                }`}
-              />
-              <span>
-                {isSupabaseConfigured ? "Supabase Live" : "Local Database"}
-              </span>
-            </span>
-
             <Button
               variant="outline"
               size="sm"
@@ -94,25 +68,6 @@ export const Students: React.FC = () => {
             >
               <FileSpreadsheet className="h-3.5 w-3.5 text-primary" />
               Import Students
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setDbModalOpen(true)}
-              className="text-xs h-9 gap-1.5"
-            >
-              <Database className="h-3.5 w-3.5 text-primary" />
-              Database & SQL Query
-            </Button>
-
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setTerminalModalOpen(true)}
-              className="text-xs h-9 gap-1.5 font-mono bg-slate-900 text-slate-100 hover:bg-slate-800 dark:bg-slate-800"
-            >
-              <TerminalIcon className="h-3.5 w-3.5 text-emerald-400" />
-              Terminal Setup
             </Button>
             <Button
               variant="outline"
@@ -128,6 +83,7 @@ export const Students: React.FC = () => {
         }
         fields={[
           { key: "roll_number", label: "Roll Number", required: true },
+          { key: "prn_number", label: "PRN Number", required: true },
           { key: "reg_number", label: "University Reg Number" },
           { key: "full_name", label: "Student Full Name", required: true },
           {
@@ -179,9 +135,19 @@ export const Students: React.FC = () => {
           {
             header: "Roll No",
             render: (s) => (
-              <span className="font-mono text-xs font-bold text-primary">
+              <button
+                type="button"
+                onClick={() => setSelectedStudent(s)}
+                className="font-mono text-xs font-bold text-primary hover:underline"
+              >
                 {s.roll_number}
-              </span>
+              </button>
+            ),
+          },
+          {
+            header: "PRN No",
+            render: (s) => (
+              <span className="font-mono text-xs">{s.prn_number || "-"}</span>
             ),
           },
           {
@@ -261,10 +227,16 @@ export const Students: React.FC = () => {
           setTimeout(() => setNotice(null), 4000);
         }}
       />
-      <DatabaseSetupModal open={dbModalOpen} onOpenChange={setDbModalOpen} />
-      <BackendTerminalModal
-        open={terminalModalOpen}
-        onOpenChange={setTerminalModalOpen}
+      <StudentDetailsModal
+        student={selectedStudent}
+        open={!!selectedStudent}
+        onOpenChange={(open) => !open && setSelectedStudent(null)}
+        departmentName={
+          selectedStudent
+            ? departments.find((d) => d.id === selectedStudent.department_id)
+                ?.name
+            : undefined
+        }
       />
     </div>
   );

@@ -38,6 +38,7 @@ export interface CrudField {
   defaultValue?: string;
   options?: Array<{ value: string; label: string }>;
   helperText?: string;
+  visibleWhen?: (formData: Record<string, any>) => boolean;
 }
 
 export interface CrudColumn<T> {
@@ -540,89 +541,123 @@ export function CrudPage<T extends { id: string }>({
             </Button>
           </div>
           <div className="grid gap-4 sm:grid-cols-2">
-            {fields.map((f) => {
-              const isMobile = isMobileField(f);
-              const currentVal = formData[f.key] || "";
-              const isInvalidMobile =
-                isMobile && currentVal && !isValid10DigitMobile(currentVal);
+            {fields
+              .filter(
+                (field) => !field.visibleWhen || field.visibleWhen(formData),
+              )
+              .map((f) => {
+                const isMobile = isMobileField(f);
+                const currentVal = formData[f.key] || "";
+                const isInvalidMobile =
+                  isMobile && currentVal && !isValid10DigitMobile(currentVal);
 
-              return (
-                <div key={f.key} className="space-y-1.5">
-                  <label className="text-xs font-semibold text-muted-foreground flex items-center justify-between">
-                    <span>
-                      {f.label}{" "}
-                      {f.required && (
-                        <span className="text-destructive">*</span>
-                      )}
-                    </span>
-                    {isMobile && currentVal && (
-                      <span
-                        className={`text-[10px] font-mono ${
-                          currentVal.length === 10
-                            ? "text-emerald-600 font-bold"
-                            : "text-muted-foreground"
-                        }`}
-                      >
-                        {currentVal.length}/10 digits
+                return (
+                  <div key={f.key} className="space-y-1.5">
+                    <label className="text-xs font-semibold text-muted-foreground flex items-center justify-between">
+                      <span>
+                        {f.label}{" "}
+                        {f.required && (
+                          <span className="text-destructive">*</span>
+                        )}
                       </span>
-                    )}
-                  </label>
-                  {f.type === "select" ? (
-                    <Select
-                      value={formData[f.key] || ""}
-                      onChange={(e) => {
-                        const selectedValue = e.target.value;
-                        setFormData((prev) => ({
-                          ...prev,
-                          [f.key]: selectedValue,
-                          ...(table === "teachers" && f.key === "role"
-                            ? {
-                                password:
-                                  selectedValue === "hod"
-                                    ? "Hod@123"
-                                    : selectedValue === "class_coordinator"
-                                      ? "Cc@123"
-                                      : "Teacher@123",
-                              }
-                            : {}),
-                        }));
-                      }}
-                      options={f.options}
-                    />
-                  ) : f.type === "date" ? (
-                    <DatePicker
-                      value={formData[f.key] || ""}
-                      onChange={(val) =>
-                        setFormData((prev) => ({
-                          ...prev,
-                          [f.key]: val,
-                        }))
-                      }
-                    />
-                  ) : isMobile ? (
-                    <Input
-                      type="tel"
-                      inputMode="numeric"
-                      pattern="[0-9]*"
-                      maxLength={10}
-                      placeholder="9876543210 (10 digits)"
-                      value={currentVal}
-                      onChange={(e) =>
-                        setFormData((prev) => ({
-                          ...prev,
-                          [f.key]: sanitizeMobileInput(e.target.value),
-                        }))
-                      }
-                      className={`font-mono ${
-                        isInvalidMobile
-                          ? "border-destructive focus-visible:ring-destructive bg-destructive/5"
-                          : ""
-                      }`}
-                    />
-                  ) : f.type === "password" ? (
-                    <div className="relative">
+                      {isMobile && currentVal && (
+                        <span
+                          className={`text-[10px] font-mono ${
+                            currentVal.length === 10
+                              ? "text-emerald-600 font-bold"
+                              : "text-muted-foreground"
+                          }`}
+                        >
+                          {currentVal.length}/10 digits
+                        </span>
+                      )}
+                    </label>
+                    {f.type === "select" ? (
+                      <Select
+                        value={formData[f.key] || ""}
+                        onChange={(e) => {
+                          const selectedValue = e.target.value;
+                          setFormData((prev) => ({
+                            ...prev,
+                            [f.key]: selectedValue,
+                            ...(table === "teachers" && f.key === "role"
+                              ? {
+                                  password:
+                                    selectedValue === "hod"
+                                      ? "Hod@123"
+                                      : selectedValue === "class_coordinator"
+                                        ? "Cc@123"
+                                        : "Teacher@123",
+                                }
+                              : {}),
+                          }));
+                        }}
+                        options={f.options}
+                      />
+                    ) : f.type === "date" ? (
+                      <DatePicker
+                        value={formData[f.key] || ""}
+                        onChange={(val) =>
+                          setFormData((prev) => ({
+                            ...prev,
+                            [f.key]: val,
+                          }))
+                        }
+                      />
+                    ) : isMobile ? (
                       <Input
-                        type={showPassword ? "text" : "password"}
+                        type="tel"
+                        inputMode="numeric"
+                        pattern="[0-9]*"
+                        maxLength={10}
+                        placeholder="9876543210 (10 digits)"
+                        value={currentVal}
+                        onChange={(e) =>
+                          setFormData((prev) => ({
+                            ...prev,
+                            [f.key]: sanitizeMobileInput(e.target.value),
+                          }))
+                        }
+                        className={`font-mono ${
+                          isInvalidMobile
+                            ? "border-destructive focus-visible:ring-destructive bg-destructive/5"
+                            : ""
+                        }`}
+                      />
+                    ) : f.type === "password" ? (
+                      <div className="relative">
+                        <Input
+                          type={showPassword ? "text" : "password"}
+                          value={formData[f.key] || ""}
+                          onChange={(e) =>
+                            setFormData((prev) => ({
+                              ...prev,
+                              [f.key]: e.target.value,
+                            }))
+                          }
+                          className="pr-10"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setShowPassword((visible) => !visible)}
+                          className="absolute right-2 top-1/2 -translate-y-1/2 rounded p-1 text-muted-foreground hover:text-foreground"
+                          aria-label={
+                            showPassword ? "Hide password" : "Show password"
+                          }
+                          title={
+                            showPassword ? "Hide password" : "Show password"
+                          }
+                        >
+                          {showPassword ? (
+                            <EyeOff className="h-4 w-4" />
+                          ) : (
+                            <Eye className="h-4 w-4" />
+                          )}
+                        </button>
+                      </div>
+                    ) : (
+                      <Input
+                        type={f.type || "text"}
                         value={formData[f.key] || ""}
                         onChange={(e) =>
                           setFormData((prev) => ({
@@ -630,48 +665,20 @@ export function CrudPage<T extends { id: string }>({
                             [f.key]: e.target.value,
                           }))
                         }
-                        className="pr-10"
                       />
-                      <button
-                        type="button"
-                        onClick={() => setShowPassword((visible) => !visible)}
-                        className="absolute right-2 top-1/2 -translate-y-1/2 rounded p-1 text-muted-foreground hover:text-foreground"
-                        aria-label={
-                          showPassword ? "Hide password" : "Show password"
-                        }
-                        title={showPassword ? "Hide password" : "Show password"}
-                      >
-                        {showPassword ? (
-                          <EyeOff className="h-4 w-4" />
-                        ) : (
-                          <Eye className="h-4 w-4" />
-                        )}
-                      </button>
-                    </div>
-                  ) : (
-                    <Input
-                      type={f.type || "text"}
-                      value={formData[f.key] || ""}
-                      onChange={(e) =>
-                        setFormData((prev) => ({
-                          ...prev,
-                          [f.key]: e.target.value,
-                        }))
-                      }
-                    />
-                  )}
-                  {f.helperText ? (
-                    <p className="text-[11px] text-muted-foreground leading-tight">
-                      {f.helperText}
-                    </p>
-                  ) : isMobile ? (
-                    <p className="text-[11px] text-muted-foreground leading-tight">
-                      Must be strictly 10 digits (e.g. 9876543210).
-                    </p>
-                  ) : null}
-                </div>
-              );
-            })}
+                    )}
+                    {f.helperText ? (
+                      <p className="text-[11px] text-muted-foreground leading-tight">
+                        {f.helperText}
+                      </p>
+                    ) : isMobile ? (
+                      <p className="text-[11px] text-muted-foreground leading-tight">
+                        Must be strictly 10 digits (e.g. 9876543210).
+                      </p>
+                    ) : null}
+                  </div>
+                );
+              })}
           </div>
           <div className="flex justify-end gap-2 border-t border-border pt-3">
             <Button variant="outline" onClick={() => setModalOpen(false)}>

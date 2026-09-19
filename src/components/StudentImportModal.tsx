@@ -151,6 +151,10 @@ export const StudentImportModal: React.FC<StudentImportModalProps> = ({
         errors.push("Student Full Name is required.");
       }
 
+      if (!String(row.prn_number || "").trim()) {
+        errors.push("PRN Number is required.");
+      }
+
       // 10-Digit Parent Mobile Validation
       const parentErr = getMobileValidationError(
         row.parent_mobile,
@@ -234,6 +238,7 @@ export const StudentImportModal: React.FC<StudentImportModalProps> = ({
       try {
         const studentData = {
           roll_number: item.roll_number.trim(),
+          prn_number: item.prn_number.trim(),
           reg_number: item.reg_number?.trim() || null,
           full_name: item.full_name.trim(),
           department_id: selectedDepartmentId,
@@ -306,7 +311,10 @@ export const StudentImportModal: React.FC<StudentImportModalProps> = ({
                 roll_number: student.roll_number,
               },
             ]);
-            saveCredential([student.roll_number, effectiveEmail], initialPassword);
+            saveCredential(
+              [student.roll_number, effectiveEmail],
+              initialPassword,
+            );
             accountsCreated += 1;
             await localDb.update("students", student.id, {
               user_id: localUserId,
@@ -448,7 +456,8 @@ export const StudentImportModal: React.FC<StudentImportModalProps> = ({
                 <span className="font-semibold text-primary">
                   Student Full Name
                 </span>
-                ,{" "}
+                , <span className="font-semibold text-primary">PRN Number</span>{" "}
+                and{" "}
                 <span className="font-semibold text-primary">
                   Parent Mobile
                 </span>{" "}
@@ -669,6 +678,9 @@ export const StudentImportModal: React.FC<StudentImportModalProps> = ({
                       <th className="py-2 px-2.5 font-semibold text-foreground min-w-[130px]">
                         Enrollment / Roll No*
                       </th>
+                      <th className="py-2 px-2.5 font-semibold text-foreground min-w-[130px]">
+                        PRN No*
+                      </th>
                       <th className="py-2 px-2.5 font-semibold text-foreground min-w-[160px]">
                         Student Full Name*
                       </th>
@@ -767,6 +779,26 @@ export const StudentImportModal: React.FC<StudentImportModalProps> = ({
                                 )}
                               </p>
                             )}
+                          </td>
+
+                          {/* Full Name */}
+                          <td className="py-1.5 px-2">
+                            <Input
+                              value={row.prn_number}
+                              onChange={(e) =>
+                                handleCellChange(
+                                  originalIndex,
+                                  "prn_number",
+                                  e.target.value,
+                                )
+                              }
+                              placeholder="PRN Number"
+                              className={`h-7 text-xs font-mono px-2 ${
+                                !row.prn_number.trim()
+                                  ? "border-destructive focus-visible:ring-destructive"
+                                  : ""
+                              }`}
+                            />
                           </td>
 
                           {/* Full Name */}
