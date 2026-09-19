@@ -30,7 +30,7 @@ export const ClassTeacherLogin: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-background flex items-center justify-center p-4">
+    <div className="min-h-screen bg-background bg-grid-green-sm flex items-center justify-center p-4">
       <Card className="p-6 w-full max-w-md shadow-lg border-border">
         <div className="mb-6 flex justify-center">
           <EduTrackLogo variant="full" size="md" showTagline={true} />

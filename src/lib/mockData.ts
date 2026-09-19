@@ -66,7 +66,7 @@ export const mockDepartments: Department[] = [
     name: "Computer Science & Engineering",
     code: "CSE",
     hod_id: "t-1",
-    institution_name: "EduTrack Institute of Technology",
+    institution_name: "EduTrack",
     status: "active",
   },
   {
@@ -74,7 +74,7 @@ export const mockDepartments: Department[] = [
     name: "Electronics & Communication",
     code: "ECE",
     hod_id: "t-3",
-    institution_name: "EduTrack Institute of Technology",
+    institution_name: "EduTrack",
     status: "active",
   },
   {
@@ -82,14 +82,14 @@ export const mockDepartments: Department[] = [
     name: "Information Technology",
     code: "IT",
     hod_id: "t-4",
-    institution_name: "EduTrack Institute of Technology",
+    institution_name: "EduTrack",
     status: "active",
   },
   {
     id: "dept-4",
     name: "Mechanical Engineering",
     code: "MECH",
-    institution_name: "EduTrack Institute of Technology",
+    institution_name: "EduTrack",
     status: "inactive",
   },
 ];
@@ -336,7 +336,7 @@ for (let i = 14; i >= 0; i--) {
           subject_id: sub.id,
           student_name: st.full_name,
           parent_mobile: st.parent_mobile,
-          message: `Dear Parent,\n\nYour child, ${st.full_name}, was absent today (${dateStr}) for the subject "${sub.name}" at St. Mary's Institute of Technology.\n\nPlease contact your child if required.\n\nThank you.`,
+          message: `Dear Parent,\n\nYour child, ${st.full_name}, was absent today (${dateStr}) for the subject "${sub.name}".\n\nPlease contact your child if required.\n\nThank you.`,
           status: "sent",
           attendance_date: dateStr,
           sent_at: `${dateStr}T10:30:00Z`,

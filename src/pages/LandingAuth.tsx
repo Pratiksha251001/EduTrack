@@ -75,7 +75,7 @@ export const LandingAuth: React.FC = () => {
   ];
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-background bg-grid-green-sm">
       <section className="relative overflow-hidden border-b border-border bg-gradient-to-b from-primary/5 via-background to-background py-20 px-6">
         <div className="mx-auto max-w-5xl text-center space-y-6 flex flex-col items-center">
           <EduTrackLogo variant="full" size="xl" showTagline={false} />

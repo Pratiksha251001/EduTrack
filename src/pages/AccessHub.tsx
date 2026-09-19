@@ -136,8 +136,8 @@ export const AccessHub: React.FC = () => {
       description:
         "View attendance percentage, track low-attendance threshold warnings, subject breakdowns, and update profile.",
       icon: GraduationCap,
-      iconBg: "bg-sky-500/10",
-      iconColor: "text-sky-600 dark:text-sky-400",
+      iconBg: "bg-emerald-500/10",
+      iconColor: "text-emerald-600 dark:text-emerald-400",
       buttonLabel: "Student Portal",
       role: "student",
       demoEnabled: true,
@@ -243,7 +243,7 @@ export const AccessHub: React.FC = () => {
   });
 
   return (
-    <div className="min-h-screen bg-background text-foreground transition-colors duration-300">
+    <div className="min-h-screen bg-background bg-grid-green-sm text-foreground transition-colors duration-200">
       {/* Top Bar */}
       <header className="border-b border-border bg-card/80 backdrop-blur-md sticky top-0 z-30">
         <div className="mx-auto max-w-6xl px-4 sm:px-6 h-16 flex items-center justify-between">
@@ -251,14 +251,14 @@ export const AccessHub: React.FC = () => {
             <EduTrackLogo variant="horizontal" size="sm" showTagline={false} />
             <div className="hidden sm:flex items-center gap-2 pl-3 border-l border-border text-xs text-muted-foreground">
               <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
-              <span>{college.name}</span>
+              <span className="font-medium text-foreground/90">{college.name}</span>
             </div>
           </div>
 
           <div className="flex items-center gap-3">
             <button
               onClick={() => setDbModalOpen(true)}
-              className="inline-flex items-center gap-1.5 rounded-full border border-border bg-card px-2.5 py-1 text-xs font-semibold text-foreground hover:bg-muted transition-colors shadow-xs"
+              className="inline-flex items-center gap-1.5 rounded-full border border-border bg-card px-3 py-1.5 text-xs font-semibold text-foreground hover:bg-muted transition-colors shadow-xs"
               title="Database Connection & SQL Query"
             >
               <Database className="h-3.5 w-3.5 text-primary" />
@@ -267,10 +267,10 @@ export const AccessHub: React.FC = () => {
 
             <button
               onClick={() => setTerminalModalOpen(true)}
-              className="inline-flex items-center gap-1.5 rounded-full border border-slate-700 bg-slate-900 text-slate-200 hover:bg-slate-800 dark:bg-slate-800 dark:border-slate-700 px-2.5 py-1 text-xs font-mono font-medium transition-colors shadow-xs"
+              className="inline-flex items-center gap-1.5 rounded-full border border-border bg-card hover:bg-muted text-foreground px-3 py-1.5 text-xs font-mono font-medium transition-colors shadow-xs"
               title="View Backend Terminal & Database Handshake"
             >
-              <TerminalIcon className="h-3.5 w-3.5 text-emerald-400" />
+              <TerminalIcon className="h-3.5 w-3.5 text-emerald-500 dark:text-emerald-400" />
               <span>Terminal Setup</span>
             </button>
 
@@ -281,21 +281,27 @@ export const AccessHub: React.FC = () => {
               </span>
             )}
 
-            <span className="hidden md:inline-flex items-center gap-1.5 rounded-full border border-primary/20 bg-primary/5 px-3 py-1 text-xs font-semibold text-primary">
+            <span className="hidden md:inline-flex items-center gap-1.5 rounded-full border border-primary/20 bg-primary/10 px-3 py-1 text-xs font-semibold text-primary">
               <ShieldCheck className="h-3.5 w-3.5" />
-              <span>Academic Session 2025–26</span>
+              <span>Session 2025–26</span>
             </span>
 
             <button
               onClick={toggleTheme}
-              className="rounded-full border border-border bg-card p-2 text-foreground hover:bg-muted transition-colors shadow-xs"
+              className="flex items-center gap-1.5 rounded-full border border-border bg-card px-3 py-1.5 text-xs font-semibold text-foreground hover:bg-muted transition-colors shadow-xs"
               title="Toggle color theme"
               aria-label="Toggle theme"
             >
               {theme === "light" ? (
-                <Moon className="h-4 w-4" />
+                <>
+                  <Moon className="h-4 w-4 text-slate-700" />
+                  <span className="hidden sm:inline">Dark</span>
+                </>
               ) : (
-                <Sun className="h-4 w-4" />
+                <>
+                  <Sun className="h-4 w-4 text-amber-400" />
+                  <span className="hidden sm:inline">Light</span>
+                </>
               )}
             </button>
           </div>
@@ -303,9 +309,9 @@ export const AccessHub: React.FC = () => {
       </header>
 
       {/* Main Container */}
-      <main className="mx-auto max-w-6xl px-4 sm:px-6 py-8 sm:py-12 space-y-8">
+      <main className="relative z-10 mx-auto max-w-6xl px-4 sm:px-6 py-8 sm:py-12 space-y-8">
         {/* Hero Section */}
-        <section className="text-center space-y-4 max-w-3xl mx-auto">
+        <section className="w-full text-center space-y-4 rounded-2xl border border-border/80 bg-card/95 backdrop-blur-xl p-6 sm:p-8 shadow-sm">
           <div className="flex justify-center mb-2">
             <EduTrackLogo variant="full" size="lg" showTagline={true} />
           </div>
@@ -314,49 +320,49 @@ export const AccessHub: React.FC = () => {
             Academic Portal Hub
           </h1>
 
-          <p className="text-sm sm:text-base text-muted-foreground leading-relaxed">
+          <p className="text-sm sm:text-base text-foreground/80 dark:text-muted-foreground leading-relaxed max-w-3xl mx-auto">
             Welcome to the centralized attendance and academic administration network.
-            Select your assigned role below to sign in or explore with an instant preview.
+            Select your assigned institutional role below to sign in or explore with an instant preview.
           </p>
 
           {/* Interactive Category Filter Pills */}
           <div className="pt-2 flex flex-wrap items-center justify-center gap-2">
             <button
               onClick={() => setActiveCategory("all")}
-              className={`rounded-full px-3.5 py-1.5 text-xs font-semibold transition-all ${
+              className={`rounded-full px-4 py-1.5 text-xs font-bold transition-all shadow-xs ${
                 activeCategory === "all"
-                  ? "bg-primary text-primary-foreground shadow-xs"
-                  : "bg-card border border-border text-muted-foreground hover:text-foreground hover:bg-muted"
+                  ? "bg-primary text-primary-foreground shadow-sm ring-1 ring-primary/40"
+                  : "bg-card/90 border border-border text-foreground/90 hover:bg-secondary hover:text-foreground"
               }`}
             >
               All Portals (5)
             </button>
             <button
               onClick={() => setActiveCategory("admin")}
-              className={`rounded-full px-3.5 py-1.5 text-xs font-semibold transition-all ${
+              className={`rounded-full px-4 py-1.5 text-xs font-bold transition-all shadow-xs ${
                 activeCategory === "admin"
-                  ? "bg-primary text-primary-foreground shadow-xs"
-                  : "bg-card border border-border text-muted-foreground hover:text-foreground hover:bg-muted"
+                  ? "bg-primary text-primary-foreground shadow-sm ring-1 ring-primary/40"
+                  : "bg-card/90 border border-border text-foreground/90 hover:bg-secondary hover:text-foreground"
               }`}
             >
               Administration (2)
             </button>
             <button
               onClick={() => setActiveCategory("faculty")}
-              className={`rounded-full px-3.5 py-1.5 text-xs font-semibold transition-all ${
+              className={`rounded-full px-4 py-1.5 text-xs font-bold transition-all shadow-xs ${
                 activeCategory === "faculty"
-                  ? "bg-primary text-primary-foreground shadow-xs"
-                  : "bg-card border border-border text-muted-foreground hover:text-foreground hover:bg-muted"
+                  ? "bg-primary text-primary-foreground shadow-sm ring-1 ring-primary/40"
+                  : "bg-card/90 border border-border text-foreground/90 hover:bg-secondary hover:text-foreground"
               }`}
             >
               Faculty & Teachers (2)
             </button>
             <button
               onClick={() => setActiveCategory("student")}
-              className={`rounded-full px-3.5 py-1.5 text-xs font-semibold transition-all ${
+              className={`rounded-full px-4 py-1.5 text-xs font-bold transition-all shadow-xs ${
                 activeCategory === "student"
-                  ? "bg-primary text-primary-foreground shadow-xs"
-                  : "bg-card border border-border text-muted-foreground hover:text-foreground hover:bg-muted"
+                  ? "bg-primary text-primary-foreground shadow-sm ring-1 ring-primary/40"
+                  : "bg-card/90 border border-border text-foreground/90 hover:bg-secondary hover:text-foreground"
               }`}
             >
               Students (1)
@@ -365,20 +371,20 @@ export const AccessHub: React.FC = () => {
         </section>
 
         {/* Instant Demo & Study Mode Callout */}
-        <section className="rounded-2xl border-2 border-primary/30 bg-gradient-to-r from-primary/10 via-amber-500/10 to-indigo-500/10 p-5 shadow-sm text-left sm:flex sm:items-center sm:justify-between gap-4">
+        <section className="rounded-2xl border border-border/80 bg-card/95 backdrop-blur-xl p-5 sm:p-6 shadow-sm text-left sm:flex sm:items-center sm:justify-between gap-4">
           <div className="space-y-1 mb-4 sm:mb-0">
             <div className="flex flex-wrap items-center gap-2">
-              <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary text-primary-foreground shadow-xs">
+              <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary text-primary-foreground shadow-xs">
                 <Sparkles className="h-4 w-4" />
               </span>
               <h2 className="text-base font-bold text-foreground">
                 Study Demo Mode · Interactive Walkthrough
               </h2>
-              <span className="rounded-full bg-amber-500/20 px-2 py-0.5 text-[10px] font-bold text-amber-900 dark:text-amber-200 uppercase tracking-wide">
-                No Login Required
+              <span className="rounded-full bg-amber-500/15 border border-amber-500/30 px-2.5 py-0.5 text-[10px] font-bold text-amber-700 dark:text-amber-400 uppercase tracking-wide">
+                NO LOGIN REQUIRED
               </span>
             </div>
-            <p className="text-xs text-muted-foreground max-w-xl">
+            <p className="text-xs sm:text-sm text-muted-foreground max-w-xl">
               Explore how EduTrack works with a 1-click random demo dashboard loaded with dummy faculty and student profiles, live attendance logs, and automated notifications.
             </p>
           </div>
@@ -387,7 +393,7 @@ export const AccessHub: React.FC = () => {
             <Button
               onClick={handleRandomDemoLogin}
               disabled={loading}
-              className="gap-2 bg-primary text-primary-foreground font-bold shadow-md hover:bg-primary/90 transition-all active:scale-95"
+              className="gap-2 bg-primary text-primary-foreground font-bold shadow-md hover:bg-primary/90 transition-all active:scale-95 px-5 py-2.5 text-sm"
             >
               <Shuffle className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />
               <span>Launch Random Demo Dashboard</span>
@@ -403,41 +409,41 @@ export const AccessHub: React.FC = () => {
               <div
                 key={card.role}
                 onClick={() => handleCardClick(card)}
-                className="group relative flex flex-col justify-between rounded-xl border border-border bg-card p-6 shadow-xs hover:shadow-md hover:border-primary/50 transition-all duration-200 cursor-pointer overflow-hidden"
+                className="group relative flex flex-col justify-between rounded-2xl border border-border/80 bg-card/95 backdrop-blur-xl p-6 shadow-sm hover:shadow-xl hover:border-primary/60 hover:-translate-y-0.5 transition-all duration-200 cursor-pointer overflow-hidden"
               >
                 {/* Top decorative accent bar */}
-                <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-primary/30 via-primary to-primary/30 opacity-0 group-hover:opacity-100 transition-opacity" />
+                <div className="absolute top-0 left-0 right-0 h-1.5 bg-gradient-to-r from-primary/30 via-primary to-primary/30 opacity-0 group-hover:opacity-100 transition-opacity" />
 
                 <div>
                   {/* Card Header: Icon + Badge */}
                   <div className="flex items-center justify-between gap-2 mb-4">
                     <div
-                      className={`flex h-12 w-12 items-center justify-center rounded-xl border border-border/50 ${card.iconBg} ${card.iconColor} group-hover:scale-105 transition-transform duration-200`}
+                      className={`flex h-12 w-12 items-center justify-center rounded-xl border border-border/60 ${card.iconBg} ${card.iconColor} group-hover:scale-105 transition-transform duration-200 shadow-xs`}
                     >
                       <Icon className="h-6 w-6" />
                     </div>
                     <Badge
                       variant="secondary"
-                      className="text-[11px] font-semibold tracking-wide uppercase px-2.5 py-0.5"
+                      className="text-[11px] font-bold tracking-wide uppercase px-2.5 py-1 bg-secondary text-secondary-foreground border border-border/70"
                     >
                       {card.badge}
                     </Badge>
                   </div>
 
                   {/* Title & Description */}
-                  <h3 className="font-display text-lg font-bold text-foreground group-hover:text-primary transition-colors mb-2">
+                  <h3 className="font-display text-lg font-extrabold text-foreground group-hover:text-primary transition-colors mb-2">
                     {card.title}
                   </h3>
-                  <p className="text-xs text-muted-foreground leading-relaxed line-clamp-3">
+                  <p className="text-sm text-muted-foreground leading-relaxed line-clamp-3">
                     {card.description}
                   </p>
                 </div>
 
                 {/* Card Actions */}
-                <div className="mt-6 pt-4 border-t border-border/60 flex items-center gap-2">
+                <div className="mt-6 pt-4 border-t border-border/70 flex items-center gap-2">
                   <Button
                     size="sm"
-                    className="flex-1 font-semibold group/btn"
+                    className="flex-1 font-bold group/btn shadow-xs bg-primary text-primary-foreground hover:bg-primary/90"
                     onClick={(e) => {
                       e.stopPropagation();
                       handleCardClick(card);
@@ -451,7 +457,7 @@ export const AccessHub: React.FC = () => {
                     <Button
                       variant="secondary"
                       size="sm"
-                      className="text-xs font-semibold hover:bg-primary/10 hover:text-primary transition-colors shrink-0"
+                      className="text-xs font-bold border border-border/80 bg-secondary/80 text-foreground hover:bg-primary/10 hover:text-primary transition-colors shrink-0"
                       onClick={(e) => {
                         e.stopPropagation();
                         handleDemoLogin(card.role);
@@ -469,45 +475,45 @@ export const AccessHub: React.FC = () => {
         </section>
 
         {/* System Capabilities Banner */}
-        <section className="rounded-xl border border-border bg-card p-6 shadow-xs">
+        <section className="rounded-2xl border border-border/80 bg-card/95 backdrop-blur-xl p-6 sm:p-7 shadow-sm">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6 text-center md:text-left">
             <div className="flex items-start gap-3">
-              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary border border-primary/20">
                 <CheckCircle2 className="h-5 w-5" />
               </div>
               <div>
                 <h4 className="font-display text-sm font-bold text-foreground">
                   Instant Morning Roll Call
                 </h4>
-                <p className="text-xs text-muted-foreground mt-0.5">
+                <p className="text-xs text-foreground/80 dark:text-muted-foreground mt-1 leading-relaxed">
                   Teachers take attendance in under 60 seconds with bulk selection and absent toggling.
                 </p>
               </div>
             </div>
 
             <div className="flex items-start gap-3">
-              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
                 <Zap className="h-5 w-5" />
               </div>
               <div>
                 <h4 className="font-display text-sm font-bold text-foreground">
                   Automated Parent SMS Alerts
                 </h4>
-                <p className="text-xs text-muted-foreground mt-0.5">
+                <p className="text-xs text-foreground/80 dark:text-muted-foreground mt-1 leading-relaxed">
                   Parents receive immediate notifications upon subject absence with full delivery tracking.
                 </p>
               </div>
             </div>
 
             <div className="flex items-start gap-3">
-              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-teal-500/10 text-teal-600 dark:text-teal-400">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-teal-500/10 text-teal-600 dark:text-teal-400 border border-teal-500/20">
                 <ShieldCheck className="h-5 w-5" />
               </div>
               <div>
                 <h4 className="font-display text-sm font-bold text-foreground">
                   Audit-Ready Attendance Reports
                 </h4>
-                <p className="text-xs text-muted-foreground mt-0.5">
+                <p className="text-xs text-foreground/80 dark:text-muted-foreground mt-1 leading-relaxed">
                   Automated 75% defaulter warnings and 1-click university compliant PDF generation.
                 </p>
               </div>
@@ -516,9 +522,9 @@ export const AccessHub: React.FC = () => {
         </section>
 
         {/* Footer */}
-        <footer className="text-center pt-4 pb-8 border-t border-border text-xs text-muted-foreground space-y-1">
-          <p>© {new Date().getFullYear()} {college.name} · Official EduTrack System</p>
-          <p className="text-[11px] text-muted-foreground/70">
+        <footer className="text-center pt-4 pb-8 border-t border-border/80 text-xs text-muted-foreground space-y-1">
+          <p className="font-medium text-foreground/70">© {new Date().getFullYear()} EduTrack · Official Academic Management System</p>
+          <p className="text-[11px] text-muted-foreground/80">
             Engineered for high-reliability academic tracking and parent communication.
           </p>
         </footer>

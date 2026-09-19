@@ -97,8 +97,8 @@ export const LogoutConfirmDialog: React.FC<LogoutConfirmDialogProps> = ({
         return {
           title: "Student Scholar",
           icon: GraduationCap,
-          badgeClass: "bg-sky-500/10 text-sky-600 dark:text-sky-400 border-sky-500/20",
-          iconBg: "bg-sky-500/15 text-sky-600 dark:text-sky-400",
+          badgeClass: "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20",
+          iconBg: "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400",
           sublabel: user?.roll_number
             ? `Roll No: ${user.roll_number} · ${department?.code || "Enrolled"}`
             : department?.name || "Enrolled Student",

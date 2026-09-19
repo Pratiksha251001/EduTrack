@@ -12,7 +12,7 @@ create table if not exists public.departments (
   id uuid default uuid_generate_v4() primary key,
   name text not null,
   code text not null unique,
-  institution_name text default 'EduTrack Institute of Technology',
+  institution_name text default 'EduTrack',
   hod_id uuid,
   status text not null default 'active' check (status in ('active', 'inactive')),
   created_at timestamp with time zone default timezone('utc'::text, now()) not null

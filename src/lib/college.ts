@@ -1,7 +1,7 @@
 import { SmsLanguage } from "./types";
 
 export const college = {
-  name: "EduTrack Institute of Technology",
+  name: "EduTrack",
   shortName: "EduTrack",
   tagline: "Manage Attendance. Alert Parents. Build Trust.",
   logoUrl: "/logo.png",
@@ -46,25 +46,25 @@ export function cleanSmsMessage(msg: string): string {
  * Single language generator functions
  */
 export function getEnglishAbsenceMessage(studentName: string, date: string, subjectName: string): string {
-  return `Dear Parent,\nYour child, ${studentName}, was marked ABSENT today (${date}) for the lecture "${subjectName}" at ${college.name}.\n\nPlease ensure regular attendance. Kindly contact the class coordinator for queries.\n\nRegards,\n${college.name}`;
+  return `Dear Parent,\nYour child, ${studentName}, was marked ABSENT today (${date}) for the lecture "${subjectName}".\n\nPlease ensure regular attendance. Kindly contact the class coordinator for queries.\n\nRegards,\nEduTrack Attendance System`;
 }
 
 export function getMarathiAbsenceMessage(studentName: string, date: string, subjectName: string): string {
-  return `आदरणीय पालक,\nआपला पाल्य ${studentName} आज दिनांक ${date} रोजी ${college.name} मध्ये "${subjectName}" या विषयाच्या तासाला गैरहजर (अनुपस्थित) होता/होती.\n\nकृपया आपल्या पाल्याच्या नियमित उपस्थितीची खात्री करावी. अधिक माहितीसाठी वर्ग समन्वयकांशी संपर्क साधावा.\n\nसस्नेह,\n${college.name}`;
+  return `आदरणीय पालक,\nआपला पाल्य ${studentName} आज दिनांक ${date} रोजी "${subjectName}" या विषयाच्या तासाला गैरहजर (अनुपस्थित) होता/होती.\n\nकृपया आपल्या पाल्याच्या नियमित उपस्थितीची खात्री करावी. अधिक माहितीसाठी वर्ग समन्वयकांशी संपर्क साधावा.\n\nसस्नेह,\nEduTrack उपस्थिती प्रणाली`;
 }
 
 export function getHindiAbsenceMessage(studentName: string, date: string, subjectName: string): string {
-  return `आदरणीय अभिभावक,\nआपका बच्चा ${studentName} आज दिनांक ${date} को ${college.name} में "${subjectName}" विषय की कक्षा में अनुपस्थित (ABSENT) था/थी।\n\nकृपया नियमित उपस्थिति सुनिश्चित करें। किसी भी जानकारी के लिए वर्ग समन्वयक से संपर्क करें।\n\nसादर,\n${college.name}`;
+  return `आदरणीय अभिभावक,\nआपका बच्चा ${studentName} आज दिनांक ${date} को "${subjectName}" विषय की कक्षा में अनुपस्थित (ABSENT) था/थी।\n\nकृपया नियमित उपस्थिति सुनिश्चित करें। किसी भी जानकारी के लिए वर्ग समन्वयक से संपर्क करें।\n\nसादर,\nEduTrack उपस्थिति प्रणाली`;
 }
 
 export function getTrilingualAbsenceMessage(studentName: string, date: string, subjectName: string): string {
-  return `Dear Parent, your child ${studentName} was marked ABSENT today (${date}) for the lecture "${subjectName}" at ${college.name}. Please ensure regular attendance.
+  return `Dear Parent, your child ${studentName} was marked ABSENT today (${date}) for the lecture "${subjectName}". Please ensure regular attendance.
 
 आदरणीय पालक, आपला पाल्य ${studentName} आज दिनांक ${date} रोजी "${subjectName}" या विषयाच्या तासाला गैरहजर (अनुपस्थित) होता/होती. कृपया नियमित उपस्थितीची खात्री करावी.
 
 आदरणीय अभिभावक, आपका बच्चा ${studentName} आज दिनांक ${date} को "${subjectName}" विषय की कक्षा में अनुपस्थित था/थी। कृपया नियमित उपस्थिति सुनिश्चित करें।
 
-- ${college.name}`;
+- EduTrack System`;
 }
 
 export function getBilingualMrMessage(studentName: string, date: string, subjectName: string): string {

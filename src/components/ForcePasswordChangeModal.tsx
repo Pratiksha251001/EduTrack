@@ -315,7 +315,7 @@ export const ForcePasswordChangeModal: React.FC = () => {
         </form>
 
         <div className="mt-5 text-center text-[11px] text-muted-foreground border-t border-border pt-3">
-          {college.name} · Official EduTrack Security Safeguard
+          EduTrack · Official Security Safeguard
         </div>
       </div>
     </div>

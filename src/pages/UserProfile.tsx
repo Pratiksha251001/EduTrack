@@ -613,10 +613,10 @@ export const UserProfile: React.FC = () => {
 
                   <div className="rounded-xl border border-border p-3.5 bg-muted/30">
                     <p className="text-muted-foreground text-[11px] font-medium flex items-center gap-1">
-                      <Building2 className="h-3.5 w-3.5 text-primary" /> Institution
+                      <Building2 className="h-3.5 w-3.5 text-primary" /> Platform
                     </p>
-                    <p className="font-bold text-foreground text-sm mt-0.5">{college.shortName}</p>
-                    <p className="text-muted-foreground text-[11px] mt-0.5">{college.name}</p>
+                    <p className="font-bold text-foreground text-sm mt-0.5">EduTrack</p>
+                    <p className="text-muted-foreground text-[11px] mt-0.5">Academic Attendance & Management</p>
                   </div>
 
                   <div className="rounded-xl border border-border p-3.5 bg-muted/30">
