@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from "react";
 import { UserRoleType } from "../lib/types";
-import { localDb, supabase } from "../lib/supabase";
+import { localDb, supabase, isSupabaseConfigured } from "../lib/supabase";
 import {
   normalizeId,
   saveCredential,
@@ -84,44 +84,58 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
 
   useEffect(() => {
     let mounted = true;
-    const restoreSupabaseSession = async () => {
-      const { data } = await supabase.auth.getSession();
-      if (!mounted || !data.session) return;
-      const authUser = data.session.user;
-      const { data: roleRecord } = await supabase
-        .from("user_roles")
-        .select("role, department_id")
-        .eq("user_id", authUser.id)
-        .maybeSingle();
-      if (!roleRecord) return;
-      const { data: profile } = await supabase
-        .from("profiles")
-        .select("full_name, must_change_password")
-        .eq("id", authUser.id)
-        .maybeSingle();
-      const restoredUser = {
-        id: authUser.id,
-        email: authUser.email || "",
-        full_name:
-          profile?.full_name ||
-          authUser.user_metadata?.full_name ||
-          "EduTrack User",
-        department_id: roleRecord.department_id,
-      };
-      setUser(restoredUser);
-      setRole(roleRecord.role as UserRoleType);
-      setMustChangePassword(profile?.must_change_password === true);
-    };
-    void restoreSupabaseSession();
-    const { data: listener } = supabase.auth.onAuthStateChange(
-      (_event, session) => {
-        if (!session && mounted) {
-          setUser(null);
-          setRole(null);
-          setMustChangePassword(false);
+    let listenerSubscription: { unsubscribe: () => void } | null = null;
+
+    if (isSupabaseConfigured) {
+      const restoreSupabaseSession = async () => {
+        try {
+          const { data } = await supabase.auth.getSession();
+          if (!mounted || !data?.session) return;
+          const authUser = data.session.user;
+          const { data: roleRecord } = await supabase
+            .from("user_roles")
+            .select("role, department_id")
+            .eq("user_id", authUser.id)
+            .maybeSingle();
+          if (!roleRecord) return;
+          const { data: profile } = await supabase
+            .from("profiles")
+            .select("full_name, must_change_password")
+            .eq("id", authUser.id)
+            .maybeSingle();
+          const restoredUser = {
+            id: authUser.id,
+            email: authUser.email || "",
+            full_name:
+              profile?.full_name ||
+              authUser.user_metadata?.full_name ||
+              "Portal User",
+            department_id: roleRecord.department_id,
+          };
+          setUser(restoredUser);
+          setRole(roleRecord.role as UserRoleType);
+          setMustChangePassword(profile?.must_change_password === true);
+        } catch (err) {
+          console.warn("Could not restore Supabase session:", err);
         }
-      },
-    );
+      };
+      void restoreSupabaseSession();
+
+      try {
+        const { data: listener } = supabase.auth.onAuthStateChange(
+          (_event, session) => {
+            if (!session && mounted) {
+              setUser(null);
+              setRole(null);
+              setMustChangePassword(false);
+            }
+          },
+        );
+        listenerSubscription = listener.subscription;
+      } catch (err) {
+        console.warn("Could not attach Supabase auth listener:", err);
+      }
+    }
     const savedUser = getStorageItem("user");
     const savedRole = getStorageItem("role") as UserRoleType | null;
     const savedIsDemo = getStorageItem("is_demo") === "true";
@@ -160,7 +174,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     setLoading(false);
     return () => {
       mounted = false;
-      listener.subscription.unsubscribe();
+      listenerSubscription?.unsubscribe();
     };
   }, []);
 
@@ -255,7 +269,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
   };
 
   const signOut = async () => {
-    await supabase.auth.signOut();
+    if (isSupabaseConfigured) {
+      try {
+        await supabase.auth.signOut();
+      } catch (err) {
+        console.warn("Could not sign out of Supabase:", err);
+      }
+    }
     setUser(null);
     setRole(null);
     setIsDemo(false);
@@ -331,16 +351,26 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
       role === "hod" && user.teacher_id ? `hod_${user.teacher_id}` : null,
     ].filter(Boolean);
 
-    const { data: sessionData } = await supabase.auth.getSession();
-    if (sessionData.session?.user.id === user.id) {
-      const { error } = await supabase.auth.updateUser({
-        password: cleanPassword,
-      });
-      if (error) return { ok: false, message: error.message };
-      await supabase
-        .from("profiles")
-        .update({ must_change_password: false })
-        .eq("id", user.id);
+    if (isSupabaseConfigured) {
+      try {
+        const { data: sessionData } = await supabase.auth.getSession();
+        if (sessionData?.session?.user.id === user.id) {
+          const { error } = await supabase.auth.updateUser({
+            password: cleanPassword,
+          });
+          if (error) return { ok: false, message: error.message };
+          await supabase
+            .from("profiles")
+            .update({ must_change_password: false })
+            .eq("id", user.id);
+        } else {
+          saveCredential(identifiers, cleanPassword);
+          markCustomPasswordSet(identifiers);
+        }
+      } catch {
+        saveCredential(identifiers, cleanPassword);
+        markCustomPasswordSet(identifiers);
+      }
     } else {
       saveCredential(identifiers, cleanPassword);
       markCustomPasswordSet(identifiers);
@@ -408,6 +438,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     // HOD, coordinator, and teacher emails continue through the institutional
     // record and credential checks below until those roles are provisioned.
     if (
+      isSupabaseConfigured &&
       (targetRole === "admin" || targetRole === "student") &&
       rawInput.includes("@")
     ) {
@@ -446,7 +477,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
           full_name:
             profile?.full_name ||
             authData.user.user_metadata?.full_name ||
-            "EduTrack User",
+            "Portal User",
           department_id: roleRecord.department_id,
           student_id: studentRecord?.id,
           roll_number: studentRecord?.roll_number,

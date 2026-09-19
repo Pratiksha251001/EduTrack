@@ -69,15 +69,18 @@ create table if not exists public.academic_classes (
   unique(name, department_id)
 );
 
--- 6. Class Coordinator Assignments Table
+-- 6. Class Coordinator Assignments Table (Supports mapping a single coordinator to multiple classes, years, and semesters concurrently)
 create table if not exists public.class_coordinator_assignments (
   id uuid default uuid_generate_v4() primary key,
   teacher_id uuid references public.teachers(id) on delete cascade not null,
   department_id uuid references public.departments(id) on delete cascade not null,
+  year integer check (year between 1 and 4),
   semester integer not null check (semester between 1 and 8),
+  class_id uuid references public.academic_classes(id) on delete set null,
+  class_name text,
   assigned_by uuid references auth.users(id) on delete set null,
   created_at timestamp with time zone default timezone('utc'::text, now()) not null,
-  unique(teacher_id, department_id, semester)
+  unique(teacher_id, department_id, semester, class_name)
 );
 
 -- 7. Subjects Table
@@ -86,17 +89,21 @@ create table if not exists public.subjects (
   code text not null unique,
   name text not null,
   department_id uuid references public.departments(id) on delete cascade,
+  year integer check (year between 1 and 4),
   semester integer not null check (semester between 1 and 8),
   credits integer default 3,
   created_at timestamp with time zone default timezone('utc'::text, now()) not null
 );
 
--- 8. Teacher-Subject Assignments
+-- 8. Teacher-Subject Assignments (Supports mapping a teacher to multiple subjects, years, semesters, and class divisions concurrently)
 create table if not exists public.teacher_subjects (
   id uuid default uuid_generate_v4() primary key,
   teacher_id uuid references public.teachers(id) on delete cascade not null,
   subject_id uuid references public.subjects(id) on delete cascade not null,
+  class_id uuid references public.academic_classes(id) on delete set null,
   class_name text,
+  year integer check (year between 1 and 4),
+  semester integer check (semester between 1 and 8),
   created_at timestamp with time zone default timezone('utc'::text, now()) not null,
   unique(teacher_id, subject_id, class_name)
 );

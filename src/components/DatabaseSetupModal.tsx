@@ -192,7 +192,7 @@ export const DatabaseSetupModal: React.FC<DatabaseSetupModalProps> = ({
                 [00:00:01] [INFO] EduTrack Node.js Backend Service online (Port: 3000)
               </div>
               <div className="text-slate-400">
-                [00:00:01] [DATABASE] Target: Supabase Cloud PostgreSQL ({supabaseUrl})
+                [00:00:01] [DATABASE] Target: {isSupabaseConfigured ? `Supabase Cloud PostgreSQL (${supabaseUrl})` : "Local Browser & IndexedDB Storage Engine"}
               </div>
               <div className="text-emerald-400 font-semibold">
                 [00:00:02] [CONNECTED] Handshake Status: 200 OK | Database is CONNECTED & ACTIVE

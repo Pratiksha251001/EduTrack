@@ -147,12 +147,12 @@ export const Dashboard: React.FC = () => {
           </CardContent>
         </Card>
 
-        <Card className="border-l-4 border-l-blue-500">
+        <Card className="border-l-4 border-l-teal-500">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
               Parent SMS Alerts Sent
             </CardTitle>
-            <MessageSquare className="h-5 w-5 text-blue-500" />
+            <MessageSquare className="h-5 w-5 text-teal-500" />
           </CardHeader>
           <CardContent>
             <div className="text-3xl font-display font-extrabold">

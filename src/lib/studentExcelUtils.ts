@@ -315,7 +315,7 @@ export async function parseStudentSpreadsheet(
       }
     } else {
       warnings.push(
-        "Email missing (institutional @student.edutrack.edu will be auto-generated).",
+        "Email missing (institutional @student.college.edu will be auto-generated).",
       );
     }
 

@@ -17,7 +17,8 @@ import {
   Users,
   X,
 } from "lucide-react";
-import { localDb, supabase } from "../lib/supabase";
+import { localDb, supabase, isSupabaseConfigured } from "../lib/supabase";
+import { saveCredential } from "../lib/authUtils";
 import {
   ParsedStudentRow,
   parseStudentSpreadsheet,
@@ -254,41 +255,64 @@ export const StudentImportModal: React.FC<StudentImportModalProps> = ({
         if (createAccounts) {
           const effectiveEmail =
             item.email?.trim().toLowerCase() ||
-            `${item.roll_number.toLowerCase().replace(/[^a-z0-9]/g, "")}@student.edutrack.edu`;
+            `${item.roll_number.toLowerCase().replace(/[^a-z0-9]/g, "")}@student.college.edu`;
           const rawPassword =
             passwordMode === "enrollment"
               ? student.roll_number
               : customPassword.trim();
           const initialPassword =
             rawPassword.length >= 6 ? rawPassword : `${rawPassword}@123`;
-          const { data, error } = await supabase.functions.invoke(
-            "provision-student-accounts",
-            {
-              body: {
-                students: [
-                  {
-                    studentId: student.id,
-                    email: effectiveEmail,
-                    password: initialPassword,
-                    fullName: student.full_name,
-                    departmentId: selectedDepartmentId,
-                  },
-                ],
+
+          if (isSupabaseConfigured) {
+            const { data, error } = await supabase.functions.invoke(
+              "provision-student-accounts",
+              {
+                body: {
+                  students: [
+                    {
+                      studentId: student.id,
+                      email: effectiveEmail,
+                      password: initialPassword,
+                      fullName: student.full_name,
+                      departmentId: selectedDepartmentId,
+                    },
+                  ],
+                },
               },
-            },
-          );
-          if (error || !data?.results?.[0]?.ok) {
-            const reason =
-              data?.results?.[0]?.error ||
-              error?.message ||
-              "Account provisioning failed";
-            throw new Error(reason);
+            );
+            if (error || !data?.results?.[0]?.ok) {
+              const reason =
+                data?.results?.[0]?.error ||
+                error?.message ||
+                "Account provisioning failed";
+              throw new Error(reason);
+            }
+            accountsCreated += 1;
+            await localDb.update("students", student.id, {
+              user_id: data.results[0].userId,
+              email: effectiveEmail,
+            });
+          } else {
+            // Local mode fallback
+            const localUserId = `user-student-${student.id}`;
+            await localDb.insert("users", [
+              {
+                id: localUserId,
+                email: effectiveEmail,
+                full_name: student.full_name,
+                role: "student",
+                student_id: student.id,
+                department_id: selectedDepartmentId,
+                roll_number: student.roll_number,
+              },
+            ]);
+            saveCredential([student.roll_number, effectiveEmail], initialPassword);
+            accountsCreated += 1;
+            await localDb.update("students", student.id, {
+              user_id: localUserId,
+              email: effectiveEmail,
+            });
           }
-          accountsCreated += 1;
-          await localDb.update("students", student.id, {
-            user_id: data.results[0].userId,
-            email: effectiveEmail,
-          });
         }
       } catch (error) {
         if (insertedStudentId) {

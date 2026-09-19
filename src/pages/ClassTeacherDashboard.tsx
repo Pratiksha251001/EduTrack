@@ -50,6 +50,35 @@ export const ClassTeacherDashboard: React.FC = () => {
   const assignedSubjectIds = useMemo(() => new Set(mySubjects.map((s) => s.id)), [mySubjects]);
   const assignedSemesters = useMemo(() => new Set(mySubjects.map((s) => s.semester)), [mySubjects]);
 
+  const myAssignmentsWithClasses = useMemo(() => {
+    const rawTs = localDb.teacher_subjects.filter(
+      (ts) => ts.teacher_id === teacherId || ts.teacher_id === user?.id
+    );
+    if (rawTs.length > 0) {
+      return rawTs.map((ts) => {
+        const sub = localDb.subjects.find((s) => s.id === ts.subject_id);
+        return {
+          id: ts.id,
+          subject_id: ts.subject_id,
+          subject_code: sub?.code || "SUB",
+          subject_name: sub?.name || "Assigned Subject",
+          semester: ts.semester || sub?.semester || 1,
+          credits: sub?.credits || 3,
+          class_name: ts.class_name || null,
+        };
+      });
+    }
+    return mySubjects.map((s) => ({
+      id: s.id,
+      subject_id: s.id,
+      subject_code: s.code,
+      subject_name: s.name,
+      semester: s.semester,
+      credits: s.credits || 3,
+      class_name: null,
+    }));
+  }, [teacherId, user, mySubjects]);
+
   const todayAttendance = useMemo(() => {
     return localDb.attendance.filter(
       (a) => a.date === todayStr && assignedSubjectIds.has(a.subject_id)
@@ -289,7 +318,7 @@ export const ClassTeacherDashboard: React.FC = () => {
                 className="flex items-center justify-between p-3 rounded-xl border border-border bg-card hover:bg-muted/50 transition-colors text-xs font-medium"
               >
                 <div className="flex items-center gap-2.5">
-                  <div className="p-2 rounded-lg bg-blue-500/10 text-blue-600 dark:text-blue-400">
+                  <div className="p-2 rounded-lg bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
                     <FileChartColumnIncreasing className="h-4 w-4" />
                   </div>
                   <div>
@@ -362,6 +391,76 @@ export const ClassTeacherDashboard: React.FC = () => {
           </Card>
         </div>
       </div>
+
+      {/* My Multi-Class Teaching Assignments */}
+      <Card className="p-5 border-border shadow-xs">
+        <CardHeader className="p-0 pb-3 border-b border-border flex flex-row items-center justify-between">
+          <div>
+            <CardTitle className="text-base font-bold flex items-center gap-2">
+              <BookOpen className="h-5 w-5 text-primary" />
+              My Assigned Subjects & Class Divisions
+            </CardTitle>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              Subjects and class divisions assigned to you by your HOD and Class Coordinator.
+            </p>
+          </div>
+          <Badge variant="outline" className="text-xs">
+            {myAssignmentsWithClasses.length} Teaching Assignment{myAssignmentsWithClasses.length !== 1 ? 's' : ''}
+          </Badge>
+        </CardHeader>
+        <CardContent className="p-0 pt-4">
+          {myAssignmentsWithClasses.length === 0 ? (
+            <div className="py-8 text-center text-xs text-muted-foreground">
+              No specific subjects assigned yet. Contact your HOD or Class Coordinator to assign your classes.
+            </div>
+          ) : (
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+              {myAssignmentsWithClasses.map((item) => (
+                <div
+                  key={item.id}
+                  className="rounded-xl border border-border bg-muted/30 hover:bg-muted/50 transition-colors p-4 flex flex-col justify-between gap-3"
+                >
+                  <div>
+                    <div className="flex items-center justify-between gap-2 mb-1.5">
+                      <span className="font-mono font-bold text-xs px-2 py-0.5 rounded bg-background border border-border text-foreground">
+                        {item.subject_code}
+                      </span>
+                      {item.class_name ? (
+                        <Badge className="bg-primary/15 text-primary border-primary/25 font-bold text-xs">
+                          {item.class_name}
+                        </Badge>
+                      ) : (
+                        <Badge variant="secondary" className="text-xs text-muted-foreground">
+                          All Divisions
+                        </Badge>
+                      )}
+                    </div>
+                    <div className="font-semibold text-sm text-foreground">
+                      {item.subject_name}
+                    </div>
+                    <div className="text-xs text-muted-foreground mt-1">
+                      Semester {item.semester} • {item.credits} Credits
+                    </div>
+                  </div>
+
+                  <div className="pt-2 border-t border-border/60 flex items-center justify-between">
+                    <span className="text-[11px] text-muted-foreground">
+                      {item.class_name ? `Class: ${item.class_name}` : "Entire Cohort"}
+                    </span>
+                    <Link
+                      to={`/attendance?subject_id=${item.subject_id}${item.class_name ? `&class_name=${encodeURIComponent(item.class_name)}` : ''}`}
+                    >
+                      <Button size="sm" className="h-7 text-xs gap-1.5 font-semibold">
+                        <ClipboardCheck className="h-3.5 w-3.5" /> Mark Attendance
+                      </Button>
+                    </Link>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
     </div>
   );
 };

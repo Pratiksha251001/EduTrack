@@ -258,7 +258,7 @@ export const NotificationBell: React.FC<{ className?: string }> = ({ className =
                           ? "bg-amber-500/15 text-amber-600 dark:text-amber-400 border border-amber-500/30"
                           : isAttendance
                           ? "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30"
-                          : "bg-blue-500/15 text-blue-600 dark:text-blue-400 border border-blue-500/30"
+                          : "bg-teal-500/15 text-teal-600 dark:text-teal-400 border border-teal-500/30"
                       }`}
                     >
                       {isSecurity ? (

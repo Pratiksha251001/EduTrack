@@ -24,7 +24,12 @@ export interface Teacher {
   department_id?: string | null;
   user_id?: string | null;
   is_class_coordinator?: boolean;
+  assigned_year?: number | null;
   assigned_semester?: number | null;
+  assigned_years?: number[] | null;
+  assigned_semesters?: number[] | null;
+  assigned_classes?: string[] | null;
+  assigned_class_ids?: string[] | null;
   role: "hod" | "class_coordinator" | "lecturer";
   status: "active" | "inactive";
   designation?: string | null;
@@ -40,6 +45,7 @@ export interface Subject {
   code: string;
   name: string;
   department_id?: string | null;
+  year?: number | null;
   semester: number;
   credits: number;
   created_at?: string;
@@ -49,6 +55,7 @@ export interface AcademicClass {
   id: string;
   name: string;
   department_id: string;
+  year?: number | null;
   semester: number;
   coordinator_teacher_id?: string | null;
   status: "active" | "inactive";
@@ -60,6 +67,9 @@ export interface TeacherSubject {
   teacher_id: string;
   subject_id: string;
   class_name?: string | null;
+  class_id?: string | null;
+  year?: number | null;
+  semester?: number | null;
   created_at?: string;
 }
 
@@ -69,7 +79,11 @@ export interface Student {
   reg_number?: string | null;
   full_name: string;
   department_id?: string | null;
+  year?: number | null;
   semester: number;
+  class_id?: string | null;
+  class_name?: string | null;
+  section?: string | null;
   parent_name?: string | null;
   parent_mobile?: string | null;
   student_mobile?: string | null;
@@ -87,6 +101,8 @@ export interface AttendanceRecord {
   id: string;
   student_id: string;
   subject_id: string;
+  class_name?: string | null;
+  class_id?: string | null;
   date: string;
   status: "present" | "absent";
   marked_by?: string | null;
@@ -113,8 +129,11 @@ export interface ClassCoordinatorAssignment {
   id: string;
   teacher_id: string;
   department_id: string;
+  year?: number | null;
   semester: number;
-  assigned_by: string;
+  class_id?: string | null;
+  class_name?: string | null;
+  assigned_by?: string | null;
   created_at?: string;
 }
 

@@ -58,10 +58,25 @@ export const isSupabaseConfigured = Boolean(
   supabaseKey &&
   !supabaseUrl.includes("placeholder") &&
   supabaseKey !== "placeholder-key" &&
-  supabaseKey !== "your-anon-key-here",
+  supabaseKey !== "your-anon-key-here" &&
+  supabaseKey !== "placeholder-anon-key",
 );
 
-export const supabase = createClient(supabaseUrl, supabaseKey);
+// Fallback dummy credentials when Supabase credentials are not provided in the environment.
+// This prevents `@supabase/supabase-js` from throwing "Uncaught Error: supabaseUrl is required." on startup.
+const fallbackUrl = "https://placeholder-project.supabase.co";
+const fallbackKey = "placeholder-anon-key";
+
+export const supabase = createClient(
+  isSupabaseConfigured ? supabaseUrl : fallbackUrl,
+  isSupabaseConfigured ? supabaseKey : fallbackKey,
+  {
+    auth: {
+      persistSession: isSupabaseConfigured,
+      autoRefreshToken: isSupabaseConfigured,
+    },
+  },
+);
 
 const TABLE_COLUMNS: Record<string, string[]> = {
   departments: [
@@ -86,6 +101,7 @@ const TABLE_COLUMNS: Record<string, string[]> = {
     "department_id",
     "user_id",
     "is_class_coordinator",
+    "assigned_year",
     "assigned_semester",
     "role",
     "status",
@@ -97,7 +113,11 @@ const TABLE_COLUMNS: Record<string, string[]> = {
     "reg_number",
     "full_name",
     "department_id",
+    "year",
     "semester",
+    "class_id",
+    "class_name",
+    "section",
     "parent_name",
     "parent_mobile",
     "student_mobile",
@@ -114,6 +134,7 @@ const TABLE_COLUMNS: Record<string, string[]> = {
     "id",
     "name",
     "department_id",
+    "year",
     "semester",
     "coordinator_teacher_id",
     "status",
@@ -123,7 +144,10 @@ const TABLE_COLUMNS: Record<string, string[]> = {
     "id",
     "teacher_id",
     "department_id",
+    "year",
     "semester",
+    "class_id",
+    "class_name",
     "assigned_by",
     "created_at",
   ],
@@ -132,6 +156,7 @@ const TABLE_COLUMNS: Record<string, string[]> = {
     "code",
     "name",
     "department_id",
+    "year",
     "semester",
     "credits",
     "created_at",
@@ -141,12 +166,17 @@ const TABLE_COLUMNS: Record<string, string[]> = {
     "teacher_id",
     "subject_id",
     "class_name",
+    "class_id",
+    "year",
+    "semester",
     "created_at",
   ],
   attendance: [
     "id",
     "student_id",
     "subject_id",
+    "class_name",
+    "class_id",
     "date",
     "status",
     "marked_by",
@@ -193,7 +223,13 @@ export function sanitizePayloadForSupabase(table: string, rawItem: any): any {
     }
 
     // Parse integers
-    if (k === "semester" || k === "assigned_semester" || k === "credits") {
+    if (
+      k === "semester" ||
+      k === "assigned_semester" ||
+      k === "credits" ||
+      k === "year" ||
+      k === "assigned_year"
+    ) {
       val =
         val === "" || val === null ? null : parseInt(String(val), 10) || null;
     }
@@ -232,13 +268,17 @@ class LocalDatabase {
   academic_classes = this.load("academic_classes", mockClasses);
 
   constructor() {
-    // Check if the user requested default demo data wipe
-    const cleanApplied = localStorage.getItem(
-      `${this.storageKey}_clean_slate_applied_v2`,
-    );
-    if (cleanApplied !== "true") {
-      this.clearAllDefaultData();
-      localStorage.setItem(`${this.storageKey}_clean_slate_applied_v2`, "true");
+    if (this.teachers.length === 0 && localStorage.getItem(`${this.storageKey}_demo_cleared`) !== "true") {
+      this.restoreDemoData();
+    } else {
+      if (this.teacher_subjects.length === 0 && localStorage.getItem(`${this.storageKey}_demo_cleared`) !== "true") {
+        this.teacher_subjects = [...mockTeacherSubjects];
+        this.persist("teacher_subjects");
+      }
+      if (this.academic_classes.length === 0 && localStorage.getItem(`${this.storageKey}_demo_cleared`) !== "true") {
+        this.academic_classes = [...mockClasses];
+        this.persist("academic_classes");
+      }
     }
 
     if (isSupabaseConfigured) {

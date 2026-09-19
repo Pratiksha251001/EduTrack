@@ -128,6 +128,7 @@ export function recordAttendanceSubmittedNotification(params: {
   subjectCode?: string | null;
   departmentId?: string | null;
   semester: number;
+  className?: string | null;
   date: string;
   totalStudents: number;
   presentCount: number;
@@ -139,11 +140,13 @@ export function recordAttendanceSubmittedNotification(params: {
     ? `${params.absentCount} absentee(s). ${params.smsCount} parent SMS alert(s) dispatched.`
     : "100% attendance achieved (0 absentees).";
 
+  const classLabel = params.className ? ` · ${params.className}` : "";
+
   const newNotif: AppNotification = {
     id: `notif-att-${Date.now()}-${generateUuid().slice(0, 8)}`,
     type: "attendance_submitted",
-    title: `Daily Attendance Submitted: ${params.subjectName} (Sem ${params.semester})`,
-    message: `${params.teacherName} submitted daily attendance for ${params.subjectName} (${params.subjectCode || "Class"}) on ${params.date}. ${params.presentCount}/${params.totalStudents} Present. ${summary}`,
+    title: `Daily Attendance Submitted: ${params.subjectName} (Sem ${params.semester}${classLabel})`,
+    message: `${params.teacherName} submitted daily attendance for ${params.subjectName} (${params.subjectCode || "Class"}${classLabel}) on ${params.date}. ${params.presentCount}/${params.totalStudents} Present. ${summary}`,
     severity: "success",
     target_roles: ["hod", "class_coordinator", "admin"],
     department_id: params.departmentId || null,
@@ -159,6 +162,7 @@ export function recordAttendanceSubmittedNotification(params: {
       subject_id: params.subjectId,
       subject_name: params.subjectName,
       subject_code: params.subjectCode,
+      class_name: params.className || null,
       department_id: params.departmentId,
       semester: params.semester,
       date: params.date,

@@ -17,6 +17,8 @@ import {
   BookOpen,
   ClipboardCheck,
   Sparkles,
+  Layers,
+  Filter,
 } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import { localDb } from "../lib/supabase";
@@ -28,7 +30,13 @@ import {
   Student,
   AcademicClass,
 } from "../lib/types";
-import { college } from "../lib/college";
+import {
+  college,
+  ENGINEERING_YEARS,
+  getEngineeringYearFromSemester,
+  getSemesterEngineeringLabel,
+  getYearSemesters,
+} from "../lib/college";
 import {
   sanitizeMobileInput,
   getMobileValidationError,
@@ -76,19 +84,22 @@ export const HODDashboard: React.FC = () => {
   const [editingTeacher, setEditingTeacher] = useState<Teacher | null>(null);
   const [expandedSemester, setExpandedSemester] = useState<number | null>(null);
   const [assignmentDrafts, setAssignmentDrafts] = useState<
-    Record<string, { subjectId: string; className: string }>
+    Record<string, { subjectId: string; className: string; classNames?: string[] }>
   >({});
   const [, refresh] = useState(0);
   const [studentDialogOpen, setStudentDialogOpen] = useState(false);
   const [classDialogOpen, setClassDialogOpen] = useState(false);
+  const [selectedTrackFilter, setSelectedTrackFilter] = useState<"all" | "odd" | "even">("all");
   const [classForm, setClassForm] = useState({
     name: "",
+    year: "1",
     semester: "1",
     coordinator_teacher_id: "",
   });
   const [studentForm, setStudentForm] = useState({
     roll_number: "",
     full_name: "",
+    year: "1",
     semester: "1",
     parent_name: "",
     parent_mobile: "",
@@ -106,6 +117,7 @@ export const HODDashboard: React.FC = () => {
 
   const [assignForm, setAssignForm] = useState({
     teacher_id: "",
+    year: "1",
     semester: "1",
   });
 
@@ -241,18 +253,11 @@ export const HODDashboard: React.FC = () => {
     const empErr = getEmployeeIdValidationError(teacherForm.employee_id);
     if (empErr) errs.push(empErr);
 
-    const nameErr = getNameValidationError(
-      teacherForm.full_name,
-      "Teacher Full Name",
-    );
+    const nameErr = getNameValidationError(teacherForm.full_name, "Teacher Full Name");
     if (nameErr) errs.push(nameErr);
 
     if (teacherForm.mobile) {
-      const mobileErr = getMobileValidationError(
-        teacherForm.mobile,
-        "Faculty Mobile",
-        false,
-      );
+      const mobileErr = getMobileValidationError(teacherForm.mobile, "Faculty Mobile", false);
       if (mobileErr) errs.push(mobileErr);
     }
 
@@ -267,11 +272,8 @@ export const HODDashboard: React.FC = () => {
 
     const isCoordinator = teacherForm.role === "class_coordinator";
     const userRole = isCoordinator ? "class_coordinator" : "teacher";
-    const defaultPwd = isCoordinator ? "Cc@123" : "Teacher@123";
-    const effectivePwd =
-      teacherForm.password?.trim() ||
-      teacherForm.employee_id.trim() ||
-      defaultPwd;
+    const defaultPwd = isCoordinator ? "CC@123" : "Teacher@123";
+    const effectivePwd = teacherForm.password?.trim() || teacherForm.employee_id.trim() || defaultPwd;
 
     if (editingTeacher) {
       await localDb.update("teachers", editingTeacher.id, {
@@ -283,9 +285,7 @@ export const HODDashboard: React.FC = () => {
         is_class_coordinator: isCoordinator,
       });
 
-      let account = localDb.users.find(
-        (u: any) => u.teacher_id === editingTeacher.id,
-      );
+      let account = localDb.users.find((u: any) => u.teacher_id === editingTeacher.id);
       if (account) {
         await localDb.update("users", account.id, {
           full_name: teacherForm.full_name.trim(),
@@ -299,18 +299,14 @@ export const HODDashboard: React.FC = () => {
           {
             id: accountId,
             full_name: teacherForm.full_name.trim(),
-            email:
-              teacherForm.email?.trim() ||
-              `${teacherForm.employee_id.toLowerCase()}@edutrack.edu`,
+            email: teacherForm.email?.trim() || `${teacherForm.employee_id.toLowerCase()}@edutrack.edu`,
             role: userRole,
             department_id: user?.department_id,
             teacher_id: editingTeacher.id,
             status: "active",
           },
         ]);
-        await localDb.update("teachers", editingTeacher.id, {
-          user_id: accountId,
-        });
+        await localDb.update("teachers", editingTeacher.id, { user_id: accountId });
       }
 
       if (teacherForm.password?.trim() || !account) {
@@ -345,9 +341,7 @@ export const HODDashboard: React.FC = () => {
           {
             id: accountId,
             full_name: teacher.full_name,
-            email:
-              teacher.email ||
-              `${teacher.employee_id.toLowerCase()}@edutrack.edu`,
+            email: teacher.email || `${teacher.employee_id.toLowerCase()}@edutrack.edu`,
             role: userRole,
             department_id: user?.department_id,
             teacher_id: teacher.id,
@@ -356,7 +350,12 @@ export const HODDashboard: React.FC = () => {
         ]);
         await localDb.update("teachers", teacher.id, { user_id: accountId });
         saveCredential(
-          [accountId, teacher.id, teacher.email, teacher.employee_id],
+          [
+            accountId,
+            teacher.id,
+            teacher.email,
+            teacher.employee_id,
+          ],
           effectivePwd,
         );
       }
@@ -388,20 +387,31 @@ export const HODDashboard: React.FC = () => {
     className: string,
   ) => {
     if (!teacherId || !subjectId) return;
+    const trimmedClassName = className?.trim() || null;
+    const matchedClass = academicClasses.find(
+      (c) => c.name.toLowerCase() === trimmedClassName?.toLowerCase()
+    );
     const duplicate = teacherSubjects.some(
       (a) =>
         a.teacher_id === teacherId &&
         a.subject_id === subjectId &&
-        a.class_name === (className || null),
+        (a.class_name || "").toLowerCase() === (trimmedClassName || "").toLowerCase(),
     );
     if (duplicate) return;
+
+    const sub = subjects.find((s) => s.id === subjectId);
+
     await localDb.insert("teacher_subjects", [
       {
         teacher_id: teacherId,
         subject_id: subjectId,
-        class_name: className || null,
+        class_name: trimmedClassName,
+        class_id: matchedClass?.id || null,
+        year: sub?.year || (sub?.semester ? Math.ceil(sub.semester / 2) : 1),
+        semester: sub?.semester || 1,
       },
     ]);
+    window.dispatchEvent(new CustomEvent("edutrack_data_updated"));
     refresh((value) => value + 1);
   };
 
@@ -431,10 +441,15 @@ export const HODDashboard: React.FC = () => {
     const teacher = teachers.find((t) => t.id === assignForm.teacher_id);
     if (!teacher) return;
 
+    const assignYear =
+      Number(assignForm.year) ||
+      getEngineeringYearFromSemester(Number(assignForm.semester));
+
     await localDb.insert("class_coordinator_assignments", [
       {
         teacher_id: assignForm.teacher_id,
         department_id: user?.department_id,
+        year: assignYear,
         semester: Number(assignForm.semester),
         assigned_by: user?.id,
       },
@@ -443,12 +458,12 @@ export const HODDashboard: React.FC = () => {
     await localDb.update("teachers", assignForm.teacher_id, {
       is_class_coordinator: true,
       role: "class_coordinator",
+      year: assignYear,
+      assigned_year: assignYear,
       assigned_semester: Number(assignForm.semester),
     });
 
-    let account = localDb.users.find(
-      (u: any) => u.teacher_id === assignForm.teacher_id,
-    );
+    let account = localDb.users.find((u: any) => u.teacher_id === assignForm.teacher_id);
     if (account) {
       await localDb.update("users", account.id, { role: "class_coordinator" });
     } else {
@@ -457,9 +472,7 @@ export const HODDashboard: React.FC = () => {
         {
           id: accountId,
           full_name: teacher.full_name,
-          email:
-            teacher.email ||
-            `${teacher.employee_id.toLowerCase()}@edutrack.edu`,
+          email: teacher.email || `${teacher.employee_id.toLowerCase()}@college.edu`,
           role: "class_coordinator",
           department_id: user?.department_id,
           teacher_id: teacher.id,
@@ -477,11 +490,11 @@ export const HODDashboard: React.FC = () => {
         teacher.email,
         teacher.employee_id,
       ],
-      "Cc@123",
+      "CC@123",
     );
 
     setAssignDialogOpen(false);
-    setAssignForm({ teacher_id: "", semester: "1" });
+    setAssignForm({ teacher_id: "", year: "1", semester: "1" });
     refresh((value) => value + 1);
   };
 
@@ -498,9 +511,7 @@ export const HODDashboard: React.FC = () => {
         role: "lecturer",
         assigned_semester: null,
       });
-      const account = localDb.users.find(
-        (u: any) => u.teacher_id === assignment.teacher_id,
-      );
+      const account = localDb.users.find((u: any) => u.teacher_id === assignment.teacher_id);
       if (account) {
         await localDb.update("users", account.id, { role: "teacher" });
       }
@@ -526,9 +537,7 @@ export const HODDashboard: React.FC = () => {
 
     if (
       students.some(
-        (student) =>
-          student.roll_number.toLowerCase() ===
-          studentForm.roll_number.trim().toLowerCase(),
+        (student) => student.roll_number.toLowerCase() === studentForm.roll_number.trim().toLowerCase(),
       )
     ) {
       errs.push("A student with this roll number already exists.");
@@ -537,11 +546,7 @@ export const HODDashboard: React.FC = () => {
     const nameErr = getNameValidationError(studentForm.full_name);
     if (nameErr) errs.push(nameErr);
 
-    const mobileErr = getMobileValidationError(
-      studentForm.parent_mobile,
-      "Parent Mobile",
-      true,
-    );
+    const mobileErr = getMobileValidationError(studentForm.parent_mobile, "Parent Mobile", true);
     if (mobileErr) errs.push(mobileErr);
 
     if (studentForm.email && !isValidEmail(studentForm.email)) {
@@ -553,11 +558,16 @@ export const HODDashboard: React.FC = () => {
       return;
     }
 
+    const studentYear =
+      Number(studentForm.year) ||
+      getEngineeringYearFromSemester(Number(studentForm.semester));
+
     const inserted = await localDb.insert("students", [
       {
         roll_number: studentForm.roll_number.trim(),
         full_name: studentForm.full_name.trim(),
         department_id: user?.department_id,
+        year: studentYear,
         semester: Number(studentForm.semester),
         parent_name: studentForm.parent_name || null,
         parent_mobile: cleanMobile(studentForm.parent_mobile),
@@ -572,9 +582,7 @@ export const HODDashboard: React.FC = () => {
         {
           id: accountId,
           full_name: student.full_name,
-          email:
-            student.email ||
-            `${student.roll_number.toLowerCase()}@student.edutrack.edu`,
+          email: student.email || `${student.roll_number.toLowerCase()}@student.college.edu`,
           role: "student",
           department_id: user?.department_id,
           student_id: student.id,
@@ -582,7 +590,12 @@ export const HODDashboard: React.FC = () => {
         },
       ]);
       saveCredential(
-        [accountId, student.id, student.roll_number, student.email],
+        [
+          accountId,
+          student.id,
+          student.roll_number,
+          student.email,
+        ],
         student.roll_number || "123",
       );
     }
@@ -590,6 +603,7 @@ export const HODDashboard: React.FC = () => {
     setStudentForm({
       roll_number: "",
       full_name: "",
+      year: "1",
       semester: "1",
       parent_name: "",
       parent_mobile: "",
@@ -619,17 +633,23 @@ export const HODDashboard: React.FC = () => {
       alert("This class already exists in your department.");
       return;
     }
+
+    const classYear =
+      Number(classForm.year) ||
+      getEngineeringYearFromSemester(Number(classForm.semester));
+
     await localDb.insert("academic_classes", [
       {
         name,
         department_id: assignedDepartmentId,
+        year: classYear,
         semester: Number(classForm.semester),
         coordinator_teacher_id: classForm.coordinator_teacher_id || null,
         status: "active",
       },
     ]);
     setClassDialogOpen(false);
-    setClassForm({ name: "", semester: "1", coordinator_teacher_id: "" });
+    setClassForm({ name: "", year: "1", semester: "1", coordinator_teacher_id: "" });
     refresh((value) => value + 1);
   };
 
@@ -715,10 +735,7 @@ export const HODDashboard: React.FC = () => {
           </div>
           <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
             <Link to="/attendance">
-              <Button
-                size="sm"
-                className="w-full sm:w-auto gap-1.5 bg-primary text-primary-foreground shadow-xs"
-              >
+              <Button size="sm" className="w-full sm:w-auto gap-1.5 bg-primary text-primary-foreground shadow-xs">
                 <ClipboardCheck className="h-4 w-4" />
                 Take Lecture Attendance
               </Button>
@@ -781,6 +798,185 @@ export const HODDashboard: React.FC = () => {
         })}
       </div>
 
+      {/* 4-Year Engineering Structure & Parallel Semester Operations */}
+      <Card className="border-emerald-500/25 bg-gradient-to-br from-emerald-500/5 via-card to-card p-5 space-y-5">
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 border-b border-border/70 pb-4">
+          <div>
+            <div className="flex items-center gap-2">
+              <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-emerald-500/15 text-emerald-600 dark:text-emerald-400">
+                <Layers className="h-4 w-4" />
+              </span>
+              <h2 className="font-display text-lg font-bold text-foreground">
+                4-Year Engineering Structure & Parallel Academic Operations
+              </h2>
+              <Badge className="bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border border-emerald-500/20 text-[10px] font-bold">
+                FE · SE · TE · BE
+              </Badge>
+            </div>
+            <p className="text-xs text-muted-foreground mt-1">
+              Engineering runs concurrent parallel tracks: Odd Semesters (1st, 3rd, 5th, 7th) and Even Semesters (2nd, 4th, 6th, 8th). Class Coordinators are fixed per academic year & semester.
+            </p>
+          </div>
+
+          {/* Parallel Track Filter Buttons */}
+          <div className="flex flex-wrap items-center gap-1.5 text-xs">
+            <span className="text-muted-foreground font-medium mr-1 flex items-center gap-1">
+              <Filter className="h-3 w-3" /> Track View:
+            </span>
+            <button
+              type="button"
+              onClick={() => setSelectedTrackFilter("all")}
+              className={`px-2.5 py-1 rounded-md font-medium transition-colors ${
+                selectedTrackFilter === "all"
+                  ? "bg-primary text-primary-foreground shadow-xs"
+                  : "bg-muted text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              All 4 Years
+            </button>
+            <button
+              type="button"
+              onClick={() => setSelectedTrackFilter("odd")}
+              className={`px-2.5 py-1 rounded-md font-medium transition-colors ${
+                selectedTrackFilter === "odd"
+                  ? "bg-emerald-600 text-white shadow-xs"
+                  : "bg-muted text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              Odd Track (Sem 1, 3, 5, 7)
+            </button>
+            <button
+              type="button"
+              onClick={() => setSelectedTrackFilter("even")}
+              className={`px-2.5 py-1 rounded-md font-medium transition-colors ${
+                selectedTrackFilter === "even"
+                  ? "bg-emerald-600 text-white shadow-xs"
+                  : "bg-muted text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              Even Track (Sem 2, 4, 6, 8)
+            </button>
+          </div>
+        </div>
+
+        {/* 4 Engineering Year Cards (FE, SE, TE, BE) */}
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
+          {ENGINEERING_YEARS.map((engYear) => {
+            const yearStudents = deptStudents.filter(
+              (s) =>
+                (s.year
+                  ? s.year === engYear.year
+                  : getEngineeringYearFromSemester(s.semester) === engYear.year),
+            );
+            const yearClasses = deptClasses.filter(
+              (c) =>
+                (c.year
+                  ? c.year === engYear.year
+                  : getEngineeringYearFromSemester(c.semester) === engYear.year),
+            );
+            const yearCoordinators = deptTeachers.filter(
+              (t) =>
+                (t.role === "class_coordinator" || t.is_class_coordinator) &&
+                (t.assigned_year
+                  ? t.assigned_year === engYear.year
+                  : t.assigned_semester
+                  ? getEngineeringYearFromSemester(t.assigned_semester) === engYear.year
+                  : false),
+            );
+
+            const isOddActive = selectedTrackFilter === "odd";
+            const isEvenActive = selectedTrackFilter === "even";
+
+            return (
+              <div
+                key={engYear.year}
+                className="rounded-xl border border-border/80 bg-card p-4 space-y-3 shadow-xs hover:border-emerald-500/40 transition-colors"
+              >
+                <div className="flex items-center justify-between">
+                  <div>
+                    <span className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">
+                      Year {engYear.year}
+                    </span>
+                    <h3 className="font-display font-bold text-base text-foreground">
+                      {engYear.name} ({engYear.shortName})
+                    </h3>
+                  </div>
+                  <Badge variant="outline" className="text-xs font-mono font-bold bg-muted">
+                    Sem {engYear.semesters.join(" & ")}
+                  </Badge>
+                </div>
+
+                {/* Semesters Pill Breakdown */}
+                <div className="grid grid-cols-2 gap-2 text-xs">
+                  {engYear.semesters.map((sem) => {
+                    const isOddSem = sem % 2 !== 0;
+                    const isHighlighted =
+                      selectedTrackFilter === "all" ||
+                      (isOddActive && isOddSem) ||
+                      (isEvenActive && !isOddSem);
+
+                    return (
+                      <div
+                        key={sem}
+                        className={`p-2 rounded-lg border text-center transition-all ${
+                          isHighlighted
+                            ? isOddSem
+                              ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-800 dark:text-emerald-300 font-semibold"
+                              : "border-teal-500/40 bg-teal-500/10 text-teal-800 dark:text-teal-300 font-semibold"
+                            : "border-border/40 bg-muted/30 text-muted-foreground opacity-60"
+                        }`}
+                      >
+                        <div className="text-[11px] font-bold">Semester {sem}</div>
+                        <div className="text-[9px] truncate">
+                          {getSemesterEngineeringLabel(sem)}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+
+                {/* Coordinator & Stats */}
+                <div className="pt-2 border-t border-border/60 space-y-2 text-xs">
+                  <div className="flex items-center justify-between text-muted-foreground">
+                    <span>Enrolled Students</span>
+                    <span className="font-bold text-foreground">{yearStudents.length}</span>
+                  </div>
+                  <div className="flex items-center justify-between text-muted-foreground">
+                    <span>Active Classes</span>
+                    <span className="font-bold text-foreground">{yearClasses.length}</span>
+                  </div>
+                  <div>
+                    <span className="text-[11px] font-semibold text-muted-foreground block mb-1">
+                      Fixed Class Coordinator (CC):
+                    </span>
+                    {yearCoordinators.length > 0 ? (
+                      <div className="space-y-1">
+                        {yearCoordinators.map((cc) => (
+                          <div
+                            key={cc.id}
+                            className="flex items-center gap-1.5 p-1.5 rounded-md bg-emerald-500/10 border border-emerald-500/20 text-emerald-800 dark:text-emerald-300 font-medium text-[11px]"
+                          >
+                            <UserCog className="h-3.5 w-3.5 shrink-0" />
+                            <span className="truncate">{cc.full_name}</span>
+                            <span className="ml-auto font-mono text-[9px] opacity-80 shrink-0">
+                              Sem {cc.assigned_semester || engYear.semesters[0]}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="text-[11px] italic text-muted-foreground">
+                        Not assigned yet
+                      </p>
+                    )}
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </Card>
+
       {/* Dual Role: HOD as Senior Faculty & Lecturer */}
       <Card className="border-primary/25 bg-gradient-to-br from-primary/5 via-card to-card p-5">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-border/70 pb-4">
@@ -792,16 +988,12 @@ export const HODDashboard: React.FC = () => {
               <h2 className="font-display text-lg font-bold text-foreground">
                 My Lecture & Teaching Workload
               </h2>
-              <Badge
-                variant="outline"
-                className="border-primary/30 text-primary text-[10px] font-bold"
-              >
+              <Badge variant="outline" className="border-primary/30 text-primary text-[10px] font-bold">
                 Dual Role: HOD & Lecturer
               </Badge>
             </div>
             <p className="text-xs text-muted-foreground">
-              As Head of Department, you can conduct academic lectures, mark
-              subject attendance, and supervise department faculty.
+              As Head of Department, you can conduct academic lectures, mark subject attendance, and supervise department faculty.
             </p>
           </div>
 
@@ -841,11 +1033,7 @@ export const HODDashboard: React.FC = () => {
                   </div>
 
                   <Link to="/attendance">
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      className="h-8 text-xs shrink-0 gap-1 hover:bg-primary hover:text-primary-foreground"
-                    >
+                    <Button size="sm" variant="outline" className="h-8 text-xs shrink-0 gap-1 hover:bg-primary hover:text-primary-foreground">
                       <ClipboardCheck className="h-3.5 w-3.5" />
                       Mark
                     </Button>
@@ -857,21 +1045,14 @@ export const HODDashboard: React.FC = () => {
             <div className="flex flex-col sm:flex-row items-center justify-between gap-3 rounded-xl border border-dashed border-border bg-background/50 p-4 text-xs text-muted-foreground">
               <div className="space-y-0.5 text-center sm:text-left">
                 <p className="font-semibold text-foreground">
-                  Ready to take lectures for{" "}
-                  {myDepartment?.code || "your department"}
+                  Ready to take lectures for {myDepartment?.code || "your department"}
                 </p>
                 <p>
-                  You can conduct lectures for any course in your department or
-                  map specific subjects to your profile under Subject
-                  Assignments.
+                  You can conduct lectures for any course in your department or map specific subjects to your profile under Subject Assignments.
                 </p>
               </div>
               <Link to="/attendance" className="shrink-0">
-                <Button
-                  size="sm"
-                  variant="secondary"
-                  className="gap-1.5 text-xs"
-                >
+                <Button size="sm" variant="secondary" className="gap-1.5 text-xs">
                   <ClipboardCheck className="h-3.5 w-3.5 text-primary" />
                   Select Subject & Take Attendance
                 </Button>
@@ -930,10 +1111,7 @@ export const HODDashboard: React.FC = () => {
                 Add and manage faculty members
               </p>
             </div>
-            <Dialog
-              open={teacherDialogOpen}
-              onOpenChange={setTeacherDialogOpen}
-            >
+            <Dialog open={teacherDialogOpen} onOpenChange={setTeacherDialogOpen}>
               <DialogContent>
                 <DialogHeader>
                   <DialogTitle>
@@ -984,7 +1162,7 @@ export const HODDashboard: React.FC = () => {
                           email: e.target.value,
                         })
                       }
-                      placeholder="j.doe@edutrack.edu"
+                      placeholder="j.doe@college.edu"
                     />
                   </div>
                   <div>
@@ -993,9 +1171,7 @@ export const HODDashboard: React.FC = () => {
                         Mobile
                       </label>
                       {teacherForm.mobile && (
-                        <span
-                          className={`text-[10px] font-mono ${teacherForm.mobile.length === 10 ? "text-emerald-500 font-bold" : "text-muted-foreground"}`}
-                        >
+                        <span className={`text-[10px] font-mono ${teacherForm.mobile.length === 10 ? "text-emerald-500 font-bold" : "text-muted-foreground"}`}>
                           {teacherForm.mobile.length}/10
                         </span>
                       )}
@@ -1012,12 +1188,7 @@ export const HODDashboard: React.FC = () => {
                         })
                       }
                       placeholder="9876543210 (Optional 10 digits)"
-                      className={
-                        teacherForm.mobile &&
-                        !isValid10DigitMobile(teacherForm.mobile)
-                          ? "border-destructive focus-visible:ring-destructive"
-                          : ""
-                      }
+                      className={teacherForm.mobile && !isValid10DigitMobile(teacherForm.mobile) ? "border-destructive focus-visible:ring-destructive" : ""}
                     />
                   </div>
                   <div>
@@ -1030,10 +1201,6 @@ export const HODDashboard: React.FC = () => {
                         setTeacherForm({
                           ...teacherForm,
                           role: e.target.value as Teacher["role"],
-                          password:
-                            e.target.value === "class_coordinator"
-                              ? "Cc@123"
-                              : "Teacher@123",
                         })
                       }
                       options={[
@@ -1062,8 +1229,8 @@ export const HODDashboard: React.FC = () => {
                         editingTeacher
                           ? "Leave blank to keep current password"
                           : teacherForm.role === "class_coordinator"
-                            ? "Default: Cc@123 or Employee ID"
-                            : "Default: Teacher@123 or Employee ID"
+                          ? "Default: CC@123 or Employee ID"
+                          : "Default: Teacher@123 or Employee ID"
                       }
                     />
                     <p className="text-[11px] text-muted-foreground mt-1">
@@ -1182,77 +1349,167 @@ export const HODDashboard: React.FC = () => {
                   a.teacher_id === teacher.id &&
                   deptSubjects.some((s) => s.id === a.subject_id),
               );
+              const uniqueClasses = Array.from(
+                new Set(assigned.map((a) => a.class_name).filter(Boolean)),
+              );
+              const selectedSubjectId = assignmentDrafts[teacher.id]?.subjectId || "";
+              const selectedSub = deptSubjects.find((s) => s.id === selectedSubjectId);
+              const relevantClasses = academicClasses.filter((c) =>
+                selectedSub ? c.semester === selectedSub.semester : true,
+              );
+
               return (
                 <div
                   key={teacher.id}
-                  className="rounded-lg border border-border p-3"
+                  className="rounded-xl border border-border p-4 bg-card/60 space-y-3"
                 >
-                  <div className="flex items-center justify-between gap-3">
-                    <span className="text-sm font-semibold">
-                      {teacher.full_name}
-                    </span>
-                    <span className="text-xs text-muted-foreground">
-                      {assigned.length} subject
-                      {assigned.length === 1 ? "" : "s"}
-                    </span>
-                  </div>
-                  <div className="mt-2 flex flex-wrap gap-2">
-                    {assigned.map((a) => {
-                      const subject = deptSubjects.find(
-                        (s) => s.id === a.subject_id,
-                      );
-                      return (
-                        <Badge key={a.id} variant="outline" className="gap-1">
-                          {subject?.code} · {a.class_name || "Class"}{" "}
-                          <button
-                            onClick={() => removeSubject(a)}
-                            aria-label="Remove assignment"
-                          >
-                            <X className="h-3 w-3" />
-                          </button>
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <div>
+                      <span className="text-sm font-semibold text-foreground">
+                        {teacher.full_name}
+                      </span>
+                      <p className="text-xs text-muted-foreground">
+                        {teacher.designation || (teacher.is_class_coordinator ? "Class Coordinator" : "Faculty Member")} · {teacher.employee_id}
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      <Badge variant="outline" className="text-[11px] font-medium border-primary/20 bg-primary/5 text-primary">
+                        {assigned.length} Subject Assignment{assigned.length === 1 ? "" : "s"}
+                      </Badge>
+                      {uniqueClasses.length > 0 && (
+                        <Badge variant="outline" className="text-[11px] font-medium border-emerald-500/30 bg-emerald-500/10 text-emerald-800 dark:text-emerald-300">
+                          {uniqueClasses.length} Class Division{uniqueClasses.length === 1 ? "" : "s"}
                         </Badge>
-                      );
-                    })}
+                      )}
+                    </div>
                   </div>
-                  <div className="mt-3 flex flex-col gap-2 sm:flex-row">
-                    <Select
-                      value={assignmentDrafts[teacher.id]?.subjectId || ""}
-                      options={[
-                        { value: "", label: "Select subject..." },
-                        ...deptSubjects.map((s) => ({
-                          value: s.id,
-                          label: `${s.code} · ${s.name}`,
-                        })),
-                      ]}
-                      onChange={(e) =>
-                        setAssignmentDrafts((prev) => ({
-                          ...prev,
-                          [teacher.id]: {
-                            ...(prev[teacher.id] || { className: "" }),
-                            subjectId: e.target.value,
-                          },
-                        }))
-                      }
-                    />
-                    <Input
-                      placeholder="Class (e.g. CSE-A)"
-                      value={assignmentDrafts[teacher.id]?.className || ""}
-                      onChange={(e) =>
-                        setAssignmentDrafts((prev) => ({
-                          ...prev,
-                          [teacher.id]: {
-                            ...(prev[teacher.id] || { subjectId: "" }),
-                            className: e.target.value,
-                          },
-                        }))
-                      }
-                    />
-                    <Button
-                      size="sm"
-                      onClick={() => saveSubjectAssignment(teacher.id)}
-                    >
-                      <Check className="h-4 w-4 mr-1" /> Assign
-                    </Button>
+
+                  {assigned.length > 0 && (
+                    <div className="flex flex-wrap gap-1.5 pt-1">
+                      {assigned.map((a) => {
+                        const subject = deptSubjects.find(
+                          (s) => s.id === a.subject_id,
+                        );
+                        return (
+                          <span
+                            key={a.id}
+                            className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium border border-border bg-muted/60 text-foreground"
+                          >
+                            <span className="font-semibold text-primary">{subject?.code || "SUB"}</span>
+                            <span className="text-muted-foreground">·</span>
+                            <span className="font-medium">{subject?.name ? (subject.name.length > 18 ? subject.name.slice(0, 18) + "…" : subject.name) : ""}</span>
+                            <span className="px-1.5 py-0.2 rounded text-[10px] font-bold bg-primary/10 text-primary">
+                              {a.class_name || "All Divs"}
+                            </span>
+                            <button
+                              onClick={() => removeSubject(a)}
+                              className="text-muted-foreground hover:text-destructive transition-colors ml-0.5"
+                              title="Remove assignment"
+                              aria-label="Remove assignment"
+                            >
+                              <X className="h-3 w-3" />
+                            </button>
+                          </span>
+                        );
+                      })}
+                    </div>
+                  )}
+
+                  <div className="pt-2 border-t border-border/60">
+                    <p className="text-[11px] font-semibold text-muted-foreground mb-2">
+                      Assign Subject to Class / Division:
+                    </p>
+                    <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+                      <div className="flex-1 min-w-[200px]">
+                        <Select
+                          value={selectedSubjectId}
+                          options={[
+                            { value: "", label: "Choose subject..." },
+                            ...deptSubjects.map((s) => ({
+                              value: s.id,
+                              label: `${s.code} · ${s.name} (Sem ${s.semester})`,
+                            })),
+                          ]}
+                          onChange={(e) =>
+                            setAssignmentDrafts((prev) => ({
+                              ...prev,
+                              [teacher.id]: {
+                                ...(prev[teacher.id] || { className: "" }),
+                                subjectId: e.target.value,
+                              },
+                            }))
+                          }
+                        />
+                      </div>
+
+                      <div className="w-full sm:w-52">
+                        <Input
+                          placeholder="Class (e.g. SE CSE-A)"
+                          list={`classes-${teacher.id}`}
+                          value={assignmentDrafts[teacher.id]?.className || ""}
+                          onChange={(e) =>
+                            setAssignmentDrafts((prev) => ({
+                              ...prev,
+                              [teacher.id]: {
+                                ...(prev[teacher.id] || { subjectId: "" }),
+                                className: e.target.value,
+                              },
+                            }))
+                          }
+                        />
+                        <datalist id={`classes-${teacher.id}`}>
+                          {relevantClasses.map((c) => (
+                            <option key={c.id} value={c.name}>
+                              {c.name} (Semester {c.semester})
+                            </option>
+                          ))}
+                          <option value="SE CSE-A">SE CSE-A</option>
+                          <option value="SE CSE-B">SE CSE-B</option>
+                          <option value="TE CSE-A">TE CSE-A</option>
+                          <option value="TE CSE-B">TE CSE-B</option>
+                          <option value="BE CSE-A">BE CSE-A</option>
+                          <option value="FE CSE-A">FE CSE-A</option>
+                        </datalist>
+                      </div>
+
+                      <Button
+                        size="sm"
+                        className="shrink-0 font-medium"
+                        onClick={() => saveSubjectAssignment(teacher.id)}
+                        disabled={!assignmentDrafts[teacher.id]?.subjectId}
+                      >
+                        <Check className="h-4 w-4 mr-1" /> Assign Class
+                      </Button>
+                    </div>
+
+                    {/* Quick suggestion pills for faster assignment */}
+                    {relevantClasses.length > 0 && (
+                      <div className="flex items-center gap-1.5 mt-2 flex-wrap text-[11px] text-muted-foreground">
+                        <span>Quick pick:</span>
+                        {relevantClasses.map((c) => (
+                          <button
+                            key={c.id}
+                            type="button"
+                            onClick={() =>
+                              setAssignmentDrafts((prev) => ({
+                                ...prev,
+                                [teacher.id]: {
+                                  ...(prev[teacher.id] || { subjectId: "" }),
+                                  className: c.name,
+                                },
+                              }))
+                            }
+                            className={`px-2 py-0.5 rounded text-[11px] border transition-colors ${
+                              assignmentDrafts[teacher.id]?.className === c.name
+                                ? "bg-primary text-primary-foreground border-primary"
+                                : "bg-muted hover:bg-muted/80 text-foreground border-border"
+                            }`}
+                          >
+                            {c.name}
+                          </button>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 </div>
               );
@@ -1278,7 +1535,35 @@ export const HODDashboard: React.FC = () => {
                 <div className="space-y-4 py-4">
                   <div>
                     <label className="text-xs font-semibold text-muted-foreground mb-1 block">
-                      Semester
+                      Engineering Year (1–4)
+                    </label>
+                    <Select
+                      value={assignForm.year}
+                      onValueChange={(v) => {
+                        const y = Number(v) || 1;
+                        const defaultSem = y === 1 ? "1" : y === 2 ? "3" : y === 3 ? "5" : "7";
+                        setAssignForm({
+                          ...assignForm,
+                          year: v,
+                          semester: defaultSem,
+                        });
+                      }}
+                    >
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {ENGINEERING_YEARS.map((y) => (
+                          <SelectItem key={y.year} value={String(y.year)}>
+                            {y.shortName} · {y.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div>
+                    <label className="text-xs font-semibold text-muted-foreground mb-1 block">
+                      Assigned Semester
                     </label>
                     <Select
                       value={assignForm.semester}
@@ -1290,9 +1575,13 @@ export const HODDashboard: React.FC = () => {
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        {college.semesters.map((s) => (
+                        {(
+                          ENGINEERING_YEARS.find(
+                            (y) => y.year === Number(assignForm.year),
+                          )?.semesters || [1, 2]
+                        ).map((s) => (
                           <SelectItem key={s} value={String(s)}>
-                            Semester {s}
+                            Semester {s} ({getSemesterEngineeringLabel(s)})
                           </SelectItem>
                         ))}
                       </SelectContent>
@@ -1454,16 +1743,48 @@ export const HODDashboard: React.FC = () => {
                     setClassForm({ ...classForm, name: event.target.value })
                   }
                 />
-                <Select
-                  value={classForm.semester}
-                  onChange={(event) =>
-                    setClassForm({ ...classForm, semester: event.target.value })
-                  }
-                  options={college.semesters.map((semester) => ({
-                    value: String(semester),
-                    label: `Semester ${semester}`,
-                  }))}
-                />
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="text-xs font-semibold text-muted-foreground mb-1 block">
+                      Engineering Year
+                    </label>
+                    <Select
+                      value={classForm.year}
+                      onChange={(event) => {
+                        const y = Number(event.target.value) || 1;
+                        const defaultSem = y === 1 ? "1" : y === 2 ? "3" : y === 3 ? "5" : "7";
+                        setClassForm({
+                          ...classForm,
+                          year: event.target.value,
+                          semester: defaultSem,
+                        });
+                      }}
+                      options={ENGINEERING_YEARS.map((y) => ({
+                        value: String(y.year),
+                        label: `${y.shortName} · ${y.name}`,
+                      }))}
+                    />
+                  </div>
+                  <div>
+                    <label className="text-xs font-semibold text-muted-foreground mb-1 block">
+                      Semester
+                    </label>
+                    <Select
+                      value={classForm.semester}
+                      onChange={(event) =>
+                        setClassForm({ ...classForm, semester: event.target.value })
+                      }
+                      options={(
+                        ENGINEERING_YEARS.find(
+                          (y) => y.year === Number(classForm.year),
+                        )?.semesters || [1, 2]
+                      ).map((semester) => ({
+                        value: String(semester),
+                        label: `Semester ${semester} (${getSemesterEngineeringLabel(semester)})`,
+                      }))}
+                    />
+                  </div>
+                </div>
                 <Select
                   value={classForm.coordinator_teacher_id}
                   onChange={(event) =>
@@ -1586,16 +1907,48 @@ export const HODDashboard: React.FC = () => {
                     })
                   }
                 />
-                <Select
-                  value={studentForm.semester}
-                  onChange={(e) =>
-                    setStudentForm({ ...studentForm, semester: e.target.value })
-                  }
-                  options={college.semesters.map((semester) => ({
-                    value: String(semester),
-                    label: `Semester ${semester}`,
-                  }))}
-                />
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="text-xs font-semibold text-muted-foreground mb-1 block">
+                      Engineering Year
+                    </label>
+                    <Select
+                      value={studentForm.year}
+                      onChange={(e) => {
+                        const y = Number(e.target.value) || 1;
+                        const defaultSem = y === 1 ? "1" : y === 2 ? "3" : y === 3 ? "5" : "7";
+                        setStudentForm({
+                          ...studentForm,
+                          year: e.target.value,
+                          semester: defaultSem,
+                        });
+                      }}
+                      options={ENGINEERING_YEARS.map((y) => ({
+                        value: String(y.year),
+                        label: `${y.shortName} · ${y.name}`,
+                      }))}
+                    />
+                  </div>
+                  <div>
+                    <label className="text-xs font-semibold text-muted-foreground mb-1 block">
+                      Semester
+                    </label>
+                    <Select
+                      value={studentForm.semester}
+                      onChange={(e) =>
+                        setStudentForm({ ...studentForm, semester: e.target.value })
+                      }
+                      options={(
+                        ENGINEERING_YEARS.find(
+                          (y) => y.year === Number(studentForm.year),
+                        )?.semesters || [1, 2]
+                      ).map((semester) => ({
+                        value: String(semester),
+                        label: `Semester ${semester} (${getSemesterEngineeringLabel(semester)})`,
+                      }))}
+                    />
+                  </div>
+                </div>
                 <Input
                   placeholder="Parent / Guardian Name"
                   value={studentForm.parent_name}
@@ -1609,9 +1962,7 @@ export const HODDashboard: React.FC = () => {
                 <div className="space-y-1">
                   <div className="flex justify-between items-center text-xs text-muted-foreground">
                     <span>Parent Mobile (10 digits) *</span>
-                    <span
-                      className={`font-mono ${studentForm.parent_mobile.length === 10 ? "text-emerald-500 font-bold" : ""}`}
-                    >
+                    <span className={`font-mono ${studentForm.parent_mobile.length === 10 ? "text-emerald-500 font-bold" : ""}`}>
                       {studentForm.parent_mobile.length}/10
                     </span>
                   </div>
@@ -1627,12 +1978,7 @@ export const HODDashboard: React.FC = () => {
                         parent_mobile: sanitizeMobileInput(e.target.value),
                       })
                     }
-                    className={
-                      studentForm.parent_mobile &&
-                      !isValid10DigitMobile(studentForm.parent_mobile)
-                        ? "border-destructive focus-visible:ring-destructive"
-                        : ""
-                    }
+                    className={studentForm.parent_mobile && !isValid10DigitMobile(studentForm.parent_mobile) ? "border-destructive focus-visible:ring-destructive" : ""}
                   />
                 </div>
                 <Input
