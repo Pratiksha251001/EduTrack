@@ -1,5 +1,14 @@
 import React, { useState, useMemo, useEffect } from "react";
-import { Search, Plus, Edit, Trash2, Loader2 } from "lucide-react";
+import {
+  Search,
+  Plus,
+  Edit,
+  Trash2,
+  Loader2,
+  KeyRound,
+  Eye,
+  EyeOff,
+} from "lucide-react";
 import { localDb } from "../lib/supabase";
 import { saveCredential } from "../lib/authUtils";
 import {
@@ -45,6 +54,10 @@ interface CrudPageProps<T> {
   searchKeys: string[];
   sortItems?: (a: T, b: T) => number;
   extraHeaderActions?: React.ReactNode;
+  emptyStateAction?: {
+    label: string;
+    onClick: () => void;
+  };
 }
 
 export function CrudPage<T extends { id: string }>({
@@ -56,6 +69,7 @@ export function CrudPage<T extends { id: string }>({
   searchKeys,
   sortItems,
   extraHeaderActions,
+  emptyStateAction,
 }: CrudPageProps<T>) {
   const [data, setData] = useState<T[]>(() => (localDb as any)[table] || []);
   const [search, setSearch] = useState("");
@@ -69,13 +83,20 @@ export function CrudPage<T extends { id: string }>({
       }
     };
     window.addEventListener("edutrack_data_updated", handleUpdate);
-    return () => window.removeEventListener("edutrack_data_updated", handleUpdate);
+    return () =>
+      window.removeEventListener("edutrack_data_updated", handleUpdate);
   }, [table]);
 
   const [modalOpen, setModalOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<T | null>(null);
   const [formData, setFormData] = useState<Record<string, any>>({});
   const [saving, setSaving] = useState(false);
+  const [credentialNotice, setCredentialNotice] = useState<{
+    name: string;
+    login: string;
+    password: string;
+  } | null>(null);
+  const [showPassword, setShowPassword] = useState(false);
 
   const filtered = useMemo(() => {
     const source = sortItems ? [...data].sort(sortItems) : data;
@@ -95,6 +116,8 @@ export function CrudPage<T extends { id: string }>({
 
   const openAdd = () => {
     setEditingItem(null);
+    setCredentialNotice(null);
+    setShowPassword(false);
     const initial: Record<string, any> = {};
     fields.forEach((f) => {
       initial[f.key] =
@@ -106,6 +129,7 @@ export function CrudPage<T extends { id: string }>({
 
   const openEdit = (item: T) => {
     setEditingItem(item);
+    setShowPassword(false);
     const formInit: any = { ...(item as any) };
     if (table === "subjects") {
       const currentTs = localDb.teacher_subjects.find(
@@ -191,8 +215,18 @@ export function CrudPage<T extends { id: string }>({
 
       // 1. UPDATE TEACHER
       if (table === "teachers") {
-        const userRole = saveData.role === "hod" ? "hod" : saveData.role === "class_coordinator" ? "class_coordinator" : "teacher";
-        const defaultPwd = saveData.role === "hod" ? "HOD@123" : saveData.role === "class_coordinator" ? "CC@123" : "Teacher@123";
+        const userRole =
+          saveData.role === "hod"
+            ? "hod"
+            : saveData.role === "class_coordinator"
+              ? "class_coordinator"
+              : "teacher";
+        const defaultPwd =
+          saveData.role === "hod"
+            ? "Hod@123"
+            : saveData.role === "class_coordinator"
+              ? "Cc@123"
+              : "Teacher@123";
         const effectivePwd = rawPassword || defaultPwd;
 
         let account = localDb.users.find(
@@ -213,14 +247,18 @@ export function CrudPage<T extends { id: string }>({
             {
               id: accountId,
               full_name: saveData.full_name,
-              email: saveData.email ? saveData.email.trim().toLowerCase() : `${saveData.employee_id.toLowerCase()}@edutrack.edu`,
+              email: saveData.email
+                ? saveData.email.trim().toLowerCase()
+                : `${saveData.employee_id.toLowerCase()}@edutrack.edu`,
               role: userRole,
               department_id: saveData.department_id,
               teacher_id: editingItem.id,
               status: saveData.status || "active",
             },
           ]);
-          await localDb.update("teachers", editingItem.id, { user_id: accountId });
+          await localDb.update("teachers", editingItem.id, {
+            user_id: accountId,
+          });
         }
 
         saveCredential(
@@ -300,8 +338,18 @@ export function CrudPage<T extends { id: string }>({
       // 1. INSERT TEACHER (HOD, Teacher, Class Coordinator)
       if (table === "teachers" && inserted[0]) {
         const teacher = inserted[0];
-        const userRole = teacher.role === "hod" ? "hod" : teacher.role === "class_coordinator" ? "class_coordinator" : "teacher";
-        const defaultPwd = teacher.role === "hod" ? "HOD@123" : teacher.role === "class_coordinator" ? "CC@123" : "Teacher@123";
+        const userRole =
+          teacher.role === "hod"
+            ? "hod"
+            : teacher.role === "class_coordinator"
+              ? "class_coordinator"
+              : "teacher";
+        const defaultPwd =
+          teacher.role === "hod"
+            ? "Hod@123"
+            : teacher.role === "class_coordinator"
+              ? "Cc@123"
+              : "Teacher@123";
         const effectivePwd = rawPassword || defaultPwd;
 
         const accountId = `teacher-user-${teacher.id}`;
@@ -309,7 +357,9 @@ export function CrudPage<T extends { id: string }>({
           {
             id: accountId,
             full_name: teacher.full_name,
-            email: teacher.email ? teacher.email.trim().toLowerCase() : `${teacher.employee_id?.toLowerCase()}@edutrack.edu`,
+            email: teacher.email
+              ? teacher.email.trim().toLowerCase()
+              : `${teacher.employee_id?.toLowerCase()}@edutrack.edu`,
             role: userRole,
             department_id: teacher.department_id,
             teacher_id: teacher.id,
@@ -327,6 +377,12 @@ export function CrudPage<T extends { id: string }>({
           ],
           effectivePwd,
         );
+
+        setCredentialNotice({
+          name: teacher.full_name,
+          login: teacher.employee_id || teacher.email || "the assigned account",
+          password: effectivePwd,
+        });
 
         if (teacher.role === "hod" && teacher.department_id) {
           await localDb.update("departments", teacher.department_id, {
@@ -346,7 +402,9 @@ export function CrudPage<T extends { id: string }>({
           {
             id: accountId,
             full_name: student.full_name,
-            email: student.email ? student.email.trim().toLowerCase() : `${student.roll_number.toLowerCase()}@student.edutrack.edu`,
+            email: student.email
+              ? student.email.trim().toLowerCase()
+              : `${student.roll_number.toLowerCase()}@student.edutrack.edu`,
             role: "student",
             department_id: student.department_id,
             student_id: student.id,
@@ -410,6 +468,48 @@ export function CrudPage<T extends { id: string }>({
 
   return (
     <div className="space-y-6">
+      {credentialNotice && table === "teachers" && (
+        <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-4 text-sm text-foreground">
+          <div className="flex items-start gap-3">
+            <KeyRound className="mt-0.5 h-5 w-5 shrink-0 text-emerald-600 dark:text-emerald-400" />
+            <div className="min-w-0 flex-1 space-y-2">
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <p className="font-semibold">Teacher account created</p>
+                  <p className="text-xs text-muted-foreground">
+                    Share these initial login credentials with{" "}
+                    {credentialNotice.name}.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setCredentialNotice(null)}
+                  className="text-xs font-semibold text-muted-foreground hover:text-foreground"
+                  aria-label="Dismiss credentials"
+                >
+                  Dismiss
+                </button>
+              </div>
+              <div className="grid gap-2 text-xs sm:grid-cols-2">
+                <div className="rounded-lg border border-border/70 bg-card/70 p-2">
+                  <span className="block text-muted-foreground">Login ID</span>
+                  <span className="font-mono font-semibold">
+                    {credentialNotice.login}
+                  </span>
+                </div>
+                <div className="rounded-lg border border-border/70 bg-card/70 p-2">
+                  <span className="block text-muted-foreground">
+                    Initial password
+                  </span>
+                  <span className="font-mono font-semibold">
+                    {credentialNotice.password}
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <h2 className="font-display text-2xl font-bold">{title}</h2>
@@ -443,14 +543,17 @@ export function CrudPage<T extends { id: string }>({
             {fields.map((f) => {
               const isMobile = isMobileField(f);
               const currentVal = formData[f.key] || "";
-              const isInvalidMobile = isMobile && currentVal && !isValid10DigitMobile(currentVal);
+              const isInvalidMobile =
+                isMobile && currentVal && !isValid10DigitMobile(currentVal);
 
               return (
                 <div key={f.key} className="space-y-1.5">
                   <label className="text-xs font-semibold text-muted-foreground flex items-center justify-between">
                     <span>
                       {f.label}{" "}
-                      {f.required && <span className="text-destructive">*</span>}
+                      {f.required && (
+                        <span className="text-destructive">*</span>
+                      )}
                     </span>
                     {isMobile && currentVal && (
                       <span
@@ -467,12 +570,23 @@ export function CrudPage<T extends { id: string }>({
                   {f.type === "select" ? (
                     <Select
                       value={formData[f.key] || ""}
-                      onChange={(e) =>
+                      onChange={(e) => {
+                        const selectedValue = e.target.value;
                         setFormData((prev) => ({
                           ...prev,
-                          [f.key]: e.target.value,
-                        }))
-                      }
+                          [f.key]: selectedValue,
+                          ...(table === "teachers" && f.key === "role"
+                            ? {
+                                password:
+                                  selectedValue === "hod"
+                                    ? "Hod@123"
+                                    : selectedValue === "class_coordinator"
+                                      ? "Cc@123"
+                                      : "Teacher@123",
+                              }
+                            : {}),
+                        }));
+                      }}
                       options={f.options}
                     />
                   ) : f.type === "date" ? (
@@ -505,6 +619,35 @@ export function CrudPage<T extends { id: string }>({
                           : ""
                       }`}
                     />
+                  ) : f.type === "password" ? (
+                    <div className="relative">
+                      <Input
+                        type={showPassword ? "text" : "password"}
+                        value={formData[f.key] || ""}
+                        onChange={(e) =>
+                          setFormData((prev) => ({
+                            ...prev,
+                            [f.key]: e.target.value,
+                          }))
+                        }
+                        className="pr-10"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowPassword((visible) => !visible)}
+                        className="absolute right-2 top-1/2 -translate-y-1/2 rounded p-1 text-muted-foreground hover:text-foreground"
+                        aria-label={
+                          showPassword ? "Hide password" : "Show password"
+                        }
+                        title={showPassword ? "Hide password" : "Show password"}
+                      >
+                        {showPassword ? (
+                          <EyeOff className="h-4 w-4" />
+                        ) : (
+                          <Eye className="h-4 w-4" />
+                        )}
+                      </button>
+                    </div>
                   ) : (
                     <Input
                       type={f.type || "text"}
@@ -572,7 +715,19 @@ export function CrudPage<T extends { id: string }>({
                   colSpan={columns.length + 1}
                   className="py-10 text-center text-muted-foreground"
                 >
-                  No records found.
+                  <div className="flex flex-col items-center gap-3">
+                    <span>No records found.</span>
+                    {emptyStateAction && (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={emptyStateAction.onClick}
+                      >
+                        {emptyStateAction.label}
+                      </Button>
+                    )}
+                  </div>
                 </TableCell>
               </TableRow>
             ) : (

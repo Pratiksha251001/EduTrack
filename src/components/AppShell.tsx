@@ -39,7 +39,7 @@ export const AppShell: React.FC = () => {
   const navigate = useNavigate();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [notifications, setNotifications] = useState<AppNotification[]>(() =>
-    getStoredNotifications()
+    getStoredNotifications(),
   );
 
   React.useEffect(() => {
@@ -47,7 +47,10 @@ export const AppShell: React.FC = () => {
     window.addEventListener("edutrack_notifications_updated", handleUpdate);
     window.addEventListener("storage", handleUpdate);
     return () => {
-      window.removeEventListener("edutrack_notifications_updated", handleUpdate);
+      window.removeEventListener(
+        "edutrack_notifications_updated",
+        handleUpdate,
+      );
       window.removeEventListener("storage", handleUpdate);
     };
   }, []);
@@ -59,7 +62,8 @@ export const AppShell: React.FC = () => {
   }, [user, role, notifications]);
 
   const unreadNotifCount = React.useMemo(() => {
-    return userNotifications.filter((n) => !isNotificationRead(n, userKey)).length;
+    return userNotifications.filter((n) => !isNotificationRead(n, userKey))
+      .length;
   }, [userNotifications, userKey]);
 
   const navItems = [
@@ -80,12 +84,16 @@ export const AppShell: React.FC = () => {
         ]
       : []),
     ...(role === "class_coordinator"
-      ? [{ label: "Class Subjects", path: "/subjects", icon: BookOpen }]
+      ? [
+          { label: "Students", path: "/cc/students", icon: GraduationCap },
+          { label: "Class Subjects", path: "/subjects", icon: BookOpen },
+        ]
       : []),
     ...(role !== "admin" && role !== "student"
       ? [
           {
-            label: role === "hod" ? "Mark Attendance (Lecture)" : "Mark Attendance",
+            label:
+              role === "hod" ? "Mark Attendance (Lecture)" : "Mark Attendance",
             path: "/attendance",
             icon: ClipboardCheck,
           },
@@ -128,7 +136,10 @@ export const AppShell: React.FC = () => {
       >
         <div className="flex h-20 shrink-0 items-center justify-between border-b border-[hsl(var(--sidebar-border))] px-5">
           <EduTrackLogo size="md" variant="horizontal" colorMode="onDark" />
-          <button className="lg:hidden text-[hsl(var(--sidebar-foreground))] hover:opacity-80" onClick={() => setMobileOpen(false)}>
+          <button
+            className="lg:hidden text-[hsl(var(--sidebar-foreground))] hover:opacity-80"
+            onClick={() => setMobileOpen(false)}
+          >
             <X className="h-5 w-5" />
           </button>
         </div>
@@ -241,7 +252,10 @@ export const AppShell: React.FC = () => {
           </div>
           <div className="flex items-center gap-2">
             <NotificationBell />
-            <Badge variant="outline" className="capitalize text-xs font-semibold">
+            <Badge
+              variant="outline"
+              className="capitalize text-xs font-semibold"
+            >
               {role?.replace("_", " ")}
             </Badge>
             <Button
@@ -261,7 +275,9 @@ export const AppShell: React.FC = () => {
         <header className="hidden lg:flex h-16 items-center justify-between border-b border-border/80 bg-card/60 px-8 backdrop-blur-md sticky top-0 z-30">
           <div className="flex items-center gap-3">
             <div className="flex items-center gap-2 text-xs text-muted-foreground">
-              <span className="font-semibold text-foreground tracking-wide">{college.shortName}</span>
+              <span className="font-semibold text-foreground tracking-wide">
+                {college.shortName}
+              </span>
               <span>•</span>
               <span className="capitalize font-medium text-primary">
                 {role?.replace("_", " ")} Portal
@@ -269,7 +285,9 @@ export const AppShell: React.FC = () => {
               {user?.department_id && (
                 <>
                   <span>•</span>
-                  <span className="truncate max-w-56">{user.department_id}</span>
+                  <span className="truncate max-w-56">
+                    {user.department_id}
+                  </span>
                 </>
               )}
             </div>
@@ -281,9 +299,17 @@ export const AppShell: React.FC = () => {
               type="button"
               onClick={toggleTheme}
               className="flex h-9 w-9 items-center justify-center rounded-xl border border-border/70 bg-card text-foreground hover:bg-muted/80 transition-colors"
-              title={theme === "light" ? "Switch to dark mode" : "Switch to light mode"}
+              title={
+                theme === "light"
+                  ? "Switch to dark mode"
+                  : "Switch to light mode"
+              }
             >
-              {theme === "light" ? <Moon className="h-4 w-4" /> : <Sun className="h-4 w-4" />}
+              {theme === "light" ? (
+                <Moon className="h-4 w-4" />
+              ) : (
+                <Sun className="h-4 w-4" />
+              )}
             </button>
             <Link
               to="/profile"

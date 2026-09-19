@@ -241,11 +241,18 @@ export const HODDashboard: React.FC = () => {
     const empErr = getEmployeeIdValidationError(teacherForm.employee_id);
     if (empErr) errs.push(empErr);
 
-    const nameErr = getNameValidationError(teacherForm.full_name, "Teacher Full Name");
+    const nameErr = getNameValidationError(
+      teacherForm.full_name,
+      "Teacher Full Name",
+    );
     if (nameErr) errs.push(nameErr);
 
     if (teacherForm.mobile) {
-      const mobileErr = getMobileValidationError(teacherForm.mobile, "Faculty Mobile", false);
+      const mobileErr = getMobileValidationError(
+        teacherForm.mobile,
+        "Faculty Mobile",
+        false,
+      );
       if (mobileErr) errs.push(mobileErr);
     }
 
@@ -260,8 +267,11 @@ export const HODDashboard: React.FC = () => {
 
     const isCoordinator = teacherForm.role === "class_coordinator";
     const userRole = isCoordinator ? "class_coordinator" : "teacher";
-    const defaultPwd = isCoordinator ? "CC@123" : "Teacher@123";
-    const effectivePwd = teacherForm.password?.trim() || teacherForm.employee_id.trim() || defaultPwd;
+    const defaultPwd = isCoordinator ? "Cc@123" : "Teacher@123";
+    const effectivePwd =
+      teacherForm.password?.trim() ||
+      teacherForm.employee_id.trim() ||
+      defaultPwd;
 
     if (editingTeacher) {
       await localDb.update("teachers", editingTeacher.id, {
@@ -273,7 +283,9 @@ export const HODDashboard: React.FC = () => {
         is_class_coordinator: isCoordinator,
       });
 
-      let account = localDb.users.find((u: any) => u.teacher_id === editingTeacher.id);
+      let account = localDb.users.find(
+        (u: any) => u.teacher_id === editingTeacher.id,
+      );
       if (account) {
         await localDb.update("users", account.id, {
           full_name: teacherForm.full_name.trim(),
@@ -287,14 +299,18 @@ export const HODDashboard: React.FC = () => {
           {
             id: accountId,
             full_name: teacherForm.full_name.trim(),
-            email: teacherForm.email?.trim() || `${teacherForm.employee_id.toLowerCase()}@edutrack.edu`,
+            email:
+              teacherForm.email?.trim() ||
+              `${teacherForm.employee_id.toLowerCase()}@edutrack.edu`,
             role: userRole,
             department_id: user?.department_id,
             teacher_id: editingTeacher.id,
             status: "active",
           },
         ]);
-        await localDb.update("teachers", editingTeacher.id, { user_id: accountId });
+        await localDb.update("teachers", editingTeacher.id, {
+          user_id: accountId,
+        });
       }
 
       if (teacherForm.password?.trim() || !account) {
@@ -329,7 +345,9 @@ export const HODDashboard: React.FC = () => {
           {
             id: accountId,
             full_name: teacher.full_name,
-            email: teacher.email || `${teacher.employee_id.toLowerCase()}@edutrack.edu`,
+            email:
+              teacher.email ||
+              `${teacher.employee_id.toLowerCase()}@edutrack.edu`,
             role: userRole,
             department_id: user?.department_id,
             teacher_id: teacher.id,
@@ -338,12 +356,7 @@ export const HODDashboard: React.FC = () => {
         ]);
         await localDb.update("teachers", teacher.id, { user_id: accountId });
         saveCredential(
-          [
-            accountId,
-            teacher.id,
-            teacher.email,
-            teacher.employee_id,
-          ],
+          [accountId, teacher.id, teacher.email, teacher.employee_id],
           effectivePwd,
         );
       }
@@ -433,7 +446,9 @@ export const HODDashboard: React.FC = () => {
       assigned_semester: Number(assignForm.semester),
     });
 
-    let account = localDb.users.find((u: any) => u.teacher_id === assignForm.teacher_id);
+    let account = localDb.users.find(
+      (u: any) => u.teacher_id === assignForm.teacher_id,
+    );
     if (account) {
       await localDb.update("users", account.id, { role: "class_coordinator" });
     } else {
@@ -442,7 +457,9 @@ export const HODDashboard: React.FC = () => {
         {
           id: accountId,
           full_name: teacher.full_name,
-          email: teacher.email || `${teacher.employee_id.toLowerCase()}@edutrack.edu`,
+          email:
+            teacher.email ||
+            `${teacher.employee_id.toLowerCase()}@edutrack.edu`,
           role: "class_coordinator",
           department_id: user?.department_id,
           teacher_id: teacher.id,
@@ -460,7 +477,7 @@ export const HODDashboard: React.FC = () => {
         teacher.email,
         teacher.employee_id,
       ],
-      "CC@123",
+      "Cc@123",
     );
 
     setAssignDialogOpen(false);
@@ -481,7 +498,9 @@ export const HODDashboard: React.FC = () => {
         role: "lecturer",
         assigned_semester: null,
       });
-      const account = localDb.users.find((u: any) => u.teacher_id === assignment.teacher_id);
+      const account = localDb.users.find(
+        (u: any) => u.teacher_id === assignment.teacher_id,
+      );
       if (account) {
         await localDb.update("users", account.id, { role: "teacher" });
       }
@@ -507,7 +526,9 @@ export const HODDashboard: React.FC = () => {
 
     if (
       students.some(
-        (student) => student.roll_number.toLowerCase() === studentForm.roll_number.trim().toLowerCase(),
+        (student) =>
+          student.roll_number.toLowerCase() ===
+          studentForm.roll_number.trim().toLowerCase(),
       )
     ) {
       errs.push("A student with this roll number already exists.");
@@ -516,7 +537,11 @@ export const HODDashboard: React.FC = () => {
     const nameErr = getNameValidationError(studentForm.full_name);
     if (nameErr) errs.push(nameErr);
 
-    const mobileErr = getMobileValidationError(studentForm.parent_mobile, "Parent Mobile", true);
+    const mobileErr = getMobileValidationError(
+      studentForm.parent_mobile,
+      "Parent Mobile",
+      true,
+    );
     if (mobileErr) errs.push(mobileErr);
 
     if (studentForm.email && !isValidEmail(studentForm.email)) {
@@ -547,7 +572,9 @@ export const HODDashboard: React.FC = () => {
         {
           id: accountId,
           full_name: student.full_name,
-          email: student.email || `${student.roll_number.toLowerCase()}@student.edutrack.edu`,
+          email:
+            student.email ||
+            `${student.roll_number.toLowerCase()}@student.edutrack.edu`,
           role: "student",
           department_id: user?.department_id,
           student_id: student.id,
@@ -555,12 +582,7 @@ export const HODDashboard: React.FC = () => {
         },
       ]);
       saveCredential(
-        [
-          accountId,
-          student.id,
-          student.roll_number,
-          student.email,
-        ],
+        [accountId, student.id, student.roll_number, student.email],
         student.roll_number || "123",
       );
     }
@@ -693,7 +715,10 @@ export const HODDashboard: React.FC = () => {
           </div>
           <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
             <Link to="/attendance">
-              <Button size="sm" className="w-full sm:w-auto gap-1.5 bg-primary text-primary-foreground shadow-xs">
+              <Button
+                size="sm"
+                className="w-full sm:w-auto gap-1.5 bg-primary text-primary-foreground shadow-xs"
+              >
                 <ClipboardCheck className="h-4 w-4" />
                 Take Lecture Attendance
               </Button>
@@ -767,12 +792,16 @@ export const HODDashboard: React.FC = () => {
               <h2 className="font-display text-lg font-bold text-foreground">
                 My Lecture & Teaching Workload
               </h2>
-              <Badge variant="outline" className="border-primary/30 text-primary text-[10px] font-bold">
+              <Badge
+                variant="outline"
+                className="border-primary/30 text-primary text-[10px] font-bold"
+              >
                 Dual Role: HOD & Lecturer
               </Badge>
             </div>
             <p className="text-xs text-muted-foreground">
-              As Head of Department, you can conduct academic lectures, mark subject attendance, and supervise department faculty.
+              As Head of Department, you can conduct academic lectures, mark
+              subject attendance, and supervise department faculty.
             </p>
           </div>
 
@@ -812,7 +841,11 @@ export const HODDashboard: React.FC = () => {
                   </div>
 
                   <Link to="/attendance">
-                    <Button size="sm" variant="outline" className="h-8 text-xs shrink-0 gap-1 hover:bg-primary hover:text-primary-foreground">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="h-8 text-xs shrink-0 gap-1 hover:bg-primary hover:text-primary-foreground"
+                    >
                       <ClipboardCheck className="h-3.5 w-3.5" />
                       Mark
                     </Button>
@@ -824,14 +857,21 @@ export const HODDashboard: React.FC = () => {
             <div className="flex flex-col sm:flex-row items-center justify-between gap-3 rounded-xl border border-dashed border-border bg-background/50 p-4 text-xs text-muted-foreground">
               <div className="space-y-0.5 text-center sm:text-left">
                 <p className="font-semibold text-foreground">
-                  Ready to take lectures for {myDepartment?.code || "your department"}
+                  Ready to take lectures for{" "}
+                  {myDepartment?.code || "your department"}
                 </p>
                 <p>
-                  You can conduct lectures for any course in your department or map specific subjects to your profile under Subject Assignments.
+                  You can conduct lectures for any course in your department or
+                  map specific subjects to your profile under Subject
+                  Assignments.
                 </p>
               </div>
               <Link to="/attendance" className="shrink-0">
-                <Button size="sm" variant="secondary" className="gap-1.5 text-xs">
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  className="gap-1.5 text-xs"
+                >
                   <ClipboardCheck className="h-3.5 w-3.5 text-primary" />
                   Select Subject & Take Attendance
                 </Button>
@@ -890,7 +930,10 @@ export const HODDashboard: React.FC = () => {
                 Add and manage faculty members
               </p>
             </div>
-            <Dialog open={teacherDialogOpen} onOpenChange={setTeacherDialogOpen}>
+            <Dialog
+              open={teacherDialogOpen}
+              onOpenChange={setTeacherDialogOpen}
+            >
               <DialogContent>
                 <DialogHeader>
                   <DialogTitle>
@@ -950,7 +993,9 @@ export const HODDashboard: React.FC = () => {
                         Mobile
                       </label>
                       {teacherForm.mobile && (
-                        <span className={`text-[10px] font-mono ${teacherForm.mobile.length === 10 ? "text-emerald-500 font-bold" : "text-muted-foreground"}`}>
+                        <span
+                          className={`text-[10px] font-mono ${teacherForm.mobile.length === 10 ? "text-emerald-500 font-bold" : "text-muted-foreground"}`}
+                        >
                           {teacherForm.mobile.length}/10
                         </span>
                       )}
@@ -967,7 +1012,12 @@ export const HODDashboard: React.FC = () => {
                         })
                       }
                       placeholder="9876543210 (Optional 10 digits)"
-                      className={teacherForm.mobile && !isValid10DigitMobile(teacherForm.mobile) ? "border-destructive focus-visible:ring-destructive" : ""}
+                      className={
+                        teacherForm.mobile &&
+                        !isValid10DigitMobile(teacherForm.mobile)
+                          ? "border-destructive focus-visible:ring-destructive"
+                          : ""
+                      }
                     />
                   </div>
                   <div>
@@ -980,6 +1030,10 @@ export const HODDashboard: React.FC = () => {
                         setTeacherForm({
                           ...teacherForm,
                           role: e.target.value as Teacher["role"],
+                          password:
+                            e.target.value === "class_coordinator"
+                              ? "Cc@123"
+                              : "Teacher@123",
                         })
                       }
                       options={[
@@ -1008,8 +1062,8 @@ export const HODDashboard: React.FC = () => {
                         editingTeacher
                           ? "Leave blank to keep current password"
                           : teacherForm.role === "class_coordinator"
-                          ? "Default: CC@123 or Employee ID"
-                          : "Default: Teacher@123 or Employee ID"
+                            ? "Default: Cc@123 or Employee ID"
+                            : "Default: Teacher@123 or Employee ID"
                       }
                     />
                     <p className="text-[11px] text-muted-foreground mt-1">
@@ -1555,7 +1609,9 @@ export const HODDashboard: React.FC = () => {
                 <div className="space-y-1">
                   <div className="flex justify-between items-center text-xs text-muted-foreground">
                     <span>Parent Mobile (10 digits) *</span>
-                    <span className={`font-mono ${studentForm.parent_mobile.length === 10 ? "text-emerald-500 font-bold" : ""}`}>
+                    <span
+                      className={`font-mono ${studentForm.parent_mobile.length === 10 ? "text-emerald-500 font-bold" : ""}`}
+                    >
                       {studentForm.parent_mobile.length}/10
                     </span>
                   </div>
@@ -1571,7 +1627,12 @@ export const HODDashboard: React.FC = () => {
                         parent_mobile: sanitizeMobileInput(e.target.value),
                       })
                     }
-                    className={studentForm.parent_mobile && !isValid10DigitMobile(studentForm.parent_mobile) ? "border-destructive focus-visible:ring-destructive" : ""}
+                    className={
+                      studentForm.parent_mobile &&
+                      !isValid10DigitMobile(studentForm.parent_mobile)
+                        ? "border-destructive focus-visible:ring-destructive"
+                        : ""
+                    }
                   />
                 </div>
                 <Input

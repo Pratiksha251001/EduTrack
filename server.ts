@@ -1,3 +1,7 @@
+// The installed `ws` package does not ship TypeScript declarations.
+// Supabase only needs its WebSocket constructor at runtime here.
+// @ts-expect-error TS7016: `ws` has no declaration file in this project.
+import ws from "ws";
 import express from "express";
 import cors from "cors";
 import path from "path";
@@ -51,7 +55,11 @@ const supabaseUrl = rawSupabaseUrl
   .replace(/\/rest\/v1\/?$/i, "")
   .replace(/\/+$/, "");
 
-const supabase = createClient(supabaseUrl, supabaseKey);
+const supabase = createClient(supabaseUrl, supabaseKey, {
+  realtime: {
+    transport: ws,
+  },
+});
 
 let isDbConnected = false;
 let lastLatencyMs = 0;
@@ -118,14 +126,24 @@ async function checkDatabaseConnection(): Promise<{
 }
 
 function printAsciiTerminalBanner() {
-  console.log("\n\x1b[36m======================================================================\x1b[0m");
-  console.log("\x1b[1;32m  🎓 EDUTRACK INSTITUTIONAL BACKEND ENGINE — ONLINE\x1b[0m");
-  console.log("\x1b[36m======================================================================\x1b[0m");
+  console.log(
+    "\n\x1b[36m======================================================================\x1b[0m",
+  );
+  console.log(
+    "\x1b[1;32m  🎓 EDUTRACK INSTITUTIONAL BACKEND ENGINE — ONLINE\x1b[0m",
+  );
+  console.log(
+    "\x1b[36m======================================================================\x1b[0m",
+  );
   console.log(`\x1b[34m• Service:\x1b[0m      Node.js Express + TypeScript`);
   console.log(`\x1b[34m• Host/Port:\x1b[0m    0.0.0.0:3000`);
   console.log(`\x1b[34m• Supabase URL:\x1b[0m ${supabaseUrl}`);
-  console.log(`\x1b[34m• Target DB:\x1b[0m    PostgreSQL (Cloud Supabase Engine)`);
-  console.log("\x1b[36m----------------------------------------------------------------------\x1b[0m");
+  console.log(
+    `\x1b[34m• Target DB:\x1b[0m    PostgreSQL (Cloud Supabase Engine)`,
+  );
+  console.log(
+    "\x1b[36m----------------------------------------------------------------------\x1b[0m",
+  );
 }
 
 async function startServer() {
@@ -196,12 +214,24 @@ async function startServer() {
   await checkDatabaseConnection();
 
   // Print prominent connection confirmation box in terminal
-  console.log("\x1b[32m┌────────────────────────────────────────────────────────────────────┐\x1b[0m");
-  console.log(`\x1b[32m│  ✔ DATABASE STATUS: CONNECTED (Supabase PostgreSQL Live)          │\x1b[0m`);
-  console.log(`\x1b[32m│  ✔ ENDPOINT:        ${supabaseUrl.padEnd(46)} │\x1b[0m`);
-  console.log(`\x1b[32m│  ✔ LATENCY:         ${(lastLatencyMs + "ms").padEnd(46)} │\x1b[0m`);
-  console.log(`\x1b[32m│  ✔ HTTP SERVER:     http://0.0.0.0:3000                            │\x1b[0m`);
-  console.log("\x1b[32m└────────────────────────────────────────────────────────────────────┘\x1b[0m\n");
+  console.log(
+    "\x1b[32m┌────────────────────────────────────────────────────────────────────┐\x1b[0m",
+  );
+  console.log(
+    `\x1b[32m│  ✔ DATABASE STATUS: CONNECTED (Supabase PostgreSQL Live)          │\x1b[0m`,
+  );
+  console.log(
+    `\x1b[32m│  ✔ ENDPOINT:        ${supabaseUrl.padEnd(46)} │\x1b[0m`,
+  );
+  console.log(
+    `\x1b[32m│  ✔ LATENCY:         ${(lastLatencyMs + "ms").padEnd(46)} │\x1b[0m`,
+  );
+  console.log(
+    `\x1b[32m│  ✔ OPEN APP:        http://localhost:3000                         │\x1b[0m`,
+  );
+  console.log(
+    "\x1b[32m└────────────────────────────────────────────────────────────────────┘\x1b[0m\n",
+  );
 
   // Vite middleware setup
   if (process.env.NODE_ENV !== "production") {
@@ -219,7 +249,7 @@ async function startServer() {
   }
 
   app.listen(PORT, "0.0.0.0", () => {
-    addLog("info", `EduTrack backend server running on http://0.0.0.0:${PORT}`);
+    addLog("info", `EduTrack app available at http://localhost:${PORT}`);
   });
 }
 

@@ -581,7 +581,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
         // Check if demo HOD was requested
         if (
           cleanId === "hod.cse@edutrack.edu" &&
-          (password === "HOD@123" ||
+          (password === "Hod@123" ||
+            password === "HOD@123" ||
             password === "123456" ||
             password === "Admin@123")
         ) {
@@ -616,6 +617,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
           `hod_${teacherId}`,
         ],
         [
+          "Hod@123",
           "HOD@123",
           "hod@123",
           matchedTeacher?.employee_id,
@@ -697,7 +699,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
         // Fallback demo CC
         if (
           cleanId === "cc@edutrack.edu" &&
-          (password === "CC@123" ||
+          (password === "Cc@123" ||
+            password === "CC@123" ||
             password === "123456" ||
             password === "Teacher@123")
         ) {
@@ -733,6 +736,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
           matchedUserAcc?.email,
         ],
         [
+          "Cc@123",
           "CC@123",
           "cc@123",
           "Teacher@123",

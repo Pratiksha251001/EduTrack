@@ -117,7 +117,14 @@ export const App: React.FC = () => {
               }
             >
               <Route path="/dashboard" element={<RoleDashboard />} />
-            <Route path="/teacher/dashboard" element={<ProtectedRoute roleOnly="teacher"><ClassTeacherDashboard /></ProtectedRoute>} />
+              <Route
+                path="/teacher/dashboard"
+                element={
+                  <ProtectedRoute roleOnly="teacher">
+                    <ClassTeacherDashboard />
+                  </ProtectedRoute>
+                }
+              />
               <Route
                 path="/hod/teachers"
                 element={
@@ -147,6 +154,14 @@ export const App: React.FC = () => {
                 element={
                   <ProtectedRoute roleOnly="hod">
                     <HODStudents />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/cc/students"
+                element={
+                  <ProtectedRoute roleOnly="class_coordinator">
+                    <ClassCoordinatorDashboard studentsOnly />
                   </ProtectedRoute>
                 }
               />
@@ -224,7 +239,10 @@ export const App: React.FC = () => {
               />
               <Route path="/notifications" element={<Notifications />} />
               <Route path="/profile" element={<UserProfile />} />
-              <Route path="/student/profile" element={<Navigate to="/profile" replace />} />
+              <Route
+                path="/student/profile"
+                element={<Navigate to="/profile" replace />}
+              />
               <Route
                 path="/coordinator/dashboard"
                 element={
@@ -233,9 +251,18 @@ export const App: React.FC = () => {
                   </ProtectedRoute>
                 }
               />
-              <Route path="/cc/dashboard" element={<Navigate to="/dashboard" replace />} />
-              <Route path="/coordinator" element={<Navigate to="/dashboard" replace />} />
-              <Route path="/cc" element={<Navigate to="/dashboard" replace />} />
+              <Route
+                path="/cc/dashboard"
+                element={<Navigate to="/dashboard" replace />}
+              />
+              <Route
+                path="/coordinator"
+                element={<Navigate to="/dashboard" replace />}
+              />
+              <Route
+                path="/cc"
+                element={<Navigate to="/dashboard" replace />}
+              />
             </Route>
 
             <Route path="*" element={<Navigate to="/" replace />} />

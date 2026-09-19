@@ -19,8 +19,6 @@ import {
   KeyRound,
   ShieldCheck,
   Search,
-  Database,
-  Terminal as TerminalIcon,
   Shuffle,
 } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
@@ -30,10 +28,8 @@ import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
 import { Badge } from "../components/ui/badge";
 import { UserRoleType } from "../lib/types";
-import { localDb, isSupabaseConfigured } from "../lib/supabase";
+import { localDb } from "../lib/supabase";
 import { EduTrackLogo } from "../components/EduTrackLogo";
-import { DatabaseSetupModal } from "../components/DatabaseSetupModal";
-import { BackendTerminalModal } from "../components/BackendTerminalModal";
 
 interface PortalCard {
   title: string;
@@ -50,7 +46,12 @@ interface PortalCard {
 }
 
 export const AccessHub: React.FC = () => {
-  const { loginAsDemo, loginAsRandomDemo, registerAdmin, loginWithCredentials } = useAuth();
+  const {
+    loginAsDemo,
+    loginAsRandomDemo,
+    registerAdmin,
+    loginWithCredentials,
+  } = useAuth();
   const navigate = useNavigate();
   const { theme, toggleTheme } = useTheme();
 
@@ -62,10 +63,10 @@ export const AccessHub: React.FC = () => {
   const [adminMode, setAdminMode] = useState<"login" | "register">("login");
   const [fullName, setFullName] = useState("");
   const [departmentId, setDepartmentId] = useState("");
-  const [activeCategory, setActiveCategory] = useState<"all" | "admin" | "faculty" | "student">("all");
+  const [activeCategory, setActiveCategory] = useState<
+    "all" | "admin" | "faculty" | "student"
+  >("all");
   const [searchQuery, setSearchQuery] = useState("");
-  const [dbModalOpen, setDbModalOpen] = useState(false);
-  const [terminalModalOpen, setTerminalModalOpen] = useState(false);
 
   const defaultAdminEmail =
     import.meta.env.VITE_DEFAULT_ADMIN_EMAIL?.trim() || "admin@edutrack.edu";
@@ -151,7 +152,7 @@ export const AccessHub: React.FC = () => {
       Boolean(defaultAdminEmail) ||
       Boolean(
         localStorage.getItem("edutrack_admin_account") ||
-          localStorage.getItem("smit_admin_account"),
+        localStorage.getItem("smit_admin_account"),
       );
     setAdminMode(
       card.role === "admin" && !hasAdminAccount ? "register" : "login",
@@ -211,7 +212,9 @@ export const AccessHub: React.FC = () => {
     setLoading(false);
 
     if (!result.ok) {
-      alert(result.message || "Authentication failed. Please check credentials.");
+      alert(
+        result.message || "Authentication failed. Please check credentials.",
+      );
       return;
     }
 
@@ -251,36 +254,13 @@ export const AccessHub: React.FC = () => {
             <EduTrackLogo variant="horizontal" size="sm" showTagline={false} />
             <div className="hidden sm:flex items-center gap-2 pl-3 border-l border-border text-xs text-muted-foreground">
               <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
-              <span className="font-medium text-foreground/90">{college.name}</span>
+              <span className="font-medium text-foreground/90">
+                {college.name}
+              </span>
             </div>
           </div>
 
           <div className="flex items-center gap-3">
-            <button
-              onClick={() => setDbModalOpen(true)}
-              className="inline-flex items-center gap-1.5 rounded-full border border-border bg-card px-3 py-1.5 text-xs font-semibold text-foreground hover:bg-muted transition-colors shadow-xs"
-              title="Database Connection & SQL Query"
-            >
-              <Database className="h-3.5 w-3.5 text-primary" />
-              <span className="hidden sm:inline">Database & SQL</span>
-            </button>
-
-            <button
-              onClick={() => setTerminalModalOpen(true)}
-              className="inline-flex items-center gap-1.5 rounded-full border border-border bg-card hover:bg-muted text-foreground px-3 py-1.5 text-xs font-mono font-medium transition-colors shadow-xs"
-              title="View Backend Terminal & Database Handshake"
-            >
-              <TerminalIcon className="h-3.5 w-3.5 text-emerald-500 dark:text-emerald-400" />
-              <span>Terminal Setup</span>
-            </button>
-
-            {isSupabaseConfigured && (
-              <span className="hidden sm:inline-flex items-center gap-1.5 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2.5 py-1 text-xs font-semibold text-emerald-600 dark:text-emerald-400">
-                <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
-                <span>Supabase Live</span>
-              </span>
-            )}
-
             <span className="hidden md:inline-flex items-center gap-1.5 rounded-full border border-primary/20 bg-primary/10 px-3 py-1 text-xs font-semibold text-primary">
               <ShieldCheck className="h-3.5 w-3.5" />
               <span>Session 2025–26</span>
@@ -321,8 +301,9 @@ export const AccessHub: React.FC = () => {
           </h1>
 
           <p className="text-sm sm:text-base text-foreground/80 dark:text-muted-foreground leading-relaxed max-w-3xl mx-auto">
-            Welcome to the centralized attendance and academic administration network.
-            Select your assigned institutional role below to sign in or explore with an instant preview.
+            Welcome to the centralized attendance and academic administration
+            network. Select your assigned institutional role below to sign in or
+            explore with an instant preview.
           </p>
 
           {/* Interactive Category Filter Pills */}
@@ -385,7 +366,9 @@ export const AccessHub: React.FC = () => {
               </span>
             </div>
             <p className="text-xs sm:text-sm text-muted-foreground max-w-xl">
-              Explore how EduTrack works with a 1-click random demo dashboard loaded with dummy faculty and student profiles, live attendance logs, and automated notifications.
+              Explore how EduTrack works with a 1-click random demo dashboard
+              loaded with dummy faculty and student profiles, live attendance
+              logs, and automated notifications.
             </p>
           </div>
 
@@ -486,7 +469,8 @@ export const AccessHub: React.FC = () => {
                   Instant Morning Roll Call
                 </h4>
                 <p className="text-xs text-foreground/80 dark:text-muted-foreground mt-1 leading-relaxed">
-                  Teachers take attendance in under 60 seconds with bulk selection and absent toggling.
+                  Teachers take attendance in under 60 seconds with bulk
+                  selection and absent toggling.
                 </p>
               </div>
             </div>
@@ -500,7 +484,8 @@ export const AccessHub: React.FC = () => {
                   Automated Parent SMS Alerts
                 </h4>
                 <p className="text-xs text-foreground/80 dark:text-muted-foreground mt-1 leading-relaxed">
-                  Parents receive immediate notifications upon subject absence with full delivery tracking.
+                  Parents receive immediate notifications upon subject absence
+                  with full delivery tracking.
                 </p>
               </div>
             </div>
@@ -514,7 +499,8 @@ export const AccessHub: React.FC = () => {
                   Audit-Ready Attendance Reports
                 </h4>
                 <p className="text-xs text-foreground/80 dark:text-muted-foreground mt-1 leading-relaxed">
-                  Automated 75% defaulter warnings and 1-click university compliant PDF generation.
+                  Automated 75% defaulter warnings and 1-click university
+                  compliant PDF generation.
                 </p>
               </div>
             </div>
@@ -523,9 +509,13 @@ export const AccessHub: React.FC = () => {
 
         {/* Footer */}
         <footer className="text-center pt-4 pb-8 border-t border-border/80 text-xs text-muted-foreground space-y-1">
-          <p className="font-medium text-foreground/70">© {new Date().getFullYear()} EduTrack · Official Academic Management System</p>
+          <p className="font-medium text-foreground/70">
+            © {new Date().getFullYear()} EduTrack · Official Academic Management
+            System
+          </p>
           <p className="text-[11px] text-muted-foreground/80">
-            Engineered for high-reliability academic tracking and parent communication.
+            Engineered for high-reliability academic tracking and parent
+            communication.
           </p>
         </footer>
       </main>
@@ -601,7 +591,10 @@ export const AccessHub: React.FC = () => {
                     Default .env Admin Credentials
                   </p>
                   <p className="text-[11px] text-muted-foreground mt-0.5">
-                    Email: <span className="font-mono text-foreground font-medium">{defaultAdminEmail}</span>
+                    Email:{" "}
+                    <span className="font-mono text-foreground font-medium">
+                      {defaultAdminEmail}
+                    </span>
                   </p>
                 </div>
                 <Button
@@ -625,12 +618,14 @@ export const AccessHub: React.FC = () => {
                   <label className="text-xs font-semibold text-foreground">
                     Administrator Full Name
                   </label>
-                  <Input
-                    required
-                    placeholder="e.g. Dr. Arthur Vance"
-                    value={fullName}
-                    onChange={(e) => setFullName(e.target.value)}
-                  />
+                  <div className="relative">
+                    <Input
+                      required
+                      placeholder="Enter administrator name"
+                      value={fullName}
+                      onChange={(e) => setFullName(e.target.value)}
+                    />
+                  </div>
                 </div>
               )}
 
@@ -640,14 +635,18 @@ export const AccessHub: React.FC = () => {
                     <label className="text-xs font-semibold text-foreground">
                       Assigned Department
                     </label>
-                    <span className="text-[10px] text-muted-foreground">Auto-detected if unselected</span>
+                    <span className="text-[10px] text-muted-foreground">
+                      Auto-detected if unselected
+                    </span>
                   </div>
                   <select
                     value={departmentId}
                     onChange={(e) => setDepartmentId(e.target.value)}
                     className="flex h-9 w-full rounded-lg border border-input bg-background px-3 py-1 text-sm text-foreground focus:outline-hidden focus:ring-2 focus:ring-primary/20"
                   >
-                    <option value="">Auto-detect or select department...</option>
+                    <option value="">
+                      Auto-detect or select department...
+                    </option>
                     {localDb.departments
                       .filter((department) => department.status === "active")
                       .map((department) => (
@@ -664,12 +663,12 @@ export const AccessHub: React.FC = () => {
                   {selectedRole === "student"
                     ? "Student Roll Number or Email"
                     : selectedRole === "hod"
-                    ? "HOD Email or Employee ID"
-                    : selectedRole === "teacher"
-                    ? "Teacher Email or Employee ID"
-                    : selectedRole === "class_coordinator"
-                    ? "Coordinator Email or Employee ID"
-                    : "Official Email Address"}
+                      ? "HOD Email or Employee ID"
+                      : selectedRole === "teacher"
+                        ? "Teacher Email or Employee ID"
+                        : selectedRole === "class_coordinator"
+                          ? "Coordinator Email or Employee ID"
+                          : "Official Email Address"}
                 </label>
                 <div className="relative">
                   <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -680,12 +679,12 @@ export const AccessHub: React.FC = () => {
                       selectedRole === "student"
                         ? "e.g. 101 or alex.h@student.edutrack.edu"
                         : selectedRole === "hod"
-                        ? "e.g. hod.cse@edutrack.edu or EMP-CSE-01"
-                        : selectedRole === "teacher"
-                        ? "e.g. teacher@edutrack.edu or EMP-CSE-02"
-                        : selectedRole === "class_coordinator"
-                        ? "e.g. cc@edutrack.edu or EMP-CSE-04"
-                        : "admin@edutrack.com"
+                          ? "e.g. hod.cse@edutrack.edu or EMP-CSE-01"
+                          : selectedRole === "teacher"
+                            ? "e.g. teacher@edutrack.edu or EMP-CSE-02"
+                            : selectedRole === "class_coordinator"
+                              ? "e.g. cc@edutrack.edu or EMP-CSE-04"
+                              : "admin@edutrack.com"
                     }
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
@@ -711,22 +710,34 @@ export const AccessHub: React.FC = () => {
                 </div>
                 {selectedRole === "student" && (
                   <p className="mt-1 text-[11px] text-muted-foreground">
-                    Default student password is your <span className="font-semibold text-primary">Roll Number</span> (e.g. 101 or 123)
+                    Default student password is your{" "}
+                    <span className="font-semibold text-primary">
+                      Roll Number
+                    </span>{" "}
+                    (e.g. 101 or 123)
                   </p>
                 )}
                 {selectedRole === "hod" && (
                   <p className="mt-1 text-[11px] text-muted-foreground">
-                    Default HOD password is <span className="font-semibold text-primary">HOD@123</span> or your Employee ID
+                    Default HOD password is{" "}
+                    <span className="font-semibold text-primary">Hod@123</span>{" "}
+                    or your Employee ID
                   </p>
                 )}
                 {selectedRole === "teacher" && (
                   <p className="mt-1 text-[11px] text-muted-foreground">
-                    Default teacher password is <span className="font-semibold text-primary">Teacher@123</span> or your Employee ID
+                    Default teacher password is{" "}
+                    <span className="font-semibold text-primary">
+                      Teacher@123
+                    </span>{" "}
+                    or your Employee ID
                   </p>
                 )}
                 {selectedRole === "class_coordinator" && (
                   <p className="mt-1 text-[11px] text-muted-foreground">
-                    Default coordinator password is <span className="font-semibold text-primary">CC@123</span> or your Employee ID
+                    Default coordinator password is{" "}
+                    <span className="font-semibold text-primary">Cc@123</span>{" "}
+                    or your Employee ID
                   </p>
                 )}
               </div>
@@ -767,14 +778,6 @@ export const AccessHub: React.FC = () => {
           </div>
         </div>
       )}
-      <DatabaseSetupModal
-        open={dbModalOpen}
-        onOpenChange={setDbModalOpen}
-      />
-      <BackendTerminalModal
-        open={terminalModalOpen}
-        onOpenChange={setTerminalModalOpen}
-      />
     </div>
   );
 };

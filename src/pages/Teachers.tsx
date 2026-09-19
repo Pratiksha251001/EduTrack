@@ -31,7 +31,9 @@ export const Teachers: React.FC = () => {
       )
     ) {
       localDb.clearAllDefaultData();
-      setNotice("All default data removed. You can now add your own faculty teachers, HODs, and coordinators.");
+      setNotice(
+        "All default data removed. You can now add your own faculty teachers, HODs, and coordinators.",
+      );
       setTimeout(() => setNotice(null), 4000);
     }
   };
@@ -70,10 +72,14 @@ export const Teachers: React.FC = () => {
             >
               <span
                 className={`h-2 w-2 rounded-full ${
-                  isSupabaseConfigured ? "bg-emerald-500 animate-pulse" : "bg-amber-500"
+                  isSupabaseConfigured
+                    ? "bg-emerald-500 animate-pulse"
+                    : "bg-amber-500"
                 }`}
               />
-              <span>{isSupabaseConfigured ? "Supabase Live" : "Local Database"}</span>
+              <span>
+                {isSupabaseConfigured ? "Supabase Live" : "Local Database"}
+              </span>
             </span>
 
             <Button
@@ -108,13 +114,31 @@ export const Teachers: React.FC = () => {
             </Button>
           </div>
         }
+        emptyStateAction={{
+          label: "Restore sample teachers",
+          onClick: () => localDb.restoreDemoData(),
+        }}
         fields={[
-          { key: "employee_id", label: "College Employee ID Ref No", required: true },
+          {
+            key: "employee_id",
+            label: "College Employee ID Ref No",
+            required: true,
+          },
           { key: "full_name", label: "Full Name", required: true },
-          { key: "designation", label: "Academic Designation (e.g. Professor & HOD, Associate Professor, Asst Professor)" },
-          { key: "qualification", label: "Highest Qualification (e.g. Ph.D, M.Tech, M.Sc)" },
+          {
+            key: "designation",
+            label:
+              "Academic Designation (e.g. Professor & HOD, Associate Professor, Asst Professor)",
+          },
+          {
+            key: "qualification",
+            label: "Highest Qualification (e.g. Ph.D, M.Tech, M.Sc)",
+          },
           { key: "date_of_birth", label: "Date of Birth", type: "date" },
-          { key: "experience_years", label: "Year of Experience (e.g. 8 Years)" },
+          {
+            key: "experience_years",
+            label: "Year of Experience (e.g. 8 Years)",
+          },
           { key: "email", label: "Email Address", type: "email" },
           {
             key: "mobile",
@@ -127,10 +151,17 @@ export const Teachers: React.FC = () => {
             type: "select",
             required: true,
             defaultValue: "lecturer",
-            helperText: "HODs automatically have dual roles: they manage the department AND can be assigned subjects to conduct lectures & mark attendance.",
+            helperText:
+              "HODs automatically have dual roles: they manage the department AND can be assigned subjects to conduct lectures & mark attendance.",
             options: [
-              { value: "hod", label: "HOD (Head of Department & Senior Lecturer)" },
-              { value: "class_coordinator", label: "Class Coordinator (CC & Lecturer)" },
+              {
+                value: "hod",
+                label: "HOD (Head of Department & Senior Lecturer)",
+              },
+              {
+                value: "class_coordinator",
+                label: "Class Coordinator (CC & Lecturer)",
+              },
               { value: "lecturer", label: "Lecturer / Faculty Member" },
             ],
           },
@@ -163,7 +194,8 @@ export const Teachers: React.FC = () => {
             key: "password",
             label: "Login Password",
             type: "password",
-            helperText: "Optional. If left blank, automatically defaults to HOD@123 for HOD or Teacher@123 for faculty.",
+            helperText:
+              "Selecting a role fills its default: Hod@123 for HOD, Cc@123 for coordinator, or Teacher@123 for faculty.",
           },
           {
             key: "status",
@@ -180,7 +212,9 @@ export const Teachers: React.FC = () => {
           {
             header: "College Emp ID",
             render: (t) => (
-              <span className="font-mono text-xs font-bold">{t.employee_id}</span>
+              <span className="font-mono text-xs font-bold">
+                {t.employee_id}
+              </span>
             ),
           },
           {
@@ -189,7 +223,9 @@ export const Teachers: React.FC = () => {
               <div>
                 <span className="font-semibold block">{t.full_name}</span>
                 {t.designation && (
-                  <span className="text-[11px] text-muted-foreground">{t.designation}</span>
+                  <span className="text-[11px] text-muted-foreground">
+                    {t.designation}
+                  </span>
                 )}
               </div>
             ),
@@ -241,7 +277,10 @@ export const Teachers: React.FC = () => {
       />
 
       <DatabaseSetupModal open={dbModalOpen} onOpenChange={setDbModalOpen} />
-      <BackendTerminalModal open={terminalModalOpen} onOpenChange={setTerminalModalOpen} />
+      <BackendTerminalModal
+        open={terminalModalOpen}
+        onOpenChange={setTerminalModalOpen}
+      />
     </div>
   );
 };

@@ -80,16 +80,25 @@ export const HODStaff: React.FC<HODStaffProps> = ({ mode }) => {
   const linkedTeacher = teachers.find(
     (teacher) => teacher.id === user?.teacher_id,
   );
-  const departmentId = user?.department_id || linkedTeacher?.department_id || "dept-1";
+  const departmentId =
+    user?.department_id || linkedTeacher?.department_id || "dept-1";
   const department = departments.find((item) => item.id === departmentId);
 
   const [search, setSearch] = useState("");
   const [editing, setEditing] = useState<Teacher | null>(null);
   const [formOpen, setFormOpen] = useState(false);
   const [importModalOpen, setImportModalOpen] = useState(false);
-  const [profileModalTeacher, setProfileModalTeacher] = useState<Teacher | null>(null);
-  const [passwordModalTeacher, setPasswordModalTeacher] = useState<Teacher | null>(null);
+  const [profileModalTeacher, setProfileModalTeacher] =
+    useState<Teacher | null>(null);
+  const [passwordModalTeacher, setPasswordModalTeacher] =
+    useState<Teacher | null>(null);
   const [alertSuccess, setAlertSuccess] = useState<string | null>(null);
+  const [createdCredentials, setCreatedCredentials] = useState<{
+    name: string;
+    login: string;
+    password: string;
+  } | null>(null);
+  const [showFormPassword, setShowFormPassword] = useState(false);
 
   const photoFileInputRef = useRef<HTMLInputElement>(null);
 
@@ -140,6 +149,7 @@ export const HODStaff: React.FC<HODStaffProps> = ({ mode }) => {
 
   const openAdd = () => {
     setEditing(null);
+    setShowFormPassword(false);
     setForm({
       employee_id: "",
       full_name: "",
@@ -159,6 +169,7 @@ export const HODStaff: React.FC<HODStaffProps> = ({ mode }) => {
 
   const openEdit = (teacher: Teacher) => {
     setEditing(teacher);
+    setShowFormPassword(false);
     setForm({
       employee_id: teacher.employee_id,
       full_name: teacher.full_name,
@@ -166,7 +177,9 @@ export const HODStaff: React.FC<HODStaffProps> = ({ mode }) => {
       department_id: teacher.department_id || departmentId,
       qualification: teacher.qualification || "",
       date_of_birth: teacher.date_of_birth || "",
-      experience_years: teacher.experience_years ? String(teacher.experience_years) : "",
+      experience_years: teacher.experience_years
+        ? String(teacher.experience_years)
+        : "",
       email: teacher.email || "",
       mobile: teacher.mobile || "",
       photo_url: teacher.photo_url || "",
@@ -197,7 +210,11 @@ export const HODStaff: React.FC<HODStaffProps> = ({ mode }) => {
     }
 
     if (form.mobile) {
-      const mobErr = getMobileValidationError(form.mobile, "Faculty Mobile", false);
+      const mobErr = getMobileValidationError(
+        form.mobile,
+        "Faculty Mobile",
+        false,
+      );
       if (mobErr) {
         alert(mobErr);
         return;
@@ -222,7 +239,7 @@ export const HODStaff: React.FC<HODStaffProps> = ({ mode }) => {
     };
 
     const userRole = isCoordinator ? "class_coordinator" : "teacher";
-    const defaultPwd = isCoordinator ? "CC@123" : "Teacher@123";
+    const defaultPwd = isCoordinator ? "Cc@123" : "Teacher@123";
     const effectivePwd =
       form.password.trim() || form.employee_id.trim() || defaultPwd;
 
@@ -297,6 +314,12 @@ export const HODStaff: React.FC<HODStaffProps> = ({ mode }) => {
           effectivePwd,
         );
 
+        setCreatedCredentials({
+          name: teacher.full_name,
+          login: teacher.employee_id || teacher.email || "the assigned account",
+          password: effectivePwd,
+        });
+
         if (isCoordinator) {
           await localDb.insert("class_coordinator_assignments", [
             {
@@ -316,13 +339,16 @@ export const HODStaff: React.FC<HODStaffProps> = ({ mode }) => {
   };
 
   const remove = async (teacher: Teacher) => {
-    if (!confirm(`Delete ${teacher.full_name}? This action cannot be undone.`)) return;
+    if (!confirm(`Delete ${teacher.full_name}? This action cannot be undone.`))
+      return;
     await localDb.delete("teachers", teacher.id);
     setVersion((v) => v + 1);
   };
 
   const handleImportSuccess = (count: number) => {
-    setAlertSuccess(`Successfully imported ${count} teachers from spreadsheet!`);
+    setAlertSuccess(
+      `Successfully imported ${count} teachers from spreadsheet!`,
+    );
     setVersion((v) => v + 1);
   };
 
@@ -363,6 +389,48 @@ export const HODStaff: React.FC<HODStaffProps> = ({ mode }) => {
       />
 
       {/* Success Notification Banner */}
+      {createdCredentials && (
+        <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-4 text-sm text-foreground">
+          <div className="flex items-start gap-3">
+            <KeyRound className="mt-0.5 h-5 w-5 shrink-0 text-emerald-600 dark:text-emerald-400" />
+            <div className="min-w-0 flex-1 space-y-2">
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <p className="font-semibold">Teacher account created</p>
+                  <p className="text-xs text-muted-foreground">
+                    Share these initial login credentials with{" "}
+                    {createdCredentials.name}.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setCreatedCredentials(null)}
+                  className="text-xs font-semibold text-muted-foreground hover:text-foreground"
+                  aria-label="Dismiss credentials"
+                >
+                  Dismiss
+                </button>
+              </div>
+              <div className="grid gap-2 text-xs sm:grid-cols-2">
+                <div className="rounded-lg border border-border/70 bg-card/70 p-2">
+                  <span className="block text-muted-foreground">Login ID</span>
+                  <span className="font-mono font-semibold">
+                    {createdCredentials.login}
+                  </span>
+                </div>
+                <div className="rounded-lg border border-border/70 bg-card/70 p-2">
+                  <span className="block text-muted-foreground">
+                    Initial password
+                  </span>
+                  <span className="font-mono font-semibold">
+                    {createdCredentials.password}
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
       {alertSuccess && (
         <div className="flex items-center justify-between p-3.5 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-700 dark:text-emerald-400 text-xs font-semibold animate-in fade-in">
           <div className="flex items-center gap-2">
@@ -424,7 +492,8 @@ export const HODStaff: React.FC<HODStaffProps> = ({ mode }) => {
                   : `Add ${mode === "teachers" ? "Teacher" : "Class Coordinator"}`}
               </h2>
               <p className="text-xs text-muted-foreground mt-0.5">
-                Please provide faculty designations, qualification credentials, reference ID, and optional phone.
+                Please provide faculty designations, qualification credentials,
+                reference ID, and optional phone.
               </p>
             </div>
             <Button
@@ -606,6 +675,10 @@ export const HODStaff: React.FC<HODStaffProps> = ({ mode }) => {
                   setForm({
                     ...form,
                     role: event.target.value as Teacher["role"],
+                    password:
+                      event.target.value === "class_coordinator"
+                        ? "Cc@123"
+                        : "Teacher@123",
                   })
                 }
                 options={[
@@ -622,7 +695,9 @@ export const HODStaff: React.FC<HODStaffProps> = ({ mode }) => {
                 {form.photo_url && (
                   <button
                     type="button"
-                    onClick={() => setForm((prev) => ({ ...prev, photo_url: "" }))}
+                    onClick={() =>
+                      setForm((prev) => ({ ...prev, photo_url: "" }))
+                    }
                     className="text-[11px] text-destructive hover:underline"
                   >
                     Clear Photo
@@ -676,20 +751,38 @@ export const HODStaff: React.FC<HODStaffProps> = ({ mode }) => {
               <label className="text-xs font-semibold text-foreground">
                 Login Password
               </label>
-              <Input
-                type="password"
-                placeholder={
-                  editing
-                    ? "Leave blank to keep current"
-                    : form.role === "class_coordinator"
-                    ? "Default: CC@123 or Emp ID"
-                    : "Default: Teacher@123 or Emp ID"
-                }
-                value={form.password}
-                onChange={(event) =>
-                  setForm({ ...form, password: event.target.value })
-                }
-              />
+              <div className="relative">
+                <Input
+                  type={showFormPassword ? "text" : "password"}
+                  placeholder={
+                    editing
+                      ? "Leave blank to keep current"
+                      : form.role === "class_coordinator"
+                        ? "Default: Cc@123 or Emp ID"
+                        : "Default: Teacher@123 or Emp ID"
+                  }
+                  value={form.password}
+                  onChange={(event) =>
+                    setForm({ ...form, password: event.target.value })
+                  }
+                  className="pr-10"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowFormPassword((visible) => !visible)}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 rounded p-1 text-muted-foreground hover:text-foreground"
+                  aria-label={
+                    showFormPassword ? "Hide password" : "Show password"
+                  }
+                  title={showFormPassword ? "Hide password" : "Show password"}
+                >
+                  {showFormPassword ? (
+                    <EyeOff className="h-4 w-4" />
+                  ) : (
+                    <Eye className="h-4 w-4" />
+                  )}
+                </button>
+              </div>
               <p className="text-[11px] text-muted-foreground">
                 Staff sign in using Employee ID or Email.
               </p>
@@ -721,7 +814,13 @@ export const HODStaff: React.FC<HODStaffProps> = ({ mode }) => {
           </div>
 
           <div className="flex items-center gap-2 text-xs text-muted-foreground">
-            <span>Showing <strong className="text-foreground">{visibleTeachers.length}</strong> faculty members</span>
+            <span>
+              Showing{" "}
+              <strong className="text-foreground">
+                {visibleTeachers.length}
+              </strong>{" "}
+              faculty members
+            </span>
           </div>
         </div>
 
@@ -735,10 +834,15 @@ export const HODStaff: React.FC<HODStaffProps> = ({ mode }) => {
                 No {mode} found matching query
               </p>
               <p className="text-xs text-muted-foreground max-w-sm mx-auto">
-                Add staff manually or use the Excel / CSV import to load multiple faculty teachers at once.
+                Add staff manually or use the Excel / CSV import to load
+                multiple faculty teachers at once.
               </p>
               <div className="flex items-center justify-center gap-2 pt-2">
-                <Button size="sm" variant="outline" onClick={() => setImportModalOpen(true)}>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => setImportModalOpen(true)}
+                >
                   <FileSpreadsheet className="h-4 w-4 mr-1 text-emerald-600" />
                   Import Excel / CSV
                 </Button>
@@ -796,9 +900,10 @@ export const HODStaff: React.FC<HODStaffProps> = ({ mode }) => {
 
                       {teacher.experience_years && (
                         <span className="text-[11px]">
-                          • {String(teacher.experience_years).includes("Year")
-                              ? teacher.experience_years
-                              : `${teacher.experience_years} Yrs`}
+                          •{" "}
+                          {String(teacher.experience_years).includes("Year")
+                            ? teacher.experience_years
+                            : `${teacher.experience_years} Yrs`}
                         </span>
                       )}
                     </div>

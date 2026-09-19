@@ -1,8 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
-import {
-  Dialog,
-  DialogContent,
-} from "./ui/dialog";
+import { Dialog, DialogContent } from "./ui/dialog";
 import { Button } from "./ui/button";
 import {
   Terminal as TerminalIcon,
@@ -110,7 +107,7 @@ export const BackendTerminalModal: React.FC<BackendTerminalModalProps> = ({
       id: "12",
       timestamp: "00:00:03",
       type: "success",
-      text: "✔ HTTP Backend Server running at http://0.0.0.0:3000",
+      text: "✔ EduTrack app available at http://localhost:3000",
     },
     {
       id: "13",
@@ -134,12 +131,19 @@ export const BackendTerminalModal: React.FC<BackendTerminalModalProps> = ({
         const data = await res.json();
         if (data.latencyMs) setLatency(data.latencyMs);
         if (Array.isArray(data.logs) && data.logs.length > 0) {
-          const parsedLogs: LogLine[] = data.logs.map((l: any, idx: number) => ({
-            id: l.id || String(idx),
-            timestamp: l.timestamp || new Date().toLocaleTimeString(),
-            type: l.level === "success" ? "success" : l.level === "error" ? "warn" : "info",
-            text: l.message,
-          }));
+          const parsedLogs: LogLine[] = data.logs.map(
+            (l: any, idx: number) => ({
+              id: l.id || String(idx),
+              timestamp: l.timestamp || new Date().toLocaleTimeString(),
+              type:
+                l.level === "success"
+                  ? "success"
+                  : l.level === "error"
+                    ? "warn"
+                    : "info",
+              text: l.message,
+            }),
+          );
           setLogs(parsedLogs);
           return;
         }
@@ -264,19 +268,27 @@ export const BackendTerminalModal: React.FC<BackendTerminalModalProps> = ({
         {/* Terminal Quick Info Strip */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 px-4 py-2 bg-slate-900/50 border-b border-slate-800/80 font-mono text-[11px] text-slate-400">
           <div>
-            <span className="text-slate-500 block text-[10px] uppercase tracking-wider">Engine</span>
+            <span className="text-slate-500 block text-[10px] uppercase tracking-wider">
+              Engine
+            </span>
             <span className="text-slate-200">Express + Vite</span>
           </div>
           <div>
-            <span className="text-slate-500 block text-[10px] uppercase tracking-wider">Database</span>
+            <span className="text-slate-500 block text-[10px] uppercase tracking-wider">
+              Database
+            </span>
             <span className="text-emerald-400 font-semibold">PostgreSQL</span>
           </div>
           <div>
-            <span className="text-slate-500 block text-[10px] uppercase tracking-wider">Port</span>
+            <span className="text-slate-500 block text-[10px] uppercase tracking-wider">
+              Port
+            </span>
             <span className="text-slate-200">0.0.0.0:3000</span>
           </div>
           <div>
-            <span className="text-slate-500 block text-[10px] uppercase tracking-wider">Target</span>
+            <span className="text-slate-500 block text-[10px] uppercase tracking-wider">
+              Target
+            </span>
             <span className="text-slate-200 truncate block" title={supabaseUrl}>
               sovkwhqpvv...
             </span>
