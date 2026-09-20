@@ -611,16 +611,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
       if (!matchedTeacher && !matchedUserAcc) {
         // Check if demo HOD was requested
         if (
-          cleanId === "hod.cse@edutrack.edu" &&
-          (password === "Hod@123" ||
+          (cleanId === "hod@gmail.com" || cleanId === "hod.cse@edutrack.edu") &&
+          (password === "hod@123" ||
+            password === "Hod@123" ||
             password === "HOD@123" ||
             password === "123456" ||
             password === "Admin@123")
         ) {
           const hodUser = {
             id: "hod-user-id",
-            email: "hod.cse@edutrack.edu",
-            full_name: "Dr. Robert Vance (HOD - CSE)",
+            email: "hod@gmail.com",
+            full_name: "Dr. Default HOD",
             department_id: "dept-1",
             teacher_id: "t-1",
             employee_id: "EMP-CSE-01",
@@ -729,16 +730,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
       if (!matchedTeacher && !matchedUserAcc) {
         // Fallback demo CC
         if (
-          cleanId === "cc@edutrack.edu" &&
-          (password === "Cc@123" ||
+          (cleanId === "cc@gmail.com" || cleanId === "cc@edutrack.edu") &&
+          (password === "cc@123" ||
+            password === "Cc@123" ||
             password === "CC@123" ||
             password === "123456" ||
             password === "Teacher@123")
         ) {
           const ccUser = {
             id: "cc-user-id",
-            email: "cc@edutrack.edu",
-            full_name: "Prof. Emily Watson (Class Coordinator)",
+            email: "cc@gmail.com",
+            full_name: "Default Class Coordinator",
             department_id: "dept-1",
             teacher_id: "t-4",
             employee_id: "EMP-CSE-04",
@@ -767,6 +769,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
           matchedUserAcc?.email,
         ],
         [
+          "cc@123",
           "Cc@123",
           "CC@123",
           "cc@123",
@@ -845,13 +848,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
 
       if (!matchedTeacher && !matchedUserAcc) {
         if (
-          cleanId === "teacher@edutrack.edu" &&
-          (password === "Teacher@123" || password === "123456")
+          (cleanId === "teacher@gmail.com" ||
+            cleanId === "teacher@edutrack.edu") &&
+          (password === "teacher@123" ||
+            password === "Teacher@123" ||
+            password === "123456")
         ) {
           const teacherUser = {
             id: "teacher-user-id",
-            email: "teacher@edutrack.edu",
-            full_name: "Prof. Sarah Jenkins",
+            email: "teacher@gmail.com",
+            full_name: "Default Teacher",
             department_id: "dept-1",
             teacher_id: "t-2",
             employee_id: "EMP-CSE-02",
@@ -952,13 +958,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
 
       if (!matchedStudent && !matchedUserAcc) {
         if (
-          (cleanId === "123" || cleanId === "alex.h@student.edutrack.edu") &&
-          (password === "123" || password === "Student@123")
+          (cleanId === "student@gmail.com" ||
+            cleanId === "123" ||
+            cleanId === "alex.h@student.edutrack.edu") &&
+          (password === "student@123" ||
+            password === "123" ||
+            password === "Student@123")
         ) {
           const studentUser = {
             id: "student-user-id",
-            email: "alex.h@student.edutrack.edu",
-            full_name: "Alexander Hayes",
+            email: "student@gmail.com",
+            full_name: "Default Student",
             department_id: "dept-1",
             student_id: "st-1",
             roll_number: "101",

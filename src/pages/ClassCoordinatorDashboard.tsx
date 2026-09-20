@@ -385,6 +385,8 @@ export const ClassCoordinatorDashboard: React.FC = () => {
       return;
     }
 
+    const wasEditing = Boolean(editingStudent);
+
     const chosenClassName = studentForm.class_name?.trim() || null;
     const matchedClass = academicClasses.find(
       (c) => c.name.toLowerCase() === chosenClassName?.toLowerCase(),
@@ -412,63 +414,78 @@ export const ClassCoordinatorDashboard: React.FC = () => {
     const effectivePwd =
       studentForm.password.trim() || data.roll_number || "123";
 
-    if (editingStudent) {
-      await localDb.update("students", editingStudent.id, data);
-      const account = localDb.users.find(
-        (u) => u.student_id === editingStudent.id,
+    try {
+      if (editingStudent) {
+        await localDb.update("students", editingStudent.id, data);
+        const account = localDb.users.find(
+          (u) => u.student_id === editingStudent.id,
+        );
+        if (account) {
+          await localDb.update("users", account.id, {
+            full_name: data.full_name,
+            email: data.email || account.email,
+          });
+        }
+        if (studentForm.password.trim() || !account) {
+          saveCredential(
+            [
+              editingStudent.id,
+              account?.id,
+              `student-user-${editingStudent.id}`,
+              data.roll_number,
+              data.reg_number,
+              data.email,
+            ],
+            effectivePwd,
+          );
+        }
+      } else {
+        const inserted = await localDb.insert("students", [data]);
+        const student = inserted[0];
+        if (student) {
+          const accountId = `student-user-${student.id}`;
+          await localDb.insert("users", [
+            {
+              id: accountId,
+              full_name: student.full_name,
+              email:
+                student.email ||
+                `${student.roll_number.toLowerCase()}@student.edutrack.edu`,
+              role: "student",
+              department_id: user?.department_id,
+              student_id: student.id,
+              status: "active",
+            },
+          ]);
+          saveCredential(
+            [
+              accountId,
+              student.id,
+              student.roll_number,
+              student.reg_number,
+              student.email,
+            ],
+            effectivePwd,
+          );
+        }
+      }
+    } catch (error) {
+      alert(
+        `Student could not be ${wasEditing ? "updated" : "added"}. ${
+          error instanceof Error ? error.message : "Please try again."
+        }`,
       );
-      if (account) {
-        await localDb.update("users", account.id, {
-          full_name: data.full_name,
-          email: data.email || account.email,
-        });
-      }
-      if (studentForm.password.trim() || !account) {
-        saveCredential(
-          [
-            editingStudent.id,
-            account?.id,
-            `student-user-${editingStudent.id}`,
-            data.roll_number,
-            data.reg_number,
-            data.email,
-          ],
-          effectivePwd,
-        );
-      }
-    } else {
-      const inserted = await localDb.insert("students", [data]);
-      const student = inserted[0];
-      if (student) {
-        const accountId = `student-user-${student.id}`;
-        await localDb.insert("users", [
-          {
-            id: accountId,
-            full_name: student.full_name,
-            email:
-              student.email ||
-              `${student.roll_number.toLowerCase()}@student.edutrack.edu`,
-            role: "student",
-            department_id: user?.department_id,
-            student_id: student.id,
-            status: "active",
-          },
-        ]);
-        saveCredential(
-          [
-            accountId,
-            student.id,
-            student.roll_number,
-            student.reg_number,
-            student.email,
-          ],
-          effectivePwd,
-        );
-      }
+      return;
     }
 
     setStudentDialogOpen(false);
+    setEditingStudent(null);
     setVersion((v) => v + 1);
+    alert(
+      wasEditing
+        ? "Student updated successfully."
+        : "Student added successfully.",
+    );
   };
 
   const handleDeleteStudent = async (id: string) => {
@@ -977,36 +994,9 @@ export const ClassCoordinatorDashboard: React.FC = () => {
                       <label className="text-xs font-semibold text-muted-foreground mb-1 block">
                         Roll No *
                       </label>
-                      <div>
-                        <label className="text-xs font-semibold text-muted-foreground mb-1 block">
-                          PRN No *
-                        </label>
-                        <Input
-                          value={studentForm.prn_number}
-                          onChange={(e) =>
-                            setStudentForm({
-                              ...studentForm,
-                              prn_number: e.target.value,
-                            })
-                          }
-                          placeholder="PRN-CSE-001"
-                        />
-                      </div>
-                      <TableCell>
-                        <button
-                          type="button"
-                          onClick={() => setSelectedStudent(s)}
-                          className="font-mono font-bold text-xs text-primary hover:underline"
-                        >
-                          {s.roll_number}
-                        </button>
-                      </TableCell>
-                      <TableCell className="font-mono text-xs">
-                        {s.prn_number || "-"}
-                      </TableCell>
-                      <TableHead>PRN No</TableHead>
-                      <TableHead>Student Name</TableHead>
                       <Input
+                        name="student-roll-number"
+                        autoComplete="off"
                         value={studentForm.roll_number}
                         onChange={(e) =>
                           setStudentForm({
@@ -1019,17 +1009,19 @@ export const ClassCoordinatorDashboard: React.FC = () => {
                     </div>
                     <div>
                       <label className="text-xs font-semibold text-muted-foreground mb-1 block">
-                        Reg Number
+                        PRN No *
                       </label>
                       <Input
-                        value={studentForm.reg_number}
+                        name="student-prn-number"
+                        autoComplete="off"
+                        value={studentForm.prn_number}
                         onChange={(e) =>
                           setStudentForm({
                             ...studentForm,
-                            reg_number: e.target.value,
+                            prn_number: e.target.value,
                           })
                         }
-                        placeholder="REG-2021-101"
+                        placeholder="PRN-CSE-001"
                       />
                     </div>
                     <div className="col-span-2">
@@ -1037,6 +1029,8 @@ export const ClassCoordinatorDashboard: React.FC = () => {
                         Full Name *
                       </label>
                       <Input
+                        name="student-full-name"
+                        autoComplete="off"
                         value={studentForm.full_name}
                         onChange={(e) =>
                           setStudentForm({
@@ -1121,6 +1115,8 @@ export const ClassCoordinatorDashboard: React.FC = () => {
                         Parent / Guardian Name
                       </label>
                       <Input
+                        name="student-parent-name"
+                        autoComplete="off"
                         value={studentForm.parent_name}
                         onChange={(e) =>
                           setStudentForm({
@@ -1149,6 +1145,8 @@ export const ClassCoordinatorDashboard: React.FC = () => {
                         </span>
                       </div>
                       <Input
+                        name="student-parent-mobile"
+                        autoComplete="off"
                         value={studentForm.parent_mobile}
                         maxLength={10}
                         inputMode="numeric"
@@ -1185,6 +1183,8 @@ export const ClassCoordinatorDashboard: React.FC = () => {
                         )}
                       </div>
                       <Input
+                        name="student-mobile"
+                        autoComplete="off"
                         value={studentForm.student_mobile}
                         maxLength={10}
                         inputMode="numeric"
@@ -1213,6 +1213,8 @@ export const ClassCoordinatorDashboard: React.FC = () => {
                       </label>
                       <Input
                         type="email"
+                        name="student-email"
+                        autoComplete="off"
                         value={studentForm.email}
                         onChange={(e) =>
                           setStudentForm({
@@ -1259,6 +1261,8 @@ export const ClassCoordinatorDashboard: React.FC = () => {
                       </label>
                       <Input
                         type="password"
+                        name="student-password"
+                        autoComplete="new-password"
                         value={studentForm.password}
                         onChange={(e) =>
                           setStudentForm({

@@ -346,14 +346,14 @@ export const StudentImportModal: React.FC<StudentImportModalProps> = ({
   };
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="w-[min(1080px,calc(100vw-2rem))] max-w-none max-h-[92vh] overflow-hidden rounded-2xl border-border/70 bg-card p-0 shadow-2xl flex flex-col">
-        <DialogHeader className="shrink-0 border-b border-border/60 bg-muted/10 px-6 py-5">
+      <DialogContent className="w-[min(960px,calc(100vw-2rem))] max-w-none max-h-[86vh] overflow-hidden rounded-2xl border-border/70 bg-card p-0 shadow-2xl flex flex-col">
+        <DialogHeader className="shrink-0 border-b border-border/60 bg-muted/10 px-4 py-3">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-primary">
                 Class Roster & Enrollment Ingestion
               </p>
-              <DialogTitle className="mt-1 max-w-2xl text-2xl font-bold leading-tight tracking-tight font-display">
+              <DialogTitle className="mt-1 max-w-2xl text-xl font-bold leading-tight tracking-tight font-display">
                 Import Multiple Students (Excel / CSV)
               </DialogTitle>
             </div>
@@ -366,7 +366,7 @@ export const StudentImportModal: React.FC<StudentImportModalProps> = ({
           </div>
         </DialogHeader>
 
-        <div className="flex-1 overflow-y-auto space-y-5 px-6 py-5">
+        <div className="flex-1 overflow-y-auto space-y-3 px-4 py-4">
           <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
             <span className="font-semibold text-foreground">
               Import students in three simple steps:
@@ -381,7 +381,7 @@ export const StudentImportModal: React.FC<StudentImportModalProps> = ({
               3. Review and import
             </span>
           </div>
-          <div className="rounded-xl border border-border/70 bg-muted/10 p-4 shadow-sm">
+          <div className="rounded-xl border border-border/70 bg-muted/10 p-3 shadow-sm">
             <label
               htmlFor="student-import-department"
               className="mb-2 block text-sm font-semibold text-foreground"
@@ -418,7 +418,7 @@ export const StudentImportModal: React.FC<StudentImportModalProps> = ({
             </p>
           </div>
           {/* Format Specification Banner */}
-          <div className="rounded-xl border border-border/70 bg-muted/10 p-4 text-xs space-y-3">
+          <div className="rounded-xl border border-border/70 bg-muted/10 p-3 text-xs space-y-2">
             <div className="flex flex-wrap items-center justify-between gap-2">
               <span className="font-semibold text-foreground flex items-center gap-1.5">
                 <HelpCircle className="h-4 w-4 text-primary" />
@@ -465,8 +465,8 @@ export const StudentImportModal: React.FC<StudentImportModalProps> = ({
               </div>
               <div>
                 <span className="font-medium text-foreground">Optional:</span>{" "}
-                University Reg No, Semester, Parent Name, Student Mobile,
-                Student Email, Date of Birth (YYYY-MM-DD), Gender, Address.
+                Semester, Parent Name, Student Mobile, Student Email, Date of
+                Birth (YYYY-MM-DD), Gender, Address.
               </div>
             </div>
           </div>
@@ -480,7 +480,7 @@ export const StudentImportModal: React.FC<StudentImportModalProps> = ({
             onDragLeave={() => setDragOver(false)}
             onDrop={handleDrop}
             onClick={() => fileInputRef.current?.click()}
-            className={`border-2 border-dashed rounded-xl px-6 py-8 text-center cursor-pointer transition-all ${
+            className={`border-2 border-dashed rounded-xl px-4 py-5 text-center cursor-pointer transition-all ${
               dragOver
                 ? "border-primary bg-primary/5"
                 : "border-border hover:border-primary/50 hover:bg-muted/30"
@@ -494,7 +494,7 @@ export const StudentImportModal: React.FC<StudentImportModalProps> = ({
               className="hidden"
             />
             <div className="flex flex-col items-center justify-center gap-2">
-              <div className="h-12 w-12 rounded-xl bg-primary/10 flex items-center justify-center text-primary shadow-sm">
+              <div className="h-10 w-10 rounded-xl bg-primary/10 flex items-center justify-center text-primary shadow-sm">
                 {isParsing ? (
                   <Loader2 className="h-5 w-5 animate-spin" />
                 ) : (
@@ -525,7 +525,7 @@ export const StudentImportModal: React.FC<StudentImportModalProps> = ({
           )}
 
           {/* Account Creation & Password Configuration Settings */}
-          <div className="rounded-xl border border-border/70 bg-muted/10 p-4 sm:p-5 space-y-4">
+          <div className="rounded-xl border border-border/70 bg-muted/10 p-3 sm:p-4 space-y-3">
             <div className="flex items-center justify-between">
               <label className="flex items-center gap-2 text-xs font-semibold text-foreground cursor-pointer">
                 <input
@@ -689,9 +689,6 @@ export const StudentImportModal: React.FC<StudentImportModalProps> = ({
                       </th>
                       <th className="py-2 px-2.5 font-semibold text-foreground min-w-[120px]">
                         Student Mobile
-                      </th>
-                      <th className="py-2 px-2.5 font-semibold text-foreground min-w-[100px]">
-                        University Reg No
                       </th>
                       <th className="py-2 px-2.5 font-semibold text-foreground min-w-[150px]">
                         Email
@@ -872,22 +869,6 @@ export const StudentImportModal: React.FC<StudentImportModalProps> = ({
                                   ? "Must be exactly 10 digits if provided"
                                   : ""
                               }
-                            />
-                          </td>
-
-                          {/* Reg Number */}
-                          <td className="py-1.5 px-2">
-                            <Input
-                              value={row.reg_number}
-                              onChange={(e) =>
-                                handleCellChange(
-                                  originalIndex,
-                                  "reg_number",
-                                  e.target.value,
-                                )
-                              }
-                              placeholder="REG-No"
-                              className="h-7 text-xs font-mono px-2"
                             />
                           </td>
 

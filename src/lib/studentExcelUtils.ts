@@ -369,7 +369,6 @@ export function downloadStudentExcelTemplate(semester: number = 1) {
   const headers = [
     "Enrollment Number / Roll No*",
     "PRN Number*",
-    "University Reg No",
     "Student Full Name*",
     "Semester",
     "Parent / Guardian Name",
@@ -385,7 +384,6 @@ export function downloadStudentExcelTemplate(semester: number = 1) {
     [
       "21CS101",
       "PRN-CSE-001",
-      "REG-2021-101",
       "Aarav Sharma",
       semester,
       "Rajesh Sharma",
@@ -399,7 +397,6 @@ export function downloadStudentExcelTemplate(semester: number = 1) {
     [
       "21CS102",
       "PRN-CSE-002",
-      "REG-2021-102",
       "Diya Patel",
       semester,
       "Mukesh Patel",
@@ -413,7 +410,6 @@ export function downloadStudentExcelTemplate(semester: number = 1) {
     [
       "21CS103",
       "PRN-CSE-003",
-      "REG-2021-103",
       "Rohan Verma",
       semester,
       "Suresh Verma",
@@ -432,7 +428,6 @@ export function downloadStudentExcelTemplate(semester: number = 1) {
   ws["!cols"] = [
     { wch: 28 }, // Enrollment
     { wch: 20 }, // PRN
-    { wch: 20 }, // Reg No
     { wch: 24 }, // Name
     { wch: 10 }, // Semester
     { wch: 24 }, // Parent Name
@@ -456,7 +451,6 @@ export function downloadStudentCsvTemplate(semester: number = 1) {
   const headers = [
     "enrollment_number",
     "prn_number",
-    "reg_number",
     "full_name",
     "semester",
     "parent_name",
@@ -472,7 +466,6 @@ export function downloadStudentCsvTemplate(semester: number = 1) {
     [
       "21CS101",
       "PRN-CSE-001",
-      "REG-2021-101",
       "Aarav Sharma",
       semester,
       "Rajesh Sharma",
@@ -486,7 +479,6 @@ export function downloadStudentCsvTemplate(semester: number = 1) {
     [
       "21CS102",
       "PRN-CSE-002",
-      "REG-2021-102",
       "Diya Patel",
       semester,
       "Mukesh Patel",
