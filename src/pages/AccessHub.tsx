@@ -41,17 +41,10 @@ interface PortalCard {
   iconColor: string;
   buttonLabel: string;
   role: UserRoleType;
-  demoEnabled?: boolean;
-  demoHint?: string;
 }
 
 export const AccessHub: React.FC = () => {
-  const {
-    loginAsDemo,
-    loginAsRandomDemo,
-    registerAdmin,
-    loginWithCredentials,
-  } = useAuth();
+  const { loginAsRandomDemo, registerAdmin, loginWithCredentials } = useAuth();
   const navigate = useNavigate();
   const { theme, toggleTheme } = useTheme();
 
@@ -85,8 +78,6 @@ export const AccessHub: React.FC = () => {
       iconColor: "text-primary",
       buttonLabel: "Admin Dashboard",
       role: "admin",
-      demoEnabled: true,
-      demoHint: "1-Click Instant Demo",
     },
     {
       title: "HOD Portal",
@@ -99,8 +90,6 @@ export const AccessHub: React.FC = () => {
       iconColor: "text-teal-600 dark:text-teal-400",
       buttonLabel: "HOD Dashboard",
       role: "hod",
-      demoEnabled: true,
-      demoHint: "1-Click Instant Demo",
     },
     {
       title: "Teacher Portal",
@@ -113,8 +102,6 @@ export const AccessHub: React.FC = () => {
       iconColor: "text-emerald-600 dark:text-emerald-400",
       buttonLabel: "Teacher Portal",
       role: "teacher",
-      demoEnabled: true,
-      demoHint: "1-Click Instant Demo",
     },
     {
       title: "Class Teacher Portal",
@@ -127,8 +114,6 @@ export const AccessHub: React.FC = () => {
       iconColor: "text-teal-600 dark:text-teal-400",
       buttonLabel: "Coordinator Portal",
       role: "class_coordinator",
-      demoEnabled: true,
-      demoHint: "1-Click Instant Demo",
     },
     {
       title: "Student Portal",
@@ -141,8 +126,6 @@ export const AccessHub: React.FC = () => {
       iconColor: "text-emerald-600 dark:text-emerald-400",
       buttonLabel: "Student Portal",
       role: "student",
-      demoEnabled: true,
-      demoHint: "Enrollment: 123",
     },
   ];
 
@@ -162,13 +145,6 @@ export const AccessHub: React.FC = () => {
     if (card.role === "admin" && !email) {
       setEmail(defaultAdminEmail);
     }
-  };
-
-  const handleDemoLogin = async (role: UserRoleType) => {
-    setLoading(true);
-    await loginAsDemo(role);
-    setLoading(false);
-    navigate("/dashboard", { replace: true });
   };
 
   const handleRandomDemoLogin = async () => {
@@ -302,8 +278,7 @@ export const AccessHub: React.FC = () => {
 
           <p className="text-sm sm:text-base text-foreground/80 dark:text-muted-foreground leading-relaxed max-w-3xl mx-auto">
             Welcome to the centralized attendance and academic administration
-            network. Select your assigned institutional role below to sign in or
-            explore with an instant preview.
+            network. Select your assigned institutional role below to sign in.
           </p>
 
           {/* Interactive Category Filter Pills */}
@@ -435,22 +410,6 @@ export const AccessHub: React.FC = () => {
                     <span>Sign In</span>
                     <ArrowRight className="h-3.5 w-3.5 ml-1 group-hover/btn:translate-x-0.5 transition-transform" />
                   </Button>
-
-                  {card.demoEnabled && (
-                    <Button
-                      variant="secondary"
-                      size="sm"
-                      className="text-xs font-bold border border-border/80 bg-secondary/80 text-foreground hover:bg-primary/10 hover:text-primary transition-colors shrink-0"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleDemoLogin(card.role);
-                      }}
-                      title="Direct 1-Click test login"
-                    >
-                      <Zap className="h-3.5 w-3.5 mr-1 text-primary" />
-                      1-Click Demo
-                    </Button>
-                  )}
                 </div>
               </div>
             );
@@ -757,24 +716,6 @@ export const AccessHub: React.FC = () => {
                   : "Continue to Portal"}
               </Button>
             </form>
-
-            {portalCards.find((c) => c.role === selectedRole)?.demoEnabled && (
-              <div className="mt-5 rounded-xl border border-dashed border-border bg-muted/40 p-3.5 text-center">
-                <p className="text-xs text-muted-foreground mb-2.5">
-                  Want to explore features without entering credentials?
-                </p>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="w-full font-semibold hover:bg-primary/10 hover:text-primary hover:border-primary/30 transition-colors"
-                  onClick={() => handleDemoLogin(selectedRole)}
-                  disabled={loading}
-                >
-                  <Zap className="h-3.5 w-3.5 mr-1.5 text-primary" />
-                  Launch Instant Demo Access
-                </Button>
-              </div>
-            )}
           </div>
         </div>
       )}
