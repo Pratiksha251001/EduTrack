@@ -5,12 +5,16 @@ import { localDb } from "../lib/supabase";
 import { college } from "../lib/college";
 import { useAuth } from "../context/AuthContext";
 import { Badge } from "../components/ui/badge";
+import { Button } from "../components/ui/button";
+import { BookOpen, Sparkles } from "lucide-react";
+import { SyllabusImportModal } from "../components/SyllabusImportModal";
 
 export const Subjects: React.FC = () => {
   const { user, role } = useAuth();
   const [departments, setDepartments] = useState(localDb.departments);
   const [teachers, setTeachers] = useState(localDb.teachers);
   const [teacherSubjects, setTeacherSubjects] = useState(localDb.teacher_subjects);
+  const [syllabusModalOpen, setSyllabusModalOpen] = useState(false);
 
   useEffect(() => {
     const handleUpdate = () => {
@@ -39,15 +43,27 @@ export const Subjects: React.FC = () => {
       : teachers;
 
   return (
-    <CrudPage<Subject>
-      title="Subjects"
-      description={
-        role === "class_coordinator"
-          ? "Create subjects and assign teaching faculty (imported by HOD) for your class curriculum and lecture attendance."
-          : "Curriculum courses mapped to academic departments, semester cohorts, and assigned teachers."
-      }
-      table="subjects"
-      searchKeys={["code", "name"]}
+    <>
+      <CrudPage<Subject>
+        title="Subjects & Curriculum"
+        description={
+          role === "class_coordinator"
+            ? "Manage subjects and assign teaching faculty for your class curriculum and lecture attendance."
+            : "Curriculum courses mapped to academic departments, engineering years (FE, SE, TE, BE), semester cohorts, and assigned teachers."
+        }
+        table="subjects"
+        searchKeys={["code", "name"]}
+        extraHeaderActions={
+          <Button
+            size="sm"
+            variant="outline"
+            className="border-primary/40 bg-primary/5 hover:bg-primary/10 text-primary font-semibold shadow-xs"
+            onClick={() => setSyllabusModalOpen(true)}
+          >
+            <Sparkles className="mr-1.5 h-4 w-4 text-amber-500" />
+            Import Syllabus (PDF / Scheme)
+          </Button>
+        }
       fields={[
         { key: "code", label: "Subject Code (e.g. CS501)", required: true },
         { key: "name", label: "Subject Name", required: true },
@@ -128,31 +144,53 @@ export const Subjects: React.FC = () => {
             const directTeacher = teachers.find(
               (t) => t.id === (s as any).teacher_id,
             );
-            const mappedTeachers = assignments
-              .map((a) => teachers.find((t) => t.id === a.teacher_id))
-              .filter(Boolean);
 
-            if (mappedTeachers.length > 0) {
+            // Group assignments by unique teacher ID and collect class names
+            const teacherMap = new Map<
+              string,
+              { teacher: (typeof teachers)[0]; classes: string[] }
+            >();
+
+            for (const a of assignments) {
+              const t = teachers.find((teach) => teach.id === a.teacher_id);
+              if (t) {
+                const existing = teacherMap.get(t.id);
+                if (existing) {
+                  if (a.class_name && !existing.classes.includes(a.class_name)) {
+                    existing.classes.push(a.class_name);
+                  }
+                } else {
+                  teacherMap.set(t.id, {
+                    teacher: t,
+                    classes: a.class_name ? [a.class_name] : [],
+                  });
+                }
+              }
+            }
+
+            if (directTeacher && !teacherMap.has(directTeacher.id)) {
+              teacherMap.set(directTeacher.id, {
+                teacher: directTeacher,
+                classes: [],
+              });
+            }
+
+            const teacherEntries = Array.from(teacherMap.values());
+
+            if (teacherEntries.length > 0) {
               return (
                 <div className="flex flex-wrap gap-1">
-                  {mappedTeachers.map((t: any) => (
+                  {teacherEntries.map(({ teacher: t, classes }) => (
                     <Badge
                       key={t.id}
                       variant="secondary"
                       className="text-[11px] font-medium"
                     >
                       {t.full_name} ({t.employee_id})
+                      {classes.length > 0 ? ` [${classes.join(", ")}]` : ""}
                     </Badge>
                   ))}
                 </div>
-              );
-            }
-
-            if (directTeacher) {
-              return (
-                <Badge variant="secondary" className="text-[11px] font-medium">
-                  {directTeacher.full_name} ({directTeacher.employee_id})
-                </Badge>
               );
             }
 
@@ -165,5 +203,11 @@ export const Subjects: React.FC = () => {
         },
       ]}
     />
-  );
+    <SyllabusImportModal
+      open={syllabusModalOpen}
+      onOpenChange={setSyllabusModalOpen}
+      defaultDepartmentId={coordinatorDeptId}
+    />
+  </>
+);
 };

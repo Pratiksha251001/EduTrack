@@ -34,8 +34,8 @@ export const Select = React.forwardRef<HTMLSelectElement, SelectProps>(
           onChange={onChange}
         >
           {options
-            ? options.map((opt) => (
-                <option key={opt.value} value={opt.value}>
+            ? options.map((opt, idx) => (
+                <option key={`${opt.value}-${idx}`} value={opt.value}>
                   {opt.label}
                 </option>
               ))
