@@ -19,6 +19,7 @@ import {
   Sparkles,
   Layers,
   Filter,
+  FileText,
 } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import { localDb } from "../lib/supabase";
@@ -777,6 +778,16 @@ export const HODDashboard: React.FC = () => {
             </p>
           </div>
           <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
+            <Link to="/reports">
+              <Button
+                variant="outline"
+                size="sm"
+                className="w-full sm:w-auto gap-1.5 shadow-xs"
+              >
+                <FileText className="h-4 w-4 text-primary" />
+                Department Reports
+              </Button>
+            </Link>
             <Link to="/attendance">
               <Button
                 size="sm"

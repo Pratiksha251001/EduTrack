@@ -68,44 +68,107 @@ export function cleanSmsMessage(msg: string): string {
 }
 
 /**
+ * Extract or generate standard short abbreviation/code for a subject
+ * e.g., "Database Management Systems" -> "DMS", "Computer Networks" -> "CN"
+ */
+export function getSubjectShortName(subjectNameOrCode?: string): string {
+  if (!subjectNameOrCode) return "Lecture";
+  const trimmed = subjectNameOrCode.trim();
+
+  // If already an acronym or short code (<= 5 chars, no spaces)
+  if (trimmed.length <= 5 && !trimmed.includes(" ")) {
+    return trimmed.toUpperCase();
+  }
+
+  const commonMap: Record<string, string> = {
+    "database management systems": "DMS",
+    "database management system": "DMS",
+    "dbms": "DMS",
+    "computer networks": "CN",
+    "computer network": "CN",
+    "data structures & algorithms": "DSA",
+    "data structures and algorithms": "DSA",
+    "data structures": "DS",
+    "design and analysis of algorithms": "DAA",
+    "digital electronics & logic design": "DELD",
+    "digital electronics": "DE",
+    "software engineering": "SE",
+    "operating systems": "OS",
+    "operating system": "OS",
+    "web technology": "WT",
+    "web development": "WD",
+    "cloud computing": "CC",
+    "artificial intelligence": "AI",
+    "machine learning": "ML",
+    "internet of things": "IoT",
+    "information security": "IS",
+    "cyber security": "CS",
+    "engineering mathematics i": "M-I",
+    "engineering mathematics ii": "M-II",
+    "engineering mathematics iii": "M-III",
+    "engineering mathematics": "EM",
+    "programming for problem solving in c": "PPS",
+  };
+
+  const lower = trimmed.toLowerCase();
+  if (commonMap[lower]) {
+    return commonMap[lower];
+  }
+
+  // Generate abbreviation from first letters of significant words
+  const stopWords = new Set(["and", "&", "for", "in", "of", "the", "to", "with", "a", "an"]);
+  const words = trimmed
+    .replace(/[()]/g, "")
+    .split(/[\s\-_/]+/)
+    .filter((w) => w.length > 0 && !stopWords.has(w.toLowerCase()));
+
+  if (words.length > 1) {
+    const acronym = words.map((w) => w[0].toUpperCase()).join("");
+    if (acronym.length >= 2 && acronym.length <= 6) {
+      return acronym;
+    }
+  }
+
+  return words[0] || trimmed;
+}
+
+/**
  * Single language generator functions
  */
 export function getEnglishAbsenceMessage(
   studentName: string,
-  date: string,
+  _date: string,
   subjectName: string,
 ): string {
-  return `Dear Parent,\nYour child, ${studentName}, was marked ABSENT today (${date}) for the lecture "${subjectName}".\n\nPlease ensure regular attendance. Kindly contact the class coordinator for queries.\n\nRegards,\nAttendance System`;
+  const shortSub = getSubjectShortName(subjectName);
+  return `Dear Parent, ${studentName} is absent for ${shortSub} today. - EduTrack`;
 }
 
 export function getMarathiAbsenceMessage(
   studentName: string,
-  date: string,
+  _date: string,
   subjectName: string,
 ): string {
-  return `आदरणीय पालक,\nआपला पाल्य ${studentName} आज दिनांक ${date} रोजी "${subjectName}" या विषयाच्या तासाला गैरहजर (अनुपस्थित) होता/होती.\n\nकृपया आपल्या पाल्याच्या नियमित उपस्थितीची खात्री करावी. अधिक माहितीसाठी वर्ग समन्वयकांशी संपर्क साधावा.\n\nसस्नेह,\nउपस्थिती प्रणाली`;
+  const shortSub = getSubjectShortName(subjectName);
+  return `${studentName} आज ${shortSub} साठी गैरहजर आहे. - EduTrack`;
 }
 
 export function getHindiAbsenceMessage(
   studentName: string,
-  date: string,
+  _date: string,
   subjectName: string,
 ): string {
-  return `आदरणीय अभिभावक,\nआपका बच्चा ${studentName} आज दिनांक ${date} को "${subjectName}" विषय की कक्षा में अनुपस्थित (ABSENT) था/थी।\n\nकृपया नियमित उपस्थिति सुनिश्चित करें। किसी भी जानकारी के लिए वर्ग समन्वयक से संपर्क करें।\n\nसादर,\nउपस्थिति प्रणाली`;
+  const shortSub = getSubjectShortName(subjectName);
+  return `${studentName} आज ${shortSub} के लिए अनुपस्थित है। - EduTrack`;
 }
 
 export function getTrilingualAbsenceMessage(
   studentName: string,
-  date: string,
+  _date: string,
   subjectName: string,
 ): string {
-  return `Dear Parent, your child ${studentName} was marked ABSENT today (${date}) for the lecture "${subjectName}". Please ensure regular attendance.
-
-आदरणीय पालक, आपला पाल्य ${studentName} आज दिनांक ${date} रोजी "${subjectName}" या विषयाच्या तासाला गैरहजर (अनुपस्थित) होता/होती. कृपया नियमित उपस्थितीची खात्री करावी.
-
-आदरणीय अभिभावक, आपका बच्चा ${studentName} आज दिनांक ${date} को "${subjectName}" विषय की कक्षा में अनुपस्थित था/थी। कृपया नियमित उपस्थिति सुनिश्चित करें।
-
-- Attendance System`;
+  const shortSub = getSubjectShortName(subjectName);
+  return `Dear Parent, ${studentName} is absent for ${shortSub} today. ${studentName} आज ${shortSub} साठी गैरहजर आहे. - EduTrack`;
 }
 
 export function getBilingualMrMessage(
@@ -125,13 +188,13 @@ export function getBilingualHiMessage(
 }
 
 /**
- * Master generator function for attendance SMS alerts - always includes English, Marathi, and Hindi
+ * Master generator function for attendance SMS alerts - formatted in English & Marathi with common student name
  */
 export function generateSmsMessage(
   studentName: string,
   date: string,
   subjectName: string,
-  _lang: SmsLanguage = "trilingual",
+  _lang: SmsLanguage = "bilingual_mr",
 ): string {
   return getTrilingualAbsenceMessage(studentName, date, subjectName);
 }
@@ -152,3 +215,37 @@ export function getParentWhatsAppUrl(phone: string, message: string): string {
   const cleanPhone = formatParentPhoneForWhatsApp(phone);
   return `https://wa.me/${cleanPhone}?text=${encodeURIComponent(message)}`;
 }
+
+export interface MonthlyLowAttendanceMsgParams {
+  studentName: string;
+  rollNumber: string;
+  monthName: string;
+  percentage: number;
+  totalSessions: number;
+  attendedSessions: number;
+  minAttendance?: number;
+  lang?: SmsLanguage;
+}
+
+/**
+ * Generate monthly low attendance alert message for parents (< 75% attendance)
+ * Compact format: English and Marathi with common student name and - EduTrack signoff
+ */
+export function getMonthlyLowAttendanceMessage({
+  studentName,
+  rollNumber: _rollNumber,
+  monthName,
+  percentage,
+  totalSessions: _totalSessions,
+  attendedSessions: _attendedSessions,
+  minAttendance = college.minAttendance || 75,
+  lang = "bilingual_mr",
+}: MonthlyLowAttendanceMsgParams): string {
+  const enMsg = `Dear Parent, ${studentName} has ${percentage}% attendance in ${monthName} (below ${minAttendance}%).`;
+  const mrMsg = `${studentName} ची ${monthName} मध्ये उपस्थिती ${percentage}% आहे (${minAttendance}% पेक्षा कमी). - EduTrack`;
+
+  if (lang === "en") return `${enMsg} - EduTrack`;
+  if (lang === "mr") return mrMsg;
+  return `${enMsg} ${mrMsg}`;
+}
+

@@ -12,16 +12,23 @@ import {
   AlertCircle,
   Users,
   ShieldAlert,
+  Bell,
 } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from './ui/dialog';
 import { Button } from './ui/button';
 import { Badge } from './ui/badge';
 import { Select } from './ui/select';
 import { DatePicker } from './ui/date-picker';
+import { MonthlyLowAttendanceAlertModal } from './MonthlyLowAttendanceAlertModal';
 import { useAuth } from '../context/AuthContext';
 import { localDb } from '../lib/supabase';
 import { college } from '../lib/college';
-import { exportAttendancePdf } from '../lib/pdfExport';
+import {
+  exportAttendancePdf,
+  exportAttendanceExcel,
+  exportAttendanceCsv,
+  AttendanceReportRow,
+} from '../lib/reportExportUtils';
 import {
   ENGINEERING_YEARS,
   getEngineeringYearFromSemester,
@@ -55,6 +62,7 @@ export const ReportDownloadModal: React.FC<ReportDownloadModalProps> = ({
 
   const [startDate, setStartDate] = useState(thirtyDaysAgo);
   const [endDate, setEndDate] = useState(todayStr);
+  const [onlyDefaulters, setOnlyDefaulters] = useState(false);
 
   // 1. Resolve Linked Teacher or Coordinator record
   const linkedTeacher = useMemo(() => {
@@ -62,7 +70,8 @@ export const ReportDownloadModal: React.FC<ReportDownloadModalProps> = ({
       (t) =>
         t.id === user?.teacher_id ||
         (user?.email && t.email?.toLowerCase() === user.email.toLowerCase()) ||
-        (user?.employee_id && t.employee_id === user.employee_id)
+        (user?.employee_id && t.employee_id === user.employee_id) ||
+        t.user_id === user?.id
     );
   }, [user]);
 
@@ -101,45 +110,28 @@ export const ReportDownloadModal: React.FC<ReportDownloadModalProps> = ({
   }, [role, linkedTeacher, user, allSubjects]);
 
   const teacherAssignedYears = useMemo(() => {
-    if (role !== 'teacher') return [1, 2, 3, 4];
+    if (role !== 'teacher') return [];
     const years = new Set<number>();
     allSubjects.forEach((s) => {
       if (teacherAssignedSubjectIds.has(s.id)) {
-        const y = s.year || getEngineeringYearFromSemester(s.semester);
-        years.add(y);
+        years.add(s.year || getEngineeringYearFromSemester(s.semester));
       }
     });
-    return years.size > 0 ? Array.from(years).sort() : [1, 2, 3, 4];
+    return Array.from(years).sort();
   }, [role, allSubjects, teacherAssignedSubjectIds]);
 
-  // Student details if student role
+  // Student linked data
   const linkedStudent = useMemo(() => {
     if (role !== 'student') return null;
     return allStudents.find(
       (st) =>
         st.id === user?.student_id ||
         (user?.email && st.email?.toLowerCase() === user.email.toLowerCase()) ||
-        st.roll_number === user?.roll_number
+        (user?.roll_number && st.roll_number === user.roll_number)
     );
   }, [role, user, allStudents]);
 
-  // 2. Department Scoping
-  const availableDepartments = useMemo(() => {
-    if (role === 'admin') return allDepartments;
-    const deptId = user?.department_id || linkedTeacher?.department_id || linkedStudent?.department_id;
-    if (deptId) {
-      return allDepartments.filter((d) => d.id === deptId);
-    }
-    return allDepartments;
-  }, [role, allDepartments, user, linkedTeacher, linkedStudent]);
-
-  const defaultDeptId =
-    role === 'admin'
-      ? initialDeptId || '__all'
-      : availableDepartments[0]?.id || user?.department_id || '__all';
-  const [selectedDept, setSelectedDept] = useState<string>(defaultDeptId);
-
-  // 3. Engineering Year Scoping (1st FE to 4th BE)
+  // Available Years based on role permissions
   const availableYears = useMemo(() => {
     if (role === 'admin' || role === 'hod') {
       return ENGINEERING_YEARS;
@@ -147,167 +139,153 @@ export const ReportDownloadModal: React.FC<ReportDownloadModalProps> = ({
     if (role === 'class_coordinator' && ccAssignedYear) {
       return ENGINEERING_YEARS.filter((y) => y.year === ccAssignedYear);
     }
-    if (role === 'teacher') {
+    if (role === 'teacher' && teacherAssignedYears.length > 0) {
       return ENGINEERING_YEARS.filter((y) => teacherAssignedYears.includes(y.year));
     }
     if (role === 'student' && linkedStudent) {
-      const stuYear = linkedStudent.year || getEngineeringYearFromSemester(linkedStudent.semester);
-      return ENGINEERING_YEARS.filter((y) => y.year === stuYear);
+      const sYear = linkedStudent.year || getEngineeringYearFromSemester(linkedStudent.semester);
+      return ENGINEERING_YEARS.filter((y) => y.year === sYear);
     }
     return ENGINEERING_YEARS;
   }, [role, ccAssignedYear, teacherAssignedYears, linkedStudent]);
 
+  // Default selection state
   const defaultYear = useMemo(() => {
-    if (role === 'class_coordinator' && ccAssignedYear) return String(ccAssignedYear);
-    if (role === 'student' && linkedStudent) {
-      return String(linkedStudent.year || getEngineeringYearFromSemester(linkedStudent.semester));
-    }
     if (initialYear && availableYears.some((y) => y.year === initialYear)) {
       return String(initialYear);
     }
-    return availableYears[0]?.year ? String(availableYears[0].year) : '4';
-  }, [role, ccAssignedYear, linkedStudent, initialYear, availableYears]);
-
-  const [selectedYear, setSelectedYear] = useState<string>(defaultYear);
-
-  // Sync year if available years change
-  useEffect(() => {
-    if (!availableYears.some((y) => String(y.year) === selectedYear)) {
-      if (availableYears[0]) {
-        setSelectedYear(String(availableYears[0].year));
-      }
+    if (role === 'class_coordinator' && ccAssignedYear) {
+      return String(ccAssignedYear);
     }
-  }, [availableYears, selectedYear]);
-
-  // 4. Semester Scoping (Filtered by selected Year)
-  const availableSemesters = useMemo(() => {
-    const yrNum = Number(selectedYear);
-    const yrInfo = ENGINEERING_YEARS.find((y) => y.year === yrNum);
-    if (!yrInfo) return [1, 2, 3, 4, 5, 6, 7, 8];
-    if (role === 'class_coordinator' && ccAssignedSemester) {
-      return yrInfo.semesters.includes(ccAssignedSemester) ? [ccAssignedSemester] : yrInfo.semesters;
+    if (role === 'teacher' && teacherAssignedYears.length > 0) {
+      return String(teacherAssignedYears[0]);
     }
     if (role === 'student' && linkedStudent) {
-      return [linkedStudent.semester];
+      return String(linkedStudent.year || getEngineeringYearFromSemester(linkedStudent.semester));
     }
-    return yrInfo.semesters;
-  }, [selectedYear, role, ccAssignedSemester, linkedStudent]);
+    return String(availableYears[0]?.year || 2);
+  }, [initialYear, availableYears, role, ccAssignedYear, teacherAssignedYears, linkedStudent]);
 
+  const defaultDept = useMemo(() => {
+    if (role === 'admin') return initialDeptId || '__all';
+    return user?.department_id || linkedTeacher?.department_id || 'dept-1';
+  }, [role, initialDeptId, user, linkedTeacher]);
+
+  const [selectedYear, setSelectedYear] = useState<string>(defaultYear);
+  const [selectedDept, setSelectedDept] = useState<string>(defaultDept);
   const [selectedSemester, setSelectedSemester] = useState<string>('__all');
-
-  // 5. Classes / Divisions Scoping for the chosen year and dept
-  const availableClasses = useMemo(() => {
-    const yrNum = Number(selectedYear);
-    const yrInfo = ENGINEERING_YEARS.find((y) => y.year === yrNum);
-    const validSems = yrInfo ? yrInfo.semesters : [1, 2, 3, 4, 5, 6, 7, 8];
-
-    // From academic_classes table
-    const matched = allAcademicClasses.filter((c) => {
-      if (selectedDept !== '__all' && c.department_id !== selectedDept) return false;
-      if (c.year && c.year !== yrNum) return false;
-      if (!c.year && !validSems.includes(c.semester)) return false;
-      return true;
-    });
-
-    // Also extract any distinct class_name from students in that year
-    const studentClasses = new Set<string>();
-    allStudents.forEach((st) => {
-      const stYear = st.year || getEngineeringYearFromSemester(st.semester);
-      if (stYear === yrNum && st.class_name) {
-        if (selectedDept === '__all' || st.department_id === selectedDept) {
-          studentClasses.add(st.class_name);
-        }
-      }
-    });
-
-    // Merge names
-    const classNames = new Set(matched.map((c) => c.name));
-    studentClasses.forEach((cn) => classNames.add(cn));
-
-    const list = Array.from(classNames).sort();
-    return list;
-  }, [allAcademicClasses, allStudents, selectedDept, selectedYear]);
-
   const [selectedClass, setSelectedClass] = useState<string>('__all');
+  const [selectedSubject, setSelectedSubject] = useState<string>('__all');
+  const [alertModalOpen, setAlertModalOpen] = useState<boolean>(false);
 
-  // 6. Subject Scoping for the selected year & role
+  // Reset or adjust selection when opening or role defaults change
+  useEffect(() => {
+    if (open) {
+      setSelectedYear(defaultYear);
+      setSelectedDept(defaultDept);
+      setSelectedSemester('__all');
+      setSelectedClass('__all');
+      setSelectedSubject('__all');
+      setOnlyDefaulters(false);
+    }
+  }, [open, defaultYear, defaultDept]);
+
+  // Available Semesters for selected year
+  const availableSemesters = useMemo(() => {
+    const yr = Number(selectedYear);
+    return getSemesterOptionsForEngineeringYear(yr);
+  }, [selectedYear]);
+
+  // Available Departments
+  const availableDepartments = useMemo(() => {
+    if (role === 'admin') return allDepartments;
+    const boundDept = user?.department_id || linkedTeacher?.department_id;
+    if (boundDept) {
+      return allDepartments.filter((d) => d.id === boundDept);
+    }
+    return allDepartments;
+  }, [allDepartments, role, user, linkedTeacher]);
+
+  // Available Classes for selected Year & Dept
+  const availableClasses = useMemo(() => {
+    const yr = Number(selectedYear);
+    const yrCode = getEngineeringYearCode(yr);
+
+    const classesFromDb = allAcademicClasses
+      .filter((c) => {
+        const cYear = c.year || getEngineeringYearFromSemester(c.semester);
+        const matchesYear = cYear === yr;
+        const matchesDept = selectedDept === '__all' || c.department_id === selectedDept;
+        return matchesYear && matchesDept;
+      })
+      .map((c) => c.name);
+
+    const classesFromStudents = allStudents
+      .filter((s) => {
+        const sYear = s.year || getEngineeringYearFromSemester(s.semester);
+        const matchesYear = sYear === yr;
+        const matchesDept = selectedDept === '__all' || s.department_id === selectedDept;
+        return matchesYear && matchesDept && s.class_name;
+      })
+      .map((s) => s.class_name as string);
+
+    const set = new Set([...classesFromDb, ...classesFromStudents]);
+
+    // Provide standard batch/division options if empty
+    if (set.size === 0) {
+      set.add(`${yrCode} Division A`);
+      set.add(`${yrCode} Division B`);
+    }
+
+    return Array.from(set).sort();
+  }, [selectedYear, selectedDept, allAcademicClasses, allStudents]);
+
+  // Available Subjects for selected Year, Semester, and Dept
   const availableSubjects = useMemo(() => {
-    const yrNum = Number(selectedYear);
-    const yrInfo = ENGINEERING_YEARS.find((y) => y.year === yrNum);
-    const validSems = yrInfo ? yrInfo.semesters : [1, 2, 3, 4, 5, 6, 7, 8];
-
+    const yr = Number(selectedYear);
     return allSubjects.filter((s) => {
-      // Dept check
-      if (selectedDept !== '__all' && s.department_id && s.department_id !== selectedDept) return false;
-      // Year / Semester check
       const sYear = s.year || getEngineeringYearFromSemester(s.semester);
-      if (sYear !== yrNum) return false;
-      if (selectedSemester !== '__all' && s.semester !== Number(selectedSemester)) return false;
+      if (sYear !== yr) return false;
+      if (selectedDept !== '__all' && s.department_id && s.department_id !== selectedDept) return false;
+      if (selectedSemester !== '__all' && String(s.semester) !== selectedSemester) return false;
 
       // Role restrictions
-      if (role === 'teacher') {
+      if (role === 'teacher' && teacherAssignedSubjectIds.size > 0) {
         return teacherAssignedSubjectIds.has(s.id);
       }
-      if (role === 'class_coordinator' && ccAssignedSemester) {
-        return s.semester === ccAssignedSemester;
-      }
-      if (role === 'student' && linkedStudent) {
-        return s.semester === linkedStudent.semester;
-      }
       return true;
     });
-  }, [
-    allSubjects,
-    selectedDept,
-    selectedYear,
-    selectedSemester,
-    role,
-    teacherAssignedSubjectIds,
-    ccAssignedSemester,
-    linkedStudent,
-  ]);
+  }, [selectedYear, selectedDept, selectedSemester, allSubjects, role, teacherAssignedSubjectIds]);
 
-  const [selectedSubject, setSelectedSubject] = useState<string>('__all');
-
-  // 7. Calculate Report Rows according to current selection and role rules
-  const reportRows = useMemo(() => {
-    const list: Array<{
-      roll: string;
-      reg: string;
-      name: string;
-      subject: string;
-      total: number;
-      present: number;
-      absent: number;
-      percentage: number;
-      className?: string;
-    }> = [];
-
-    const yrNum = Number(selectedYear);
+  // Computed Report Rows
+  const reportRows: AttendanceReportRow[] = useMemo(() => {
+    const list: AttendanceReportRow[] = [];
+    const yr = Number(selectedYear);
 
     // Filter students
-    const targetStudents = allStudents.filter((st) => {
-      if (role === 'student' && linkedStudent && st.id !== linkedStudent.id) return false;
+    let targetStudents = allStudents.filter((st) => {
+      const sYear = st.year || getEngineeringYearFromSemester(st.semester);
+      if (sYear !== yr) return false;
       if (selectedDept !== '__all' && st.department_id !== selectedDept) return false;
-
-      const stYear = st.year || getEngineeringYearFromSemester(st.semester);
-      if (stYear !== yrNum) return false;
-
-      if (selectedSemester !== '__all' && st.semester !== Number(selectedSemester)) return false;
-      if (selectedClass !== '__all' && st.class_name !== selectedClass) return false;
-
+      if (selectedSemester !== '__all' && String(st.semester) !== selectedSemester) return false;
+      if (selectedClass !== '__all') {
+        const matchesName = st.class_name === selectedClass;
+        const matchesId = (st as any).class_id === selectedClass;
+        if (!matchesName && !matchesId) return false;
+      }
+      if (role === 'student' && linkedStudent) {
+        return st.id === linkedStudent.id;
+      }
       return true;
     });
 
-    // Filter subjects
     const targetSubjects = availableSubjects.filter(
       (s) => selectedSubject === '__all' || s.id === selectedSubject
     );
 
     targetStudents.forEach((st) => {
       targetSubjects.forEach((sub) => {
-        if (st.semester !== sub.semester) return;
-        if (sub.department_id && sub.department_id !== st.department_id) return;
+        if (st.semester && sub.semester && st.semester !== sub.semester) return;
 
         const records = attendance.filter(
           (a) =>
@@ -323,17 +301,21 @@ export const ReportDownloadModal: React.FC<ReportDownloadModalProps> = ({
           const absent = total - present;
           const percentage = Math.round((present / total) * 100);
 
-          list.push({
-            roll: st.roll_number,
-            reg: st.reg_number || '—',
-            name: st.full_name,
-            subject: `${sub.code} · ${sub.name}`,
-            total,
-            present,
-            absent,
-            percentage,
-            className: st.class_name || undefined,
-          });
+          if (!onlyDefaulters || percentage < college.minAttendance) {
+            list.push({
+              roll: st.roll_number,
+              reg: st.reg_number || (st as any).prn_number || '—',
+              name: st.full_name,
+              className: st.class_name || selectedClass,
+              subject: `${sub.code} · ${sub.name}`,
+              total,
+              present,
+              absent,
+              percentage,
+              parentName: st.parent_name || undefined,
+              parentMobile: st.parent_mobile || undefined,
+            });
+          }
         }
       });
     });
@@ -352,6 +334,7 @@ export const ReportDownloadModal: React.FC<ReportDownloadModalProps> = ({
     selectedSubject,
     startDate,
     endDate,
+    onlyDefaulters,
   ]);
 
   const yearLabel = useMemo(() => {
@@ -392,33 +375,48 @@ export const ReportDownloadModal: React.FC<ReportDownloadModalProps> = ({
           ? 'All Assigned Subjects'
           : availableSubjects.find((s) => s.id === selectedSubject)?.name,
       roleLabel: roleBadgeLabel,
-      fileName: `Attendance_${yearLabel.replace(/[^a-zA-Z0-9]/g, '_')}_${startDate}_to_${endDate}.pdf`,
+      isDefaulterReport: onlyDefaulters,
+      reportTitle: onlyDefaulters
+        ? 'ACADEMIC DEFAULTER AUDIT REPORT (< 75% ATTENDANCE)'
+        : 'OFFICIAL ACADEMIC ATTENDANCE AUDIT SHEET',
+      fileName: `${onlyDefaulters ? 'Defaulters' : 'Attendance'}_${yearLabel.replace(/[^a-zA-Z0-9]/g, '_')}_${startDate}_to_${endDate}.pdf`,
+    });
+    onOpenChange(false);
+  };
+
+  const handleDownloadExcel = () => {
+    exportAttendanceExcel({
+      rows: reportRows,
+      periodLabel: `${startDate} to ${endDate}`,
+      scopeLabel: `${deptLabel} • ${yearLabel} • ${classLabel}`,
+      yearLabel,
+      classLabel,
+      departmentLabel: deptLabel,
+      subjectLabel:
+        selectedSubject === '__all'
+          ? 'All Assigned Subjects'
+          : availableSubjects.find((s) => s.id === selectedSubject)?.name,
+      roleLabel: roleBadgeLabel,
+      isDefaulterReport: onlyDefaulters,
+      fileName: `${onlyDefaulters ? 'Defaulters' : 'Attendance'}_${yearLabel.replace(/[^a-zA-Z0-9]/g, '_')}_${startDate}_to_${endDate}.xlsx`,
     });
     onOpenChange(false);
   };
 
   const handleExportCsv = () => {
-    const csvContent =
-      'Roll No,Reg No,Student Name,Class,Subject,Total Classes,Present,Absent,Percentage\n' +
-      reportRows
-        .map(
-          (r) =>
-            `"${r.roll}","${r.reg}","${r.name}","${r.className || classLabel}","${r.subject}",${r.total},${r.present},${r.absent},${r.percentage}%`
-        )
-        .join('\n');
-
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = `Attendance_${yearLabel.replace(/[^a-zA-Z0-9]/g, '_')}_${startDate}_to_${endDate}.csv`;
-    link.click();
-    URL.revokeObjectURL(url);
+    exportAttendanceCsv({
+      rows: reportRows,
+      isDefaulterReport: onlyDefaulters,
+      yearLabel,
+      startDate,
+      endDate,
+    });
     onOpenChange(false);
   };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <>
+      <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-2xl max-h-[92vh] flex flex-col p-0 overflow-hidden bg-background">
         <DialogHeader className="p-5 pb-3 border-b border-border bg-card/60">
           <div className="flex items-center gap-2.5">
@@ -427,13 +425,13 @@ export const ReportDownloadModal: React.FC<ReportDownloadModalProps> = ({
             </div>
             <div>
               <DialogTitle className="text-lg font-bold flex items-center gap-2">
-                Download Attendance Report
+                Download Official Attendance Report
                 <Badge variant="outline" className="text-xs bg-primary/10 text-primary border-primary/30">
                   {getEngineeringYearCode(Number(selectedYear))}
                 </Badge>
               </DialogTitle>
               <p className="text-xs text-muted-foreground mt-0.5">
-                Select Year (1st to 4th / FE to BE), Class division, and date interval to generate official reports.
+                Generate official university examination & audit reports in PDF, Excel, and CSV format.
               </p>
             </div>
           </div>
@@ -555,7 +553,7 @@ export const ReportDownloadModal: React.FC<ReportDownloadModalProps> = ({
               <label className="text-xs font-semibold text-muted-foreground flex items-center gap-1.5">
                 <Calendar className="h-3.5 w-3.5 text-primary" /> Attendance Date Interval
               </label>
-              <div className="flex items-center gap-1">
+              <div className="flex items-center gap-1 flex-wrap">
                 <button
                   type="button"
                   className="text-[11px] px-2 py-0.5 rounded border border-border hover:bg-muted text-muted-foreground"
@@ -586,6 +584,16 @@ export const ReportDownloadModal: React.FC<ReportDownloadModalProps> = ({
                 >
                   Last 30 Days
                 </button>
+                <button
+                  type="button"
+                  className="text-[11px] px-2 py-0.5 rounded border border-border hover:bg-muted text-primary font-semibold"
+                  onClick={() => {
+                    setStartDate(new Date(Date.now() - 180 * 86400000).toISOString().split('T')[0]);
+                    setEndDate(todayStr);
+                  }}
+                >
+                  All Semester
+                </button>
               </div>
             </div>
 
@@ -595,9 +603,33 @@ export const ReportDownloadModal: React.FC<ReportDownloadModalProps> = ({
             </div>
           </div>
 
+          {/* Defaulter Toggle Option */}
+          <div className="p-3 bg-muted/40 rounded-xl border border-border flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <ShieldAlert className={`h-4 w-4 ${onlyDefaulters ? 'text-rose-600' : 'text-muted-foreground'}`} />
+              <div>
+                <span className="text-xs font-semibold text-foreground">Defaulter Report Only (&lt; {college.minAttendance}%)</span>
+                <p className="text-[11px] text-muted-foreground">Filter export strictly to students failing university attendance threshold</p>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={() => setOnlyDefaulters(!onlyDefaulters)}
+              className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
+                onlyDefaulters ? 'bg-rose-600' : 'bg-muted-foreground/30'
+              }`}
+            >
+              <span
+                className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow-lg ring-0 transition duration-200 ease-in-out ${
+                  onlyDefaulters ? 'translate-x-4' : 'translate-x-0'
+                }`}
+              />
+            </button>
+          </div>
+
           {/* Records preview count */}
           <div className="p-3 bg-card rounded-xl border border-border flex items-center justify-between text-xs">
-            <span className="text-muted-foreground">Matching Records:</span>
+            <span className="text-muted-foreground">Matching Records for Export:</span>
             <span className="font-bold text-foreground">
               {reportRows.length} student attendance rows found
             </span>
@@ -605,31 +637,61 @@ export const ReportDownloadModal: React.FC<ReportDownloadModalProps> = ({
         </div>
 
         {/* Action Buttons */}
-        <div className="p-4 border-t border-border bg-card flex items-center justify-between">
+        <div className="p-4 border-t border-border bg-card flex flex-col sm:flex-row items-center justify-between gap-3">
           <Button variant="outline" size="sm" onClick={() => onOpenChange(false)}>
             Cancel
           </Button>
 
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto justify-end">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setAlertModalOpen(true)}
+              className="text-xs text-rose-600 border-rose-500/30 hover:bg-rose-500/10 font-medium"
+            >
+              <Bell className="mr-1.5 h-3.5 w-3.5" /> Alert Parents (Monthly)
+            </Button>
             <Button
               variant="outline"
               size="sm"
               onClick={handleExportCsv}
               disabled={reportRows.length === 0}
+              className="text-xs"
             >
-              <FileSpreadsheet className="mr-2 h-4 w-4" /> Export CSV / Excel
+              <FileSpreadsheet className="mr-1.5 h-3.5 w-3.5" /> CSV
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleDownloadExcel}
+              disabled={reportRows.length === 0}
+              className="text-xs font-medium"
+            >
+              <Download className="mr-1.5 h-3.5 w-3.5 text-emerald-600" /> Excel (.xlsx)
             </Button>
             <Button
               size="sm"
               onClick={handleDownloadPdf}
               disabled={reportRows.length === 0}
-              className="font-semibold shadow-sm"
+              className={`text-xs font-semibold shadow-xs ${
+                onlyDefaulters ? 'bg-rose-600 hover:bg-rose-700 text-white' : ''
+              }`}
             >
-              <FileText className="mr-2 h-4 w-4" /> Download Official PDF
+              <FileText className="mr-1.5 h-3.5 w-3.5" />
+              {onlyDefaulters ? 'Download Defaulters PDF' : 'Download Official PDF'}
             </Button>
           </div>
         </div>
       </DialogContent>
     </Dialog>
+
+    {/* Monthly Defaulter Alert Modal */}
+    <MonthlyLowAttendanceAlertModal
+      open={alertModalOpen}
+      onOpenChange={setAlertModalOpen}
+      filteredStudents={permittedStudents}
+      filteredSubjects={permittedSubjects}
+    />
+  </>
   );
 };

@@ -105,6 +105,40 @@ To import university syllabus schemes and subjects automatically:
 
 ---
 
+## 📊 Role-Based Reports & Official University Export
+
+EduTrack includes an audit-ready reporting engine supporting multi-tier roles:
+
+- **Role Scoping Matrix**:
+  - **Admin / Principal**: Full college authorization across all departments (CSE, IT, ECE, MECH, etc.) and all 4 engineering years (FE, SE, TE, BE).
+  - **HOD**: Department-wide oversight across all 4 engineering years and division sections.
+  - **Class Coordinator**: Locked to designated engineering year (e.g., SE) and class division (e.g., SE-A).
+  - **Subject Teacher**: Filtered strictly to assigned subject cohorts and divisions.
+  - **Student**: Personal attendance percentage ledger and subject breakdown.
+- **Export Formats**:
+  - **Official Audit PDF**: Built with `jspdf` and `jspdf-autotable`, including university letterhead, sign-off blocks (Subject Teacher, Class Coordinator, HOD, Principal), and color-coded status badges.
+  - **Excel (`.xlsx`)**: Full multi-column spreadsheet with summary stats and percentages ready for departmental archiving.
+  - **CSV**: Lightweight data interchange format.
+
+---
+
+## 🔔 Monthly Low Attendance Alert System (< 75%)
+
+To comply with university norms requiring minimum 75% attendance for examination eligibility:
+
+1. Navigate to **Reports** or click **"Alert Defaulter Parents (Monthly)"**.
+2. Select any calendar month and academic year (e.g., *September 2026*).
+3. The system scans all lecture sessions recorded in that specific month and detects students below 75%.
+4. **Trilingual SMS Templates**:
+   - English, Hindi, and Marathi automated templates detailing month name, student roll number, subject/division, and recorded attendance percentage.
+   - Pre-configured warning about examination detention risk under university regulations.
+5. **Bulk & Individual Dispatch**:
+   - Send SMS alerts to all defaulters in one click.
+   - Send one-on-one direct WhatsApp notifications to parents with custom messages.
+   - All dispatches are automatically logged in `sms_logs` with timestamps, parent mobile numbers, and delivery status.
+
+---
+
 ## 🔄 How to Push & Sync Changes to GitHub
 
 If you are developing inside **Google AI Studio** or a container environment, changes made in the web editor must be pushed to your GitHub repository using one of the following methods:

@@ -1,4 +1,4 @@
-import React, { createContext, useContext } from "react";
+import React, { createContext, useContext, useEffect } from "react";
 import { X } from "lucide-react";
 
 interface DialogProps {
@@ -18,6 +18,17 @@ export const Dialog: React.FC<DialogProps> = ({
   onOpenChange,
   children,
 }) => {
+  useEffect(() => {
+    if (!open) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        onOpenChange(false);
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [open, onOpenChange]);
+
   return (
     <DialogContext.Provider value={{ onOpenChange }}>
       {React.Children.map(children, (child) => {
@@ -51,8 +62,11 @@ export const DialogContent: React.FC<DialogPartProps> = ({
       >
         {children}
         <button
+          type="button"
           onClick={() => onOpenChange?.(false)}
-          className="absolute right-4 top-4 rounded-sm text-muted-foreground opacity-70 hover:opacity-100 hover:text-foreground focus:outline-none transition-opacity"
+          className="absolute right-3.5 top-3.5 z-50 rounded-lg p-1.5 text-muted-foreground hover:bg-muted/80 hover:text-foreground focus:outline-none transition-all cursor-pointer"
+          aria-label="Close dialog"
+          title="Close dialog"
         >
           <X className="h-4 w-4" />
         </button>

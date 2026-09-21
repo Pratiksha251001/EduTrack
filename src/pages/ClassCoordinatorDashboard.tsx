@@ -1,4 +1,5 @@
 import React, { useState, useMemo } from "react";
+import { Link } from "react-router-dom";
 import {
   GraduationCap,
   Upload,
@@ -22,6 +23,7 @@ import {
   Building2,
   Sparkles,
   Layers,
+  FileText,
 } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import { localDb } from "../lib/supabase";
@@ -877,36 +879,45 @@ export const ClassCoordinatorDashboard: React.FC = () => {
           </p>
         </div>
 
-        {/* Tab Switcher */}
-        <div className="flex items-center gap-1.5 p-1 bg-muted/60 rounded-xl border border-border/60 self-start sm:self-auto">
-          <button
-            onClick={() => setActiveMainTab("students")}
-            className={`inline-flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all ${
-              activeMainTab === "students"
-                ? "bg-card text-foreground shadow-xs border border-border/80"
-                : "text-muted-foreground hover:text-foreground"
-            }`}
-          >
-            <ClipboardList className="h-3.5 w-3.5" />
-            <span>Student Roster</span>
-            <Badge variant="secondary" className="text-[10px] px-1 py-0 h-4">
-              {myStudents.length}
-            </Badge>
-          </button>
-          <button
-            onClick={() => setActiveMainTab("subjects")}
-            className={`inline-flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all ${
-              activeMainTab === "subjects"
-                ? "bg-card text-foreground shadow-xs border border-border/80"
-                : "text-muted-foreground hover:text-foreground"
-            }`}
-          >
-            <BookOpen className="h-3.5 w-3.5" />
-            <span>Subjects & Faculty</span>
-            <Badge variant="secondary" className="text-[10px] px-1 py-0 h-4">
-              {coordinatorSubjects.length}
-            </Badge>
-          </button>
+        {/* Tab Switcher & Reports Link */}
+        <div className="flex flex-wrap items-center gap-2 self-start sm:self-auto">
+          <div className="flex items-center gap-1.5 p-1 bg-muted/60 rounded-xl border border-border/60">
+            <button
+              onClick={() => setActiveMainTab("students")}
+              className={`inline-flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+                activeMainTab === "students"
+                  ? "bg-card text-foreground shadow-xs border border-border/80"
+                  : "text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              <ClipboardList className="h-3.5 w-3.5" />
+              <span>Student Roster</span>
+              <Badge variant="secondary" className="text-[10px] px-1 py-0 h-4">
+                {myStudents.length}
+              </Badge>
+            </button>
+            <button
+              onClick={() => setActiveMainTab("subjects")}
+              className={`inline-flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+                activeMainTab === "subjects"
+                  ? "bg-card text-foreground shadow-xs border border-border/80"
+                  : "text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              <BookOpen className="h-3.5 w-3.5" />
+              <span>Subjects & Faculty</span>
+              <Badge variant="secondary" className="text-[10px] px-1 py-0 h-4">
+                {coordinatorSubjects.length}
+              </Badge>
+            </button>
+          </div>
+
+          <Link to="/reports">
+            <Button variant="outline" size="sm" className="h-9 gap-1.5 text-xs font-semibold shadow-xs">
+              <FileText className="h-3.5 w-3.5 text-primary" />
+              Class Reports & Defaulters
+            </Button>
+          </Link>
         </div>
       </div>
 

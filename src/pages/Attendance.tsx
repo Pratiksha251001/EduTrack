@@ -22,6 +22,7 @@ import {
   Users,
   Layers,
   Sparkles,
+  FileText,
 } from "lucide-react";
 import { localDb } from "../lib/supabase";
 import { useAuth } from "../context/AuthContext";
@@ -402,6 +403,12 @@ export const Attendance: React.FC = () => {
           </p>
         </div>
         <div className="flex items-center gap-2">
+          <Link to="/reports">
+            <Button variant="outline" size="sm" className="text-xs h-8">
+              <FileText className="h-3.5 w-3.5 mr-1.5 text-primary" />
+              Reports & Audit PDF
+            </Button>
+          </Link>
           <Badge variant="outline" className="px-3 py-1 text-xs border-primary/25 bg-primary/5 text-primary">
             <Bell className="h-3.5 w-3.5 mr-1.5" /> Automated Parent SMS Enabled
           </Badge>
