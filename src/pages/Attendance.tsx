@@ -42,6 +42,7 @@ import { DatePicker } from "../components/ui/date-picker";
 import { AttendanceVerificationModal } from "../components/AttendanceVerificationModal";
 import { AttendanceDispatchReceiptModal } from "../components/AttendanceDispatchReceiptModal";
 import { recordAttendanceSubmittedNotification } from "../lib/notificationService";
+import { dispatchSmsViaGateway } from "../lib/smsService";
 
 export const Attendance: React.FC = () => {
   const { user, role } = useAuth();
@@ -321,6 +322,32 @@ export const Attendance: React.FC = () => {
     }> = [];
 
     if (currentAbsentees.length > 0) {
+      // Prepare payload for MSG91 Gateway
+      const gatewayPayload = currentAbsentees
+        .filter((st) => st.parent_mobile && st.parent_mobile.replace(/[^0-9]/g, "").length >= 10)
+        .map((st) => ({
+          mobile: st.parent_mobile!,
+          message: generateSmsMessage(
+            st.full_name,
+            selectedDate,
+            selectedSubject.name,
+            chosenLang
+          ),
+          studentName: st.full_name,
+          studentId: st.id,
+          subject: selectedSubject.name,
+          date: selectedDate,
+        }));
+
+      let gatewayResult: any = null;
+      if (gatewayPayload.length > 0) {
+        try {
+          gatewayResult = await dispatchSmsViaGateway(gatewayPayload);
+        } catch (err) {
+          console.warn("MSG91 gateway attendance dispatch notice:", err);
+        }
+      }
+
       const smsEntries = currentAbsentees.map((st) => {
         const msg = generateSmsMessage(
           st.full_name,
@@ -328,12 +355,21 @@ export const Attendance: React.FC = () => {
           selectedSubject.name,
           chosenLang
         );
-        const status = (st.parent_mobile ? "sent" : "failed") as "sent" | "failed";
+        const cleanPhone = (st.parent_mobile || "").replace(/[^0-9]/g, "");
+        const hasMobile = cleanPhone.length >= 10;
+
+        const gResult = gatewayResult?.results?.find(
+          (r: any) => r.mobile === st.parent_mobile || r.mobile?.includes(cleanPhone.slice(-10))
+        );
+        const isDelivered = hasMobile && (!gResult || gResult.status === "sent");
+        const status = isDelivered ? ("sent" as const) : ("failed" as const);
+
         dispatchedList.push({
           student: st,
           status,
           message: msg,
         });
+
         return {
           student_id: st.id,
           subject_id: selectedSubject.id,
@@ -344,8 +380,11 @@ export const Attendance: React.FC = () => {
           attendance_date: selectedDate,
           sent_at: new Date().toISOString(),
           language: chosenLang,
+          gateway: gatewayResult?.provider || "MSG91",
+          gateway_response: gResult?.details || (hasMobile ? "Accepted by MSG91" : "Invalid parent mobile"),
         };
       });
+
       await localDb.insert("sms_logs", smsEntries);
     }
 

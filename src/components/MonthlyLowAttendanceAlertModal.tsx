@@ -40,6 +40,7 @@ import {
 } from "../lib/college";
 import { localDb } from "../lib/supabase";
 import { SmsLanguage, Student, Subject, SmsLog } from "../lib/types";
+import { dispatchSmsViaGateway } from "../lib/smsService";
 
 export interface MonthlyDefaulterStudent {
   student: Student;
@@ -464,6 +465,38 @@ export const MonthlyLowAttendanceAlertModal: React.FC<
       });
 
       await localDb.insert("sms_logs", logsToInsert);
+
+      // Dispatch via MSG91 Gateway proxy
+      const gatewayBatch = targets
+        .filter((t) => t.parentMobile)
+        .map((t) => {
+          let msg = getMonthlyLowAttendanceMessage({
+            studentName: t.name,
+            rollNumber: t.roll,
+            monthName: monthDateRange.monthLabel,
+            percentage: t.percentage,
+            totalSessions: t.totalSessions,
+            attendedSessions: t.attendedSessions,
+            minAttendance: college.minAttendance || 75,
+            lang: selectedLang,
+          });
+          if (customRemark.trim()) {
+            msg += `\n\nNote: ${customRemark.trim()}`;
+          }
+          return {
+            mobile: t.parentMobile,
+            message: cleanSmsMessage(msg),
+            studentName: t.name,
+            studentId: t.student.id,
+            date: monthDateRange.monthLabel,
+          };
+        });
+
+      if (gatewayBatch.length > 0) {
+        dispatchSmsViaGateway(gatewayBatch).catch((err) =>
+          console.warn("MSG91 monthly dispatch notice:", err)
+        );
+      }
 
       window.dispatchEvent(
         new CustomEvent("edutrack_sms_logs_updated", { detail: logsToInsert })

@@ -32,6 +32,9 @@ import {
   cleanSmsMessage,
 } from '../lib/college';
 import { ParentAlertModal } from '../components/ParentAlertModal';
+import { Msg91SetupModal } from '../components/Msg91SetupModal';
+import { getSmsGatewayStatus, SmsGatewayStatus } from '../lib/smsService';
+import { Zap } from 'lucide-react';
 
 export const SmsLogs: React.FC = () => {
   const { user, role } = useAuth();
@@ -46,6 +49,8 @@ export const SmsLogs: React.FC = () => {
 
   // Modal state
   const [alertModalOpen, setAlertModalOpen] = useState(false);
+  const [msg91ModalOpen, setMsg91ModalOpen] = useState(false);
+  const [gatewayStatus, setGatewayStatus] = useState<SmsGatewayStatus | null>(null);
   const [modalStudentName, setModalStudentName] = useState('');
   const [modalParentMobile, setModalParentMobile] = useState('');
   const [modalParentName, setModalParentName] = useState('');
@@ -55,11 +60,13 @@ export const SmsLogs: React.FC = () => {
   const refreshLogs = () => {
     setIsRefreshing(true);
     setLogs(localDb.getSmsLogs());
+    getSmsGatewayStatus().then(setGatewayStatus).catch(() => {});
     setTimeout(() => setIsRefreshing(false), 400);
   };
 
   useEffect(() => {
     refreshLogs();
+    getSmsGatewayStatus().then(setGatewayStatus).catch(() => {});
     const handleUpdate = () => {
       refreshLogs();
     };
@@ -254,7 +261,18 @@ export const SmsLogs: React.FC = () => {
           </p>
         </div>
 
-        <div className="flex items-center gap-2 self-start sm:self-auto">
+        <div className="flex items-center gap-2 self-start sm:self-auto flex-wrap">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setMsg91ModalOpen(true)}
+            className="text-xs font-semibold border-emerald-500/40 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-800 dark:text-emerald-300"
+          >
+            <Zap className="h-3.5 w-3.5 mr-1.5 text-emerald-600 dark:text-emerald-400" />
+            MSG91 Gateway
+            <span className={`ml-1.5 inline-block h-2 w-2 rounded-full ${gatewayStatus?.isConfigured ? 'bg-emerald-500 animate-pulse' : 'bg-amber-500'}`} />
+          </Button>
+
           <Button
             variant="outline"
             size="sm"
@@ -494,17 +512,22 @@ export const SmsLogs: React.FC = () => {
                     </TableCell>
 
                     <TableCell className="whitespace-nowrap align-top py-3">
-                      <Badge
-                        variant={log.status === 'sent' ? 'success' : 'destructive'}
-                        className="uppercase text-[10px]"
-                      >
-                        {log.status === 'sent' ? (
-                          <CheckCircle className="h-3 w-3 mr-1 inline" />
-                        ) : (
-                          <XCircle className="h-3 w-3 mr-1 inline" />
-                        )}
-                        {log.status === 'sent' ? 'Delivered' : 'Failed'}
-                      </Badge>
+                      <div className="flex flex-col gap-1 items-start">
+                        <Badge
+                          variant={log.status === 'sent' ? 'success' : 'destructive'}
+                          className="uppercase text-[10px]"
+                        >
+                          {log.status === 'sent' ? (
+                            <CheckCircle className="h-3 w-3 mr-1 inline" />
+                          ) : (
+                            <XCircle className="h-3 w-3 mr-1 inline" />
+                          )}
+                          {log.status === 'sent' ? 'Delivered' : 'Failed'}
+                        </Badge>
+                        <span className="text-[10px] text-muted-foreground font-mono">
+                          MSG91 Gateway
+                        </span>
+                      </div>
                     </TableCell>
 
                     {/* Minimized Message Cell */}
@@ -602,6 +625,15 @@ export const SmsLogs: React.FC = () => {
         onSuccess={(msg) => {
           setToastMsg(msg);
           refreshLogs();
+        }}
+      />
+
+      <Msg91SetupModal
+        open={msg91ModalOpen}
+        onOpenChange={setMsg91ModalOpen}
+        onTestSent={() => {
+          refreshLogs();
+          setToastMsg("Test message recorded in SMS logs!");
         }}
       />
     </div>

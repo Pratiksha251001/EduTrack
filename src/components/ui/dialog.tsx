@@ -93,6 +93,14 @@ export const DialogTitle: React.FC<
   </h2>
 );
 
+export const DialogDescription: React.FC<
+  React.HTMLAttributes<HTMLParagraphElement>
+> = ({ className = "", children, ...props }) => (
+  <p {...props} className={`text-sm text-muted-foreground ${className}`}>
+    {children}
+  </p>
+);
+
 export const DialogFooter: React.FC<DialogPartProps> = ({
   className = "",
   children,

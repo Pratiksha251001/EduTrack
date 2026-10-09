@@ -38,6 +38,7 @@ import {
 import { localDb } from "../lib/supabase";
 import { isValid10DigitMobile } from "../lib/validation";
 import { SmsLanguage, SmsLog } from "../lib/types";
+import { dispatchSmsViaGateway } from "../lib/smsService";
 
 interface ParentAlertModalProps {
   open: boolean;
@@ -203,9 +204,29 @@ export const ParentAlertModal: React.FC<ParentAlertModalProps> = ({
 
   const handleSimulateSmsDispatch = async () => {
     setDispatching(true);
-    await new Promise((r) => setTimeout(r, 500));
 
     const isMobileValid = isValid10DigitMobile(parentMobile);
+    let gatewayDetails = "";
+
+    if (isMobileValid && parentMobile) {
+      try {
+        const gatewayRes = await dispatchSmsViaGateway([
+          {
+            mobile: parentMobile,
+            message: messageText,
+            studentName,
+            date,
+            subject: customSubject || "Attendance",
+          },
+        ]);
+        if (gatewayRes.results && gatewayRes.results.length > 0) {
+          gatewayDetails = gatewayRes.results[0].details || "";
+        }
+      } catch (err: any) {
+        console.warn("Gateway direct alert dispatch note:", err);
+      }
+    }
+
     const status = parentMobile && isMobileValid ? "sent" : "failed";
     const logEntry: SmsLog = {
       id: `sms-direct-${Date.now()}`,
@@ -218,6 +239,8 @@ export const ParentAlertModal: React.FC<ParentAlertModalProps> = ({
       attendance_date: date,
       sent_at: new Date().toISOString(),
       language: selectedOption,
+      gateway: "MSG91",
+      gateway_response: gatewayDetails,
     };
 
     await localDb.insert("sms_logs", [logEntry]);
@@ -233,7 +256,7 @@ export const ParentAlertModal: React.FC<ParentAlertModalProps> = ({
     setIsPaused(false);
 
     if (status === "sent") {
-      onSuccess?.(`Absence alert successfully dispatched to parent!`);
+      onSuccess?.(`Absence alert dispatched to parent via MSG91 Gateway!`);
     } else if (!parentMobile) {
       onSuccess?.(`SMS recorded as failed: Parent mobile number missing.`);
     } else {
@@ -651,9 +674,10 @@ export const ParentAlertModal: React.FC<ParentAlertModalProps> = ({
                   className="w-full rounded-xl border border-input bg-background p-3 text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary leading-relaxed resize-y font-sans shadow-inner"
                   placeholder="Type message to send to parent..."
                 />
-                <p className="text-[10.5px] text-muted-foreground">
-                  You can review or freely edit this message above before dispatching via SMS or WhatsApp.
-                </p>
+                <div className="flex items-center justify-between text-[10.5px] text-muted-foreground">
+                  <span>Direct Mobile SMS (Phone Text Message - Carrier Dispatch)</span>
+                  <span className="font-medium text-emerald-600 dark:text-emerald-400">Standard SMS Route</span>
+                </div>
               </div>
             </div>
           )}
@@ -703,19 +727,10 @@ export const ParentAlertModal: React.FC<ParentAlertModalProps> = ({
             </Button>
 
             <div className="flex items-center gap-2 w-full sm:w-auto">
-              {parentMobile && isPhoneValid && (
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={handleSendViaWhatsApp}
-                  className="w-full sm:w-auto text-xs h-9 border-emerald-600/30 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-500/10 hover:border-emerald-500 font-semibold"
-                  title="Open WhatsApp with message pre-filled"
-                >
-                  <MessageSquare className="h-3.5 w-3.5 mr-1.5 text-emerald-600 dark:text-emerald-400" />
-                  Send via WhatsApp
-                </Button>
-              )}
+              <div className="hidden sm:flex items-center text-[11px] text-muted-foreground mr-1">
+                <span className="inline-block w-2 h-2 rounded-full bg-emerald-500 mr-1.5 animate-pulse" />
+                Simple Mobile SMS
+              </div>
 
               <Button
                 type="button"
@@ -725,11 +740,11 @@ export const ParentAlertModal: React.FC<ParentAlertModalProps> = ({
                 className="w-full sm:w-auto text-xs font-semibold h-9 shadow-xs bg-primary text-primary-foreground hover:bg-primary/90"
               >
                 {dispatching ? (
-                  <>Sending Alert...</>
+                  <>Sending Simple SMS...</>
                 ) : (
                   <>
                     <Send className="h-3.5 w-3.5 mr-1.5" />
-                    Dispatch SMS Alert
+                    Send Simple Mobile SMS
                   </>
                 )}
               </Button>

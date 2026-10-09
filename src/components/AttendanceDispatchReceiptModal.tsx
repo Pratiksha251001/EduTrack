@@ -177,20 +177,13 @@ export const AttendanceDispatchReceiptModal: React.FC<
                         </div>
                       </div>
 
-                      {/* WhatsApp manual fallback */}
-                      {waUrl && (
-                        <a
-                          href={waUrl}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-[11px] font-medium bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-500/20 border border-emerald-500/20 transition-colors shrink-0"
-                          title="Open direct WhatsApp chat with parent"
-                        >
-                          <MessageSquare className="h-3 w-3" />
-                          <span>WhatsApp Direct</span>
-                          <ExternalLink className="h-2.5 w-2.5 opacity-60" />
-                        </a>
-                      )}
+                      {/* Simple Phone SMS Status Indicator */}
+                      <span
+                        className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-[11px] font-medium bg-primary/10 text-primary border border-primary/20 shrink-0"
+                        title="Dispatched via Simple Mobile SMS Gateway"
+                      >
+                        <span>📱 Phone SMS</span>
+                      </span>
                     </div>
                   );
                 })}

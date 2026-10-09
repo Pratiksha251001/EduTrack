@@ -133,6 +133,8 @@ export interface SmsLog {
   sent_at: string;
   language?: SmsLanguage | string;
   created_at?: string;
+  gateway?: string;
+  gateway_response?: string;
 }
 
 export interface ClassCoordinatorAssignment {
