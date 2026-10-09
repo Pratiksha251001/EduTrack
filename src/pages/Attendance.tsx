@@ -115,7 +115,7 @@ export const Attendance: React.FC = () => {
   const [selectedClassName, setSelectedClassName] = useState<string>(urlClassName || "all");
   const [selectedDate, setSelectedDate] = useState<string>(todayStr);
   const [searchQuery, setSearchQuery] = useState("");
-  const [smsLanguage, setSmsLanguage] = useState<SmsLanguage>("trilingual");
+  const [smsLanguage, setSmsLanguage] = useState<SmsLanguage>("en");
   const [attendanceState, setAttendanceState] = useState<
     Record<string, "present" | "absent">
   >({});
@@ -140,7 +140,7 @@ export const Attendance: React.FC = () => {
     date: todayStr,
     totalPresent: 0,
     recipients: [],
-    language: "trilingual",
+    language: "en",
   });
 
   // Filter subjects by year if selected

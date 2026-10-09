@@ -114,6 +114,8 @@ export interface AttendanceRecord {
 export type SmsLanguage =
   | "en"
   | "mr"
+  | "other"
+  | "custom"
   | "hi"
   | "trilingual"
   | "bilingual_mr"

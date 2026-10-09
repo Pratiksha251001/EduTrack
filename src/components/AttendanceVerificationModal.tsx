@@ -150,19 +150,54 @@ export const AttendanceVerificationModal: React.FC<
             </div>
           </div>
 
-          {/* Warning Banner */}
-          <div className="mt-3.5 rounded-xl border border-amber-500/25 bg-amber-500/5 p-3 text-xs text-amber-900 dark:text-amber-200 flex items-start gap-2.5">
-            <AlertTriangle className="h-4 w-4 shrink-0 text-amber-600 dark:text-amber-400 mt-0.5" />
-            <div className="space-y-0.5">
-              <span className="font-bold block">
-                Verification Required Before Dispatch
-              </span>
-              <p className="text-[11.5px] leading-relaxed text-amber-800/90 dark:text-amber-300/90">
-                Please verify the <strong>Absent ({absentStudents.length})</strong> and{" "}
-                <strong>Present ({presentStudents.length})</strong> lists once. When you click{" "}
-                <strong>"Confirm & Send SMS"</strong>, official multilingual SMS alerts will be
-                immediately dispatched to the registered parents of every absent student.
-              </p>
+          {/* One-Line Verification Notice */}
+          <div className="mt-2.5 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-1.5 text-xs text-amber-900 dark:text-amber-200 flex items-center gap-2">
+            <AlertTriangle className="h-3.5 w-3.5 shrink-0 text-amber-600 dark:text-amber-400" />
+            <span className="text-[11.5px] truncate">
+              Please verify Absent ({absentStudents.length}) & Present ({presentStudents.length}) lists before clicking Confirm & Send SMS.
+            </span>
+          </div>
+
+          {/* Small Message Options: Marathi, Eng, Both (Default: Eng) */}
+          <div className="mt-2 flex items-center justify-between gap-2 px-3 py-1.5 rounded-lg bg-card border border-border text-xs shadow-xs">
+            <div className="flex items-center gap-1.5 text-muted-foreground text-[11.5px]">
+              <MessageSquare className="h-3.5 w-3.5 text-primary" />
+              <span className="font-semibold text-foreground">Msg Option:</span>
+            </div>
+            <div className="flex items-center gap-1.5">
+              <button
+                type="button"
+                onClick={() => onLanguageChange("mr")}
+                className={`px-2.5 py-1 rounded-md text-xs font-semibold transition-all cursor-pointer ${
+                  smsLanguage === "mr"
+                    ? "bg-primary text-primary-foreground shadow-xs font-bold"
+                    : "bg-muted text-muted-foreground hover:text-foreground hover:bg-muted/80"
+                }`}
+              >
+                Marathi
+              </button>
+              <button
+                type="button"
+                onClick={() => onLanguageChange("en")}
+                className={`px-2.5 py-1 rounded-md text-xs font-semibold transition-all cursor-pointer ${
+                  smsLanguage === "en"
+                    ? "bg-primary text-primary-foreground shadow-xs font-bold"
+                    : "bg-muted text-muted-foreground hover:text-foreground hover:bg-muted/80"
+                }`}
+              >
+                Eng (Default)
+              </button>
+              <button
+                type="button"
+                onClick={() => onLanguageChange("bilingual_mr")}
+                className={`px-2.5 py-1 rounded-md text-xs font-semibold transition-all cursor-pointer ${
+                  smsLanguage === "bilingual_mr" || smsLanguage === "other" || smsLanguage === "trilingual"
+                    ? "bg-primary text-primary-foreground shadow-xs font-bold"
+                    : "bg-muted text-muted-foreground hover:text-foreground hover:bg-muted/80"
+                }`}
+              >
+                Both
+              </button>
             </div>
           </div>
 
@@ -388,47 +423,33 @@ export const AttendanceVerificationModal: React.FC<
             </div>
           </div>
 
-          {/* SMS Notification Message Preview (English + Marathi + Hindi) */}
+          {/* SMS Notification Message Preview */}
           {absentStudents.length > 0 && (
-            <div className="rounded-xl border border-border/80 bg-muted/20 p-3.5 space-y-2.5">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1.5">
-                <div className="flex items-center gap-1.5">
-                  <Globe className="h-4 w-4 text-primary" />
-                  <span className="text-xs font-bold text-foreground">
-                    Parent SMS Message Preview (Includes English, मराठी & हिंदी)
-                  </span>
-                </div>
-                <span className="text-[11px] text-muted-foreground">
-                  Will be received by {absentWithMobile.length} parent phone(s)
+            <div className="rounded-xl border border-border/80 bg-muted/20 p-3 space-y-1.5">
+              <div className="flex items-center justify-between">
+                <span className="text-[11px] font-semibold text-muted-foreground flex items-center gap-1.5">
+                  <Globe className="h-3.5 w-3.5 text-primary" />
+                  SMS Preview ({smsLanguage === "mr" ? "Marathi" : smsLanguage === "en" ? "Eng" : "Both"} · Ward: {sampleStudent?.full_name}):
                 </span>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={handleCopyPreview}
+                  className="h-6 px-2 text-[11px] text-muted-foreground hover:text-foreground"
+                >
+                  {copiedPreview ? (
+                    <>
+                      <Check className="h-3 w-3 mr-1 text-emerald-500" /> Copied
+                    </>
+                  ) : (
+                    <>
+                      <Copy className="h-3 w-3 mr-1" /> Copy SMS Text
+                    </>
+                  )}
+                </Button>
               </div>
-
-              {/* Live Preview Box */}
-              <div className="space-y-1.5">
-                <div className="flex items-center justify-between">
-                  <span className="text-[11px] font-semibold text-muted-foreground">
-                    SMS Message Content (Sample Ward: {sampleStudent?.full_name}):
-                  </span>
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    onClick={handleCopyPreview}
-                    className="h-6 px-2 text-[11px] text-muted-foreground hover:text-foreground"
-                  >
-                    {copiedPreview ? (
-                      <>
-                        <Check className="h-3 w-3 mr-1 text-emerald-500" /> Copied
-                      </>
-                    ) : (
-                      <>
-                        <Copy className="h-3 w-3 mr-1" /> Copy SMS Text
-                      </>
-                    )}
-                  </Button>
-                </div>
-                <div className="p-3 rounded-lg bg-card border border-border/80 text-xs font-sans text-foreground whitespace-pre-line leading-relaxed max-h-36 overflow-y-auto">
-                  {sampleMessage}
-                </div>
+              <div className="p-2.5 rounded-lg bg-card border border-border/80 text-xs font-sans text-foreground whitespace-pre-line leading-relaxed max-h-32 overflow-y-auto">
+                {sampleMessage}
               </div>
             </div>
           )}

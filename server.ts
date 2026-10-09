@@ -80,6 +80,7 @@ async function checkDatabaseConnection(): Promise<{
         apikey: supabaseKey,
         Authorization: `Bearer ${supabaseKey}`,
       },
+      signal: AbortSignal.timeout(3500),
     });
 
     lastLatencyMs = Date.now() - start;

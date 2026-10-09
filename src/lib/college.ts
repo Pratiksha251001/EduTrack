@@ -23,19 +23,23 @@ export interface SmsLanguageOption {
 
 export const SMS_LANGUAGES: SmsLanguageOption[] = [
   {
-    id: "trilingual",
-    label: "त्रिभाषिक (All 3)",
-    subLabel: "English + मराठी + हिंदी",
-    flag: "🌐",
+    id: "en",
+    label: "Eng (English)",
+    subLabel: "Standard English (Default)",
+    flag: "🇬🇧",
   },
   {
     id: "mr",
-    label: "मराठी",
-    subLabel: "Marathi (स्थानिक पालकांसाठी)",
-    flag: "🌐",
+    label: "Marathi (मराठी)",
+    subLabel: "स्थानिक पालकांसाठी मराठी संदेश",
+    flag: "🇮🇳",
   },
-  { id: "hi", label: "हिंदी", subLabel: "Hindi (सरल हिंदी संदेश)", flag: "🌐" },
-  { id: "en", label: "English", subLabel: "Standard English", flag: "🌐" },
+  {
+    id: "other",
+    label: "Ot Msg (Other)",
+    subLabel: "Bilingual / Custom Alert",
+    flag: "📝",
+  },
   {
     id: "bilingual_mr",
     label: "Eng + मराठी",
@@ -43,9 +47,15 @@ export const SMS_LANGUAGES: SmsLanguageOption[] = [
     flag: "🌐",
   },
   {
-    id: "bilingual_hi",
-    label: "Eng + हिंदी",
-    subLabel: "English & Hindi",
+    id: "trilingual",
+    label: "त्रिभाषिक (All 3)",
+    subLabel: "English + मराठी + हिंदी",
+    flag: "🌐",
+  },
+  {
+    id: "hi",
+    label: "हिंदी (Hindi)",
+    subLabel: "सरल हिंदी संदेश",
     flag: "🌐",
   },
 ];
@@ -187,16 +197,40 @@ export function getBilingualHiMessage(
   return getTrilingualAbsenceMessage(studentName, date, subjectName);
 }
 
+export function getOtherAbsenceMessage(
+  studentName: string,
+  _date: string,
+  subjectName: string,
+): string {
+  const shortSub = getSubjectShortName(subjectName);
+  return `Dear Parent, ${studentName} is absent for ${shortSub} today. ${studentName} आज ${shortSub} साठी गैरहजर आहे. - EduTrack`;
+}
+
 /**
- * Master generator function for attendance SMS alerts - formatted in English & Marathi with common student name
+ * Master generator function for attendance SMS alerts - formatted in English, Marathi, or Other message (default English)
  */
 export function generateSmsMessage(
   studentName: string,
   date: string,
   subjectName: string,
-  _lang: SmsLanguage = "bilingual_mr",
+  lang: SmsLanguage = "en",
 ): string {
-  return getTrilingualAbsenceMessage(studentName, date, subjectName);
+  if (lang === "en") {
+    return getEnglishAbsenceMessage(studentName, date, subjectName);
+  }
+  if (lang === "mr") {
+    return getMarathiAbsenceMessage(studentName, date, subjectName);
+  }
+  if (lang === "other" || lang === "custom") {
+    return getOtherAbsenceMessage(studentName, date, subjectName);
+  }
+  if (lang === "hi") {
+    return getHindiAbsenceMessage(studentName, date, subjectName);
+  }
+  if (lang === "bilingual_mr" || lang === "trilingual") {
+    return getTrilingualAbsenceMessage(studentName, date, subjectName);
+  }
+  return getEnglishAbsenceMessage(studentName, date, subjectName);
 }
 
 /**

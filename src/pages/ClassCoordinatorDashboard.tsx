@@ -2149,7 +2149,7 @@ export const ClassCoordinatorDashboard: React.FC = () => {
         parentMobile={alertStudent?.parent_mobile || ""}
         parentName={alertStudent?.parent_name || "Parent"}
         date={new Date().toISOString().split("T")[0]}
-        initialLanguage="trilingual"
+        initialLanguage="en"
         onSuccess={(msg) => {
           setVersion((v) => v + 1);
           setSuccessToastMsg(msg);
