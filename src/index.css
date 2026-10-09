@@ -39,37 +39,37 @@
   }
 
   .dark {
-    --background: 160 55% 6%;
-    --foreground: 140 20% 95%;
-    --card: 162 48% 9.5%;
-    --card-foreground: 140 20% 95%;
-    --popover: 162 48% 9.5%;
-    --popover-foreground: 140 20% 95%;
-    --primary: 155 75% 44%;
-    --primary-foreground: 160 85% 7%;
-    --secondary: 163 46% 14%;
-    --secondary-foreground: 140 20% 95%;
-    --muted: 162 42% 12%;
-    --muted-foreground: 152 18% 70%;
-    --accent: 160 42% 16%;
-    --accent-foreground: 140 20% 95%;
-    --destructive: 0 65% 60%;
+    --background: 210 24% 6.5%;
+    --foreground: 210 20% 96%;
+    --card: 210 20% 9%;
+    --card-foreground: 210 20% 96%;
+    --popover: 210 20% 9%;
+    --popover-foreground: 210 20% 96%;
+    --primary: 158 85% 42%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 215 14% 19%;
+    --secondary-foreground: 210 16% 92%;
+    --muted: 215 14% 16%;
+    --muted-foreground: 210 12% 66%;
+    --accent: 215 15% 22%;
+    --accent-foreground: 210 20% 96%;
+    --destructive: 0 72% 56%;
     --destructive-foreground: 0 0% 100%;
-    --success: 155 75% 44%;
-    --success-foreground: 160 85% 7%;
+    --success: 158 85% 42%;
+    --success-foreground: 0 0% 100%;
     --warning: 38 90% 55%;
     --warning-foreground: 38 90% 15%;
-    --border: 162 40% 19%;
-    --input: 162 40% 19%;
-    --ring: 155 75% 44%;
+    --border: 215 14% 18%;
+    --input: 215 14% 18%;
+    --ring: 158 85% 42%;
 
-    --sidebar: 160 55% 6%;
-    --sidebar-foreground: 140 18% 93%;
-    --sidebar-primary: 155 75% 44%;
-    --sidebar-primary-foreground: 160 85% 7%;
-    --sidebar-accent: 162 42% 12%;
-    --sidebar-accent-foreground: 140 18% 96%;
-    --sidebar-border: 162 40% 16%;
+    --sidebar: 210 24% 6.5%;
+    --sidebar-foreground: 210 18% 92%;
+    --sidebar-primary: 158 85% 42%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 215 14% 16%;
+    --sidebar-accent-foreground: 210 18% 96%;
+    --sidebar-border: 215 14% 15%;
   }
 }
 
@@ -82,13 +82,14 @@ body {
 }
 
 .dark body {
+  background-color: #0b0f12;
   background-image: 
-    linear-gradient(to right, rgba(52, 211, 153, 0.07) 1px, transparent 1px),
-    linear-gradient(to bottom, rgba(52, 211, 153, 0.07) 1px, transparent 1px);
+    linear-gradient(to right, rgba(52, 211, 153, 0.08) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(52, 211, 153, 0.08) 1px, transparent 1px);
   background-size: 16px 16px;
 }
 
-/* Very small grid background in transparent green */
+/* Technical grid background in transparent light green */
 .bg-grid-green-sm {
   background-image: 
     linear-gradient(to right, rgba(16, 185, 129, 0.085) 1px, transparent 1px),
@@ -97,9 +98,10 @@ body {
 }
 
 .dark .bg-grid-green-sm {
+  background-color: #0b0f12;
   background-image: 
-    linear-gradient(to right, rgba(52, 211, 153, 0.07) 1px, transparent 1px),
-    linear-gradient(to bottom, rgba(52, 211, 153, 0.07) 1px, transparent 1px);
+    linear-gradient(to right, rgba(52, 211, 153, 0.08) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(52, 211, 153, 0.08) 1px, transparent 1px);
   background-size: 16px 16px;
 }
 

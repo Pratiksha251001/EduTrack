@@ -171,7 +171,7 @@ export const AttendanceVerificationModal: React.FC<
                 className={`px-2.5 py-1 rounded-md text-xs font-semibold transition-all cursor-pointer ${
                   smsLanguage === "mr"
                     ? "bg-primary text-primary-foreground shadow-xs font-bold"
-                    : "bg-muted text-muted-foreground hover:text-foreground hover:bg-muted/80"
+                    : "bg-secondary text-secondary-foreground hover:bg-secondary/70 hover:text-foreground border border-border/70"
                 }`}
               >
                 Marathi
@@ -182,7 +182,7 @@ export const AttendanceVerificationModal: React.FC<
                 className={`px-2.5 py-1 rounded-md text-xs font-semibold transition-all cursor-pointer ${
                   smsLanguage === "en"
                     ? "bg-primary text-primary-foreground shadow-xs font-bold"
-                    : "bg-muted text-muted-foreground hover:text-foreground hover:bg-muted/80"
+                    : "bg-secondary text-secondary-foreground hover:bg-secondary/70 hover:text-foreground border border-border/70"
                 }`}
               >
                 Eng (Default)
@@ -193,7 +193,7 @@ export const AttendanceVerificationModal: React.FC<
                 className={`px-2.5 py-1 rounded-md text-xs font-semibold transition-all cursor-pointer ${
                   smsLanguage === "bilingual_mr" || smsLanguage === "other" || smsLanguage === "trilingual"
                     ? "bg-primary text-primary-foreground shadow-xs font-bold"
-                    : "bg-muted text-muted-foreground hover:text-foreground hover:bg-muted/80"
+                    : "bg-secondary text-secondary-foreground hover:bg-secondary/70 hover:text-foreground border border-border/70"
                 }`}
               >
                 Both
