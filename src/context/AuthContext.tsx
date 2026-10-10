@@ -71,11 +71,30 @@ const removeStorageItem = (key: string) => {
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
   children,
 }) => {
-  const [user, setUser] = useState<User | null>(null);
-  const [role, setRole] = useState<UserRoleType | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [isDemo, setIsDemo] = useState(false);
-  const [mustChangePassword, setMustChangePassword] = useState(false);
+  // Synchronous initialization from localStorage so page refreshes never drop session
+  const [user, setUser] = useState<User | null>(() => {
+    try {
+      const savedUser = getStorageItem("user");
+      return savedUser ? JSON.parse(savedUser) : null;
+    } catch {
+      return null;
+    }
+  });
+  const [role, setRole] = useState<UserRoleType | null>(() => {
+    return (getStorageItem("role") as UserRoleType | null) || null;
+  });
+  const [isDemo, setIsDemo] = useState<boolean>(() => {
+    return getStorageItem("is_demo") === "true";
+  });
+  const [mustChangePassword, setMustChangePassword] = useState<boolean>(() => {
+    return getStorageItem("must_change_password") === "true";
+  });
+  const [loading, setLoading] = useState<boolean>(() => {
+    const savedUser = getStorageItem("user");
+    const savedRole = getStorageItem("role");
+    // If we already have a saved session, we are ready immediately (no loading spinner flash)
+    return !(savedUser && savedRole);
+  });
   const [isLogoutConfirmOpen, setIsLogoutConfirmOpen] = useState(false);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
 
@@ -86,6 +105,42 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     let mounted = true;
     let listenerSubscription: { unsubscribe: () => void } | null = null;
 
+    // 1. If demo mode was saved, load demo dataset so mock records are populated
+    const savedIsDemo = getStorageItem("is_demo") === "true";
+    if (savedIsDemo) {
+      setIsDemo(true);
+      localDb.ensureDemoDataLoaded();
+    }
+
+    // 2. Re-verify password requirements for non-admin
+    const savedUser = getStorageItem("user");
+    const savedRole = getStorageItem("role") as UserRoleType | null;
+    const savedMustChange = getStorageItem("must_change_password") === "true";
+
+    if (savedUser && savedRole) {
+      try {
+        const parsedUser = JSON.parse(savedUser);
+        if (!savedIsDemo && savedRole !== "admin") {
+          const identifiers = [
+            parsedUser.id,
+            parsedUser.email,
+            parsedUser.teacher_id,
+            parsedUser.employee_id,
+            parsedUser.student_id,
+            parsedUser.roll_number,
+          ];
+          const hasCustom = hasCustomPassword(identifiers);
+          if (!hasCustom || savedMustChange) {
+            setMustChangePassword(true);
+            setStorageItem("must_change_password", "true");
+          }
+        }
+      } catch (e) {
+        console.error("Failed to parse saved user", e);
+      }
+    }
+
+    // 3. Supabase background session sync (if configured)
     if (isSupabaseConfigured) {
       const restoreSupabaseSession = async () => {
         try {
@@ -114,6 +169,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
           };
           setUser(restoredUser);
           setRole(roleRecord.role as UserRoleType);
+          setStorageItem("user", JSON.stringify(restoredUser));
+          setStorageItem("role", roleRecord.role as string);
           setMustChangePassword(profile?.must_change_password === true);
         } catch (err) {
           console.warn("Could not restore Supabase session:", err);
@@ -123,11 +180,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
 
       try {
         const { data: listener } = supabase.auth.onAuthStateChange(
-          (_event, session) => {
-            if (!session && mounted) {
-              setUser(null);
-              setRole(null);
-              setMustChangePassword(false);
+          (event, session) => {
+            if (!mounted) return;
+            // CRITICAL FIX: Only clear state if explicitly SIGNED_OUT and no local session exists.
+            // Never wipe user on INITIAL_SESSION when session is null.
+            if (event === "SIGNED_OUT") {
+              const currentSaved = getStorageItem("user");
+              if (!currentSaved) {
+                setUser(null);
+                setRole(null);
+                setMustChangePassword(false);
+              }
+            } else if (event === "SIGNED_IN" && session?.user) {
+              void restoreSupabaseSession();
             }
           },
         );
@@ -136,42 +201,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
         console.warn("Could not attach Supabase auth listener:", err);
       }
     }
-    const savedUser = getStorageItem("user");
-    const savedRole = getStorageItem("role") as UserRoleType | null;
-    const savedIsDemo = getStorageItem("is_demo") === "true";
-    const savedMustChange = getStorageItem("must_change_password") === "true";
-    if (savedIsDemo) {
-      setIsDemo(true);
-      localDb.ensureDemoDataLoaded();
-    }
-    if (savedUser && savedRole) {
-      try {
-        const parsedUser = JSON.parse(savedUser);
-        setUser(parsedUser);
-        setRole(savedRole);
-        if (savedIsDemo) {
-          setMustChangePassword(false);
-          removeStorageItem("must_change_password");
-        } else if (savedRole !== "admin") {
-          const identifiers = [
-            parsedUser.id,
-            parsedUser.email,
-            parsedUser.teacher_id,
-            parsedUser.employee_id,
-            parsedUser.student_id,
-            parsedUser.roll_number,
-          ];
-          const hasCustom = hasCustomPassword(identifiers);
-          if (!hasCustom || savedMustChange) {
-            setMustChangePassword(true);
-            setStorageItem("must_change_password", "true");
-          }
-        }
-      } catch (e) {
-        console.error("Failed to parse saved user", e);
-      }
-    }
+
+    // Finished background check
     setLoading(false);
+
     return () => {
       mounted = false;
       listenerSubscription?.unsubscribe();
@@ -250,6 +283,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     ) {
       setStorageItem(`password_${demoUser.id}`, "123");
     }
+    const defaultPath = targetRole === "teacher" ? "/teacher/dashboard" : "/dashboard";
+    localStorage.setItem("edutrack_last_active_path", defaultPath);
     setLoading(false);
   };
 
@@ -284,6 +319,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     removeStorageItem("role");
     removeStorageItem("is_demo");
     removeStorageItem("must_change_password");
+    removeStorageItem("last_active_path");
+    localStorage.removeItem("edutrack_last_active_path");
+    localStorage.removeItem("smit_last_active_path");
   };
 
   const confirmLogout = async () => {

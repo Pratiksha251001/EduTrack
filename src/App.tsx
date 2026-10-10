@@ -1,5 +1,5 @@
 import React from "react";
-import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from "react-router-dom";
 import { AuthProvider, useAuth } from "./context/AuthContext";
 import { ThemeProvider } from "./context/ThemeContext";
 import { AppShell } from "./components/AppShell";
@@ -98,15 +98,76 @@ const RoleDashboard: React.FC = () => {
   return <Dashboard />;
 };
 
+const LAST_PATH_KEY = "edutrack_last_active_path";
+
+const RoutePathTracker: React.FC = () => {
+  const location = useLocation();
+  const { user, role } = useAuth();
+
+  React.useEffect(() => {
+    // Only track authenticated internal app pages (not "/" or "/teacher/login")
+    if (
+      user &&
+      role &&
+      location.pathname !== "/" &&
+      location.pathname !== "/teacher/login"
+    ) {
+      const fullPath = location.pathname + location.search + location.hash;
+      try {
+        localStorage.setItem(LAST_PATH_KEY, fullPath);
+        localStorage.setItem("smit_last_active_path", fullPath);
+      } catch (e) {
+        console.warn("Failed to persist last active path", e);
+      }
+    }
+  }, [location, user, role]);
+
+  return null;
+};
+
+const RootRouteHandler: React.FC = () => {
+  const { user, role, loading } = useAuth();
+  const location = useLocation();
+
+  if (loading) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-background">
+        <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
+      </div>
+    );
+  }
+
+  // If query param ?switch=true is explicitly present, allow user to view AccessHub to pick another portal
+  const isSwitching =
+    new URLSearchParams(location.search).get("switch") === "true";
+
+  if (user && role && !isSwitching) {
+    const savedPath =
+      localStorage.getItem(LAST_PATH_KEY) ||
+      localStorage.getItem("smit_last_active_path");
+    const defaultDashboard =
+      role === "teacher" ? "/teacher/dashboard" : "/dashboard";
+    const targetPath =
+      savedPath && savedPath !== "/" && savedPath !== "/teacher/login"
+        ? savedPath
+        : defaultDashboard;
+
+    return <Navigate to={targetPath} replace />;
+  }
+
+  return <AccessHub />;
+};
+
 export const App: React.FC = () => {
   return (
     <ThemeProvider>
       <AuthProvider>
         <BrowserRouter>
+          <RoutePathTracker />
           <ForcePasswordChangeModal />
           <LogoutConfirmDialog />
           <Routes>
-            <Route path="/" element={<AccessHub />} />
+            <Route path="/" element={<RootRouteHandler />} />
             <Route path="/teacher/login" element={<ClassTeacherLogin />} />
 
             <Route

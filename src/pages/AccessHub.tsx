@@ -44,7 +44,7 @@ interface PortalCard {
 }
 
 export const AccessHub: React.FC = () => {
-  const { loginAsRandomDemo, loginAsDemo, registerAdmin, loginWithCredentials } = useAuth();
+  const { user, role, loginAsRandomDemo, loginAsDemo, registerAdmin, loginWithCredentials } = useAuth();
   const navigate = useNavigate();
   const { theme, toggleTheme } = useTheme();
 
@@ -149,20 +149,24 @@ export const AccessHub: React.FC = () => {
 
   const handleRandomDemoLogin = async () => {
     setLoading(true);
-    await loginAsRandomDemo();
+    const chosenRole = await loginAsRandomDemo();
     setLoading(false);
-    navigate("/dashboard", { replace: true });
+    const dest = chosenRole === "teacher" ? "/teacher/dashboard" : "/dashboard";
+    try {
+      localStorage.setItem("edutrack_last_active_path", dest);
+    } catch {}
+    navigate(dest, { replace: true });
   };
 
   const handleQuickDemo = async (targetRole: UserRoleType) => {
     setLoading(true);
     await loginAsDemo(targetRole);
     setLoading(false);
-    if (targetRole === "teacher") {
-      navigate("/teacher/dashboard", { replace: true });
-    } else {
-      navigate("/dashboard", { replace: true });
-    }
+    const dest = targetRole === "teacher" ? "/teacher/dashboard" : "/dashboard";
+    try {
+      localStorage.setItem("edutrack_last_active_path", dest);
+    } catch {}
+    navigate(dest, { replace: true });
   };
 
   const handleLoginSubmit = async (e: React.FormEvent) => {
@@ -205,11 +209,11 @@ export const AccessHub: React.FC = () => {
       return;
     }
 
-    if (selectedRole === "teacher") {
-      navigate("/teacher/dashboard", { replace: true });
-    } else {
-      navigate("/dashboard", { replace: true });
-    }
+    const dest = selectedRole === "teacher" ? "/teacher/dashboard" : "/dashboard";
+    try {
+      localStorage.setItem("edutrack_last_active_path", dest);
+    } catch {}
+    navigate(dest, { replace: true });
   };
 
   const closeModal = () => {
@@ -288,6 +292,41 @@ export const AccessHub: React.FC = () => {
 
       {/* Main Container */}
       <main className="relative z-10 mx-auto max-w-6xl px-4 sm:px-6 py-8 sm:py-12 space-y-8">
+        {/* Active Session Quick Resume Banner if user is already signed in */}
+        {user && role && (
+          <div className="rounded-2xl border border-emerald-500/30 bg-emerald-500/10 p-4 sm:p-5 flex flex-col sm:flex-row items-center justify-between gap-4 text-left shadow-xs">
+            <div className="flex items-center gap-3.5">
+              <div className="h-10 w-10 rounded-xl bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shrink-0">
+                <CheckCircle2 className="h-5 w-5" />
+              </div>
+              <div>
+                <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">
+                  Active Session Detected
+                </p>
+                <p className="text-sm sm:text-base font-bold text-foreground">
+                  Signed in as <span className="text-emerald-600 dark:text-emerald-400">{user.full_name || user.email}</span> (
+                  <span className="capitalize">{role.replace("_", " ")}</span> Portal)
+                </p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2 shrink-0 w-full sm:w-auto">
+              <Button
+                size="sm"
+                className="w-full sm:w-auto text-xs font-semibold bg-emerald-600 hover:bg-emerald-700 text-white shadow-xs h-9 cursor-pointer"
+                onClick={() => {
+                  const saved = localStorage.getItem("edutrack_last_active_path");
+                  const dest = saved && saved !== "/" && saved !== "/teacher/login"
+                    ? saved
+                    : (role === "teacher" ? "/teacher/dashboard" : "/dashboard");
+                  navigate(dest, { replace: true });
+                }}
+              >
+                Return to Active Page <ArrowRight className="h-3.5 w-3.5 ml-1.5" />
+              </Button>
+            </div>
+          </div>
+        )}
+
         {/* Hero Section */}
         <section className="w-full text-center space-y-4 rounded-2xl border border-border/80 bg-card/95 backdrop-blur-xl p-6 sm:p-8 shadow-sm">
           <div className="flex justify-center mb-2">
