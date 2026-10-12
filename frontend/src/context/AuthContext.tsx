@@ -505,6 +505,68 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
       return { ok: true };
     }
 
+    const bootstrapAccess: Record<
+      "hod" | "class_coordinator" | "teacher",
+      {
+        identifiers: string[];
+        passwords: string[];
+        user: Record<string, string>;
+      }
+    > = {
+      hod: {
+        identifiers: ["hod@gmail.com", "hod.cse@edutrack.edu"],
+        passwords: ["hod@123", "Hod@123", "HOD@123", "Admin@123"],
+        user: {
+          id: "hod-default",
+          email: "hod@gmail.com",
+          full_name: "Dr. Default HOD",
+          department_id: "dept-1",
+          teacher_id: "t-1",
+          employee_id: "DEFAULT-HOD",
+        },
+      },
+      class_coordinator: {
+        identifiers: ["cc@gmail.com", "cc@edutrack.edu"],
+        passwords: ["cc@123", "Cc@123", "CC@123", "Teacher@123"],
+        user: {
+          id: "cc-default",
+          email: "cc@gmail.com",
+          full_name: "Default Class Coordinator",
+          department_id: "dept-1",
+          teacher_id: "t-4",
+          employee_id: "DEFAULT-CC",
+        },
+      },
+      teacher: {
+        identifiers: ["teacher@gmail.com", "teacher@edutrack.edu"],
+        passwords: ["teacher@123", "Teacher@123"],
+        user: {
+          id: "teacher-default",
+          email: "teacher@gmail.com",
+          full_name: "Default Teacher",
+          department_id: "dept-1",
+          teacher_id: "t-2",
+          employee_id: "DEFAULT-TEACHER",
+        },
+      },
+    };
+
+    if (
+      targetRole !== "admin" &&
+      targetRole !== "student" &&
+      bootstrapAccess[targetRole].identifiers.includes(cleanId) &&
+      bootstrapAccess[targetRole].passwords.includes(password)
+    ) {
+      const bootstrapUser = bootstrapAccess[targetRole].user;
+      setUser(bootstrapUser);
+      setRole(targetRole);
+      setMustChangePassword(true);
+      setStorageItem("must_change_password", "true");
+      setStorageItem("user", JSON.stringify(bootstrapUser));
+      setStorageItem("role", targetRole);
+      return { ok: true };
+    }
+
     if (
       targetRole === "student" &&
       (cleanId === "student@gmail.com" || cleanId === "101") &&
