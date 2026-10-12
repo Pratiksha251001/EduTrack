@@ -5,11 +5,13 @@ import { ACADEMIC_YEARS, CURRENT_ACADEMIC_YEAR, college } from "../lib/college";
 import { localDb } from "../lib/supabase";
 import { Badge } from "../components/ui/badge";
 import { Button } from "../components/ui/button";
-import { Trash2 } from "lucide-react";
+import { FileSpreadsheet, Trash2 } from "lucide-react";
+import { TeacherImportModal } from "../components/TeacherImportModal";
 
 export const Teachers: React.FC = () => {
   const [departments, setDepartments] = useState(localDb.departments);
   const [notice, setNotice] = useState<string | null>(null);
+  const [importModalOpen, setImportModalOpen] = useState(false);
 
   useEffect(() => {
     const handleUpdate = () => {
@@ -52,16 +54,27 @@ export const Teachers: React.FC = () => {
           { hod: 0, class_coordinator: 1, lecturer: 2 }[b.role]
         }
         extraHeaderActions={
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={handleClearDefaultData}
-            title="Remove default sample data to start fresh"
-            className="text-xs h-9 gap-1.5 text-destructive hover:bg-destructive/10 hover:text-destructive"
-          >
-            <Trash2 className="h-3.5 w-3.5" />
-            Clear Default Data
-          </Button>
+          <div className="flex items-center gap-2 flex-wrap">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setImportModalOpen(true)}
+              className="text-xs h-9 gap-1.5"
+            >
+              <FileSpreadsheet className="h-3.5 w-3.5 text-primary" />
+              Import Teachers (Excel / CSV)
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleClearDefaultData}
+              title="Remove default sample data to start fresh"
+              className="text-xs h-9 gap-1.5 text-destructive hover:bg-destructive/10 hover:text-destructive"
+            >
+              <Trash2 className="h-3.5 w-3.5" />
+              Clear Default Data
+            </Button>
+          </div>
         }
         emptyStateAction={{
           label: "Restore sample teachers",
@@ -83,12 +96,11 @@ export const Teachers: React.FC = () => {
             key: "qualification",
             label: "Highest Qualification (e.g. Ph.D, M.Tech, M.Sc)",
           },
-          { key: "date_of_birth", label: "Date of Birth", type: "date" },
           {
             key: "experience_years",
             label: "Year of Experience (e.g. 8 Years)",
           },
-          { key: "email", label: "Email Address", type: "email" },
+          { key: "email", label: "Email Address", type: "email", required: true },
           {
             key: "mobile",
             label: "Mobile Number (Optional)",
@@ -246,6 +258,17 @@ export const Teachers: React.FC = () => {
             ),
           },
         ]}
+      />
+
+      <TeacherImportModal
+        open={importModalOpen}
+        onOpenChange={setImportModalOpen}
+        onImportComplete={(count) => {
+          setNotice(
+            `${count} faculty member${count === 1 ? "" : "s"} imported successfully.`,
+          );
+          setTimeout(() => setNotice(null), 4000);
+        }}
       />
     </div>
   );

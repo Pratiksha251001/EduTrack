@@ -27,6 +27,7 @@ interface DispatchedRecipient {
   student: Student;
   status: "sent" | "failed";
   message: string;
+  attendanceStatus?: "absent" | "present";
 }
 
 interface AttendanceDispatchReceiptModalProps {
@@ -154,6 +155,15 @@ export const AttendanceDispatchReceiptModal: React.FC<
                           </span>
                           <span className="font-semibold text-foreground truncate">
                             {student.full_name}
+                          </span>
+                          <span
+                            className={`text-[9px] font-bold uppercase px-1.5 py-0.5 rounded ${
+                              attendanceStatus === "present"
+                                ? "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border border-emerald-500/30"
+                                : "bg-rose-500/15 text-rose-700 dark:text-rose-300 border border-rose-500/30"
+                            }`}
+                          >
+                            {attendanceStatus === "present" ? "Present" : "Absent"}
                           </span>
                           <Badge
                             variant={status === "sent" ? "success" : "destructive"}

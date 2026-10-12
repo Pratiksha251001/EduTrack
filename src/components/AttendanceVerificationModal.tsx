@@ -41,7 +41,7 @@ interface AttendanceVerificationModalProps {
   eligibleStudents: Student[];
   attendanceState: Record<string, "present" | "absent">;
   onToggleStudent: (id: string, status: "present" | "absent") => void;
-  onConfirm: (language: SmsLanguage) => Promise<void>;
+  onConfirm: (language: SmsLanguage, targetMode: "absent_only" | "present_only" | "both") => Promise<void>;
   saving: boolean;
   smsLanguage: SmsLanguage;
   onLanguageChange: (lang: SmsLanguage) => void;
@@ -65,6 +65,7 @@ export const AttendanceVerificationModal: React.FC<
   const [activeTab, setActiveTab] = useState<"absent" | "present" | "all">(
     "absent",
   );
+  const [smsTargetMode, setSmsTargetMode] = useState<"absent_only" | "present_only" | "both">("absent_only");
   const [filterSearch, setFilterSearch] = useState("");
   const [copiedPreview, setCopiedPreview] = useState(false);
 
@@ -87,6 +88,7 @@ export const AttendanceVerificationModal: React.FC<
 
   const absentWithMobile = absentStudents.filter((s) => Boolean(s.parent_mobile));
   const absentWithoutMobile = absentStudents.filter((s) => !s.parent_mobile);
+  const presentWithMobile = presentStudents.filter((s) => Boolean(s.parent_mobile));
 
   // Filtered lists for the active tab
   const displayedStudents = useMemo(() => {
@@ -107,14 +109,22 @@ export const AttendanceVerificationModal: React.FC<
     );
   }, [activeTab, absentStudents, presentStudents, eligibleStudents, filterSearch]);
 
-  // Sample absentee for live SMS preview
-  const sampleStudent = absentStudents[0] || eligibleStudents[0];
+  // Sample student for live SMS preview based on target mode
+  const sampleStudent =
+    smsTargetMode === "present_only"
+      ? (presentStudents[0] || eligibleStudents[0])
+      : (absentStudents[0] || eligibleStudents[0]);
+
+  const sampleStatus: "absent" | "present" =
+    smsTargetMode === "present_only" ? "present" : "absent";
+
   const sampleMessage = sampleStudent
     ? generateSmsMessage(
         sampleStudent.full_name,
         date,
         subject?.name || "Subject Lecture",
         smsLanguage,
+        sampleStatus,
       )
     : "";
 
@@ -158,11 +168,54 @@ export const AttendanceVerificationModal: React.FC<
             </span>
           </div>
 
-          {/* Small Message Options: Marathi, Eng, Both (Default: Eng) */}
-          <div className="mt-2 flex items-center justify-between gap-2 px-3 py-1.5 rounded-lg bg-card border border-border text-xs shadow-xs">
+          {/* SMS Notification Target Option: Absent, Present, or Both */}
+          <div className="mt-2 flex flex-col sm:flex-row sm:items-center justify-between gap-2 p-2 rounded-lg bg-card border border-border text-xs shadow-xs">
+            <div className="flex items-center gap-1.5 text-muted-foreground text-[11.5px]">
+              <Send className="h-3.5 w-3.5 text-primary" />
+              <span className="font-semibold text-foreground">Send SMS To:</span>
+            </div>
+            <div className="flex items-center gap-1.5 flex-wrap">
+              <button
+                type="button"
+                onClick={() => setSmsTargetMode("absent_only")}
+                className={`px-2.5 py-1 rounded-md text-xs font-semibold transition-all cursor-pointer ${
+                  smsTargetMode === "absent_only"
+                    ? "bg-rose-600 text-white shadow-xs font-bold"
+                    : "bg-secondary text-secondary-foreground hover:bg-secondary/70 border border-border/70"
+                }`}
+              >
+                🔴 Absent Only ({absentStudents.length})
+              </button>
+              <button
+                type="button"
+                onClick={() => setSmsTargetMode("present_only")}
+                className={`px-2.5 py-1 rounded-md text-xs font-semibold transition-all cursor-pointer ${
+                  smsTargetMode === "present_only"
+                    ? "bg-emerald-600 text-white shadow-xs font-bold"
+                    : "bg-secondary text-secondary-foreground hover:bg-secondary/70 border border-border/70"
+                }`}
+              >
+                🟢 Present Only ({presentStudents.length})
+              </button>
+              <button
+                type="button"
+                onClick={() => setSmsTargetMode("both")}
+                className={`px-2.5 py-1 rounded-md text-xs font-semibold transition-all cursor-pointer ${
+                  smsTargetMode === "both"
+                    ? "bg-blue-600 text-white shadow-xs font-bold"
+                    : "bg-secondary text-secondary-foreground hover:bg-secondary/70 border border-border/70"
+                }`}
+              >
+                🔵 Both ({eligibleStudents.length})
+              </button>
+            </div>
+          </div>
+
+          {/* Small Message Language Options: Marathi, Eng, Both (Default: Eng) */}
+          <div className="mt-1.5 flex items-center justify-between gap-2 px-3 py-1.5 rounded-lg bg-card border border-border text-xs shadow-xs">
             <div className="flex items-center gap-1.5 text-muted-foreground text-[11.5px]">
               <MessageSquare className="h-3.5 w-3.5 text-primary" />
-              <span className="font-semibold text-foreground">Msg Option:</span>
+              <span className="font-semibold text-foreground">Language:</span>
             </div>
             <div className="flex items-center gap-1.5">
               <button
@@ -221,7 +274,7 @@ export const AttendanceVerificationModal: React.FC<
             </div>
             <div className="rounded-lg border border-rose-500/25 bg-rose-500/5 p-2">
               <span className="text-[10px] uppercase font-bold text-rose-700 dark:text-rose-400 block">
-                Absent (Alerted)
+                Absent
               </span>
               <span className="text-base font-bold text-rose-600 dark:text-rose-400">
                 {absentStudents.length}
@@ -229,10 +282,14 @@ export const AttendanceVerificationModal: React.FC<
             </div>
             <div className="rounded-lg border border-primary/25 bg-primary/5 p-2">
               <span className="text-[10px] uppercase font-bold text-primary block">
-                SMS Deliveries
+                SMS Target
               </span>
               <span className="text-base font-bold text-primary">
-                {absentWithMobile.length}
+                {smsTargetMode === "absent_only"
+                  ? absentWithMobile.length
+                  : smsTargetMode === "present_only"
+                  ? presentWithMobile.length
+                  : absentWithMobile.length + presentWithMobile.length}
               </span>
             </div>
           </div>
@@ -424,12 +481,14 @@ export const AttendanceVerificationModal: React.FC<
           </div>
 
           {/* SMS Notification Message Preview */}
-          {absentStudents.length > 0 && (
+          {((smsTargetMode === "absent_only" && absentStudents.length > 0) ||
+            (smsTargetMode === "present_only" && presentStudents.length > 0) ||
+            smsTargetMode === "both") && (
             <div className="rounded-xl border border-border/80 bg-muted/20 p-3 space-y-1.5">
               <div className="flex items-center justify-between">
                 <span className="text-[11px] font-semibold text-muted-foreground flex items-center gap-1.5">
                   <Globe className="h-3.5 w-3.5 text-primary" />
-                  SMS Preview ({smsLanguage === "mr" ? "Marathi" : smsLanguage === "en" ? "Eng" : "Both"} · Ward: {sampleStudent?.full_name}):
+                  SMS Preview ({sampleStatus === "present" ? "Present Confirmation" : "Absent Alert"} · {smsLanguage === "mr" ? "Marathi" : smsLanguage === "en" ? "Eng" : "Both"} · Ward: {sampleStudent?.full_name}):
                 </span>
                 <Button
                   size="sm"
@@ -467,10 +526,14 @@ export const AttendanceVerificationModal: React.FC<
           </Button>
 
           <Button
-            onClick={() => onConfirm(smsLanguage)}
+            onClick={() => onConfirm(smsLanguage, smsTargetMode)}
             disabled={saving || eligibleStudents.length === 0}
             className={`w-full sm:w-auto font-semibold ${
-              absentStudents.length > 0
+              smsTargetMode === "present_only"
+                ? "bg-emerald-600 hover:bg-emerald-700 text-white"
+                : smsTargetMode === "both"
+                ? "bg-blue-600 hover:bg-blue-700 text-white"
+                : absentStudents.length > 0
                 ? "bg-rose-600 hover:bg-rose-700 text-white"
                 : "bg-emerald-600 hover:bg-emerald-700 text-white"
             }`}
@@ -479,6 +542,16 @@ export const AttendanceVerificationModal: React.FC<
               <span className="flex items-center gap-2">
                 <span className="h-4 w-4 rounded-full border-2 border-white border-t-transparent animate-spin" />
                 Dispatching Parent Alerts...
+              </span>
+            ) : smsTargetMode === "present_only" ? (
+              <span className="flex items-center gap-1.5">
+                <Send className="h-4 w-4" />
+                Confirm & Send Present SMS ({presentStudents.length} Students)
+              </span>
+            ) : smsTargetMode === "both" ? (
+              <span className="flex items-center gap-1.5">
+                <Send className="h-4 w-4" />
+                Confirm & Send SMS to All ({absentStudents.length} Absent + {presentStudents.length} Present)
               </span>
             ) : absentStudents.length > 0 ? (
               <span className="flex items-center gap-1.5">

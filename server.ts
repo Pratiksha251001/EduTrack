@@ -216,38 +216,110 @@ async function startServer() {
   });
 
   // =========================================================================
-  // MSG91 SMS GATEWAY PROXY APIs
+  // UNIVERSAL MULTI-PROVIDER SMS GATEWAY PROXY APIs
+  // Supports: Fast2SMS (India Plain SMS), MSG91, Twilio, Textlocal, Custom REST APIs
   // =========================================================================
-  let currentMsg91AuthKey = (
-    process.env.MSG91_AUTHKEY ||
-    process.env.VITE_MSG91_AUTHKEY ||
-    process.env.VITE_SMS_API_KEY ||
-    ""
-  ).trim();
+  const SMS_CONFIG_FILE = path.resolve(process.cwd(), "sms-gateway-config.json");
 
-  let currentMsg91SenderId = (
-    process.env.MSG91_SENDER_ID ||
-    process.env.VITE_MSG91_SENDER_ID ||
-    "EDUTRK"
-  ).trim();
+  interface SmsConfigStore {
+    activeProvider: "fast2sms" | "msg91" | "twilio" | "textlocal" | "custom";
+    fast2sms: {
+      apiKey: string;
+      route: string; // "q" (Quick plain SMS), "otp", "v3", or "dlt"
+    };
+    msg91: {
+      authKey: string;
+      senderId: string;
+      templateId: string;
+      route: string;
+      dltTeId: string;
+    };
+    twilio: {
+      accountSid: string;
+      authToken: string;
+      fromNumber: string;
+    };
+    textlocal: {
+      apiKey: string;
+      sender: string;
+    };
+    custom: {
+      url: string;
+      method: "POST" | "GET";
+      headers: string;
+      bodyTemplate: string;
+      apiKey: string;
+      senderId: string;
+    };
+  }
 
-  let currentMsg91TemplateId = (
-    process.env.MSG91_TEMPLATE_ID ||
-    process.env.VITE_MSG91_TEMPLATE_ID ||
-    ""
-  ).trim();
+  function loadSmsConfig(): SmsConfigStore {
+    const defaultConfig: SmsConfigStore = {
+      activeProvider: (process.env.SMS_PROVIDER as any) || (process.env.MSG91_AUTHKEY ? "msg91" : "fast2sms"),
+      fast2sms: {
+        apiKey: (process.env.FAST2SMS_API_KEY || process.env.VITE_FAST2SMS_API_KEY || "").trim(),
+        route: "q",
+      },
+      msg91: {
+        authKey: (
+          process.env.MSG91_AUTHKEY ||
+          process.env.VITE_MSG91_AUTHKEY ||
+          process.env.VITE_SMS_API_KEY ||
+          ""
+        ).trim(),
+        senderId: (process.env.MSG91_SENDER_ID || "EDUTRK").trim(),
+        templateId: (process.env.MSG91_TEMPLATE_ID || "").trim(),
+        route: (process.env.MSG91_ROUTE || "4").trim(),
+        dltTeId: (process.env.MSG91_DLT_TE_ID || "").trim(),
+      },
+      twilio: {
+        accountSid: (process.env.TWILIO_ACCOUNT_SID || "").trim(),
+        authToken: (process.env.TWILIO_AUTH_TOKEN || "").trim(),
+        fromNumber: (process.env.TWILIO_FROM_NUMBER || "").trim(),
+      },
+      textlocal: {
+        apiKey: (process.env.TEXTLOCAL_API_KEY || "").trim(),
+        sender: (process.env.TEXTLOCAL_SENDER || "TXTLCL").trim(),
+      },
+      custom: {
+        url: (process.env.CUSTOM_SMS_URL || process.env.VITE_SMS_API_URL || "").trim(),
+        method: "POST",
+        headers: JSON.stringify({ "Content-Type": "application/json" }, null, 2),
+        bodyTemplate: JSON.stringify({ to: "{clean10}", message: "{message}" }, null, 2),
+        apiKey: (process.env.CUSTOM_SMS_API_KEY || "").trim(),
+        senderId: "EDUTRK",
+      },
+    };
 
-  let currentMsg91Route = (
-    process.env.MSG91_ROUTE ||
-    process.env.VITE_MSG91_ROUTE ||
-    "4"
-  ).trim();
+    try {
+      if (fs.existsSync(SMS_CONFIG_FILE)) {
+        const raw = fs.readFileSync(SMS_CONFIG_FILE, "utf-8");
+        const parsed = JSON.parse(raw);
+        return {
+          ...defaultConfig,
+          ...parsed,
+          fast2sms: { ...defaultConfig.fast2sms, ...(parsed.fast2sms || {}) },
+          msg91: { ...defaultConfig.msg91, ...(parsed.msg91 || {}) },
+          twilio: { ...defaultConfig.twilio, ...(parsed.twilio || {}) },
+          textlocal: { ...defaultConfig.textlocal, ...(parsed.textlocal || {}) },
+          custom: { ...defaultConfig.custom, ...(parsed.custom || {}) },
+        };
+      }
+    } catch (e) {
+      console.warn("Could not read sms-gateway-config.json:", e);
+    }
+    return defaultConfig;
+  }
 
-  let currentMsg91DltTeId = (
-    process.env.MSG91_DLT_TE_ID ||
-    ""
-  ).trim();
+  function saveSmsConfig(cfg: SmsConfigStore) {
+    try {
+      fs.writeFileSync(SMS_CONFIG_FILE, JSON.stringify(cfg, null, 2), "utf-8");
+    } catch (e) {
+      console.warn("Could not write sms-gateway-config.json:", e);
+    }
+  }
 
+  let smsConfig: SmsConfigStore = loadSmsConfig();
   let totalSmsDispatchedCount = 0;
   let lastSmsDispatchedTimestamp: string | null = null;
 
@@ -274,150 +346,515 @@ async function startServer() {
     return cachedPublicIp || "34.34.254.233";
   }
 
-  async function checkMsg91Health(key: string): Promise<{
-    error418Detected: boolean;
-    raw: any;
-    statusText: string;
-  }> {
-    if (!key || key.length < 6) {
-      return { error418Detected: false, raw: null, statusText: "No AuthKey configured" };
+  function parseMobile(raw: string) {
+    let digits = (raw || "").replace(/[^0-9]/g, "");
+    if (digits.startsWith("91") && digits.length === 12) {
+      digits = digits.slice(2);
+    } else if (digits.startsWith("0") && digits.length === 11) {
+      digits = digits.slice(1);
     }
-    try {
-      const res = await fetch(`https://control.msg91.com/api/balance.php?authkey=${key}&type=4`, {
-        signal: AbortSignal.timeout(4000),
-      });
-      const text = await res.text();
-      let parsed: any = null;
-      try {
-        parsed = JSON.parse(text);
-      } catch {}
+    const clean10 = digits.slice(-10);
+    return {
+      clean10,
+      with91: `91${clean10}`,
+      withPlus91: `+91${clean10}`,
+    };
+  }
 
-      const is418 = (parsed && (parsed.msg === "418" || parsed.apiError === "418")) || text.includes('"418"');
-      if (is418) {
+  function isProviderConfigured(provider: string, cfg: SmsConfigStore): boolean {
+    switch (provider) {
+      case "fast2sms":
+        return Boolean(cfg.fast2sms?.apiKey && cfg.fast2sms.apiKey.length > 5);
+      case "msg91":
+        return Boolean(cfg.msg91?.authKey && cfg.msg91.authKey.length > 5);
+      case "twilio":
+        return Boolean(cfg.twilio?.accountSid && cfg.twilio?.authToken && cfg.twilio?.fromNumber);
+      case "textlocal":
+        return Boolean(cfg.textlocal?.apiKey && cfg.textlocal.apiKey.length > 5);
+      case "custom":
+        return Boolean(cfg.custom?.url && cfg.custom.url.startsWith("http"));
+      default:
+        return false;
+    }
+  }
+
+  // Universal dispatch helper for a single SMS
+  async function executeSingleSmsDispatch(
+    recipient: {
+      mobile: string;
+      message: string;
+      studentName?: string;
+      subject?: string;
+      date?: string;
+    },
+    providerName: string,
+    cfg: SmsConfigStore,
+    overrideOpts?: any
+  ): Promise<{
+    success: boolean;
+    provider: string;
+    messageId?: string;
+    details: string;
+    raw?: any;
+    error418?: boolean;
+  }> {
+    const { clean10, with91, withPlus91 } = parseMobile(recipient.mobile);
+    if (!clean10 || clean10.length < 10) {
+      return {
+        success: false,
+        provider: providerName,
+        details: `Invalid 10-digit mobile number: "${recipient.mobile}"`,
+      };
+    }
+
+    const text = recipient.message;
+
+    // PROVIDER 1: Fast2SMS (India Plain Direct SMS, No DLT needed)
+    if (providerName === "fast2sms") {
+      const apiKey = (overrideOpts?.apiKey || overrideOpts?.authKey || cfg.fast2sms.apiKey || "").trim();
+      if (!apiKey) {
         return {
-          error418Detected: true,
-          raw: parsed || text,
-          statusText: "Error 418: IP not whitelisted on MSG91 account.",
+          success: false,
+          provider: "Fast2SMS",
+          details: "Fast2SMS API Key not configured.",
         };
       }
-      return {
-        error418Detected: false,
-        raw: parsed || text,
-        statusText: "MSG91 connection active",
+      const route = overrideOpts?.route || cfg.fast2sms.route || "q";
+      const isUnicode = /[^\u0000-\u007F]/.test(text);
+
+      const payload = {
+        route: route,
+        message: text,
+        language: isUnicode ? "unicode" : "english",
+        flash: 0,
+        numbers: clean10,
       };
-    } catch (err: any) {
+
+      const fRes = await fetch("https://www.fast2sms.com/dev/bulkV2", {
+        method: "POST",
+        headers: {
+          authorization: apiKey,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(payload),
+        signal: AbortSignal.timeout(10000),
+      });
+
+      const fData: any = await fRes.json().catch(() => ({}));
+      const ok = fRes.ok && (fData.return === true || fData.status_code === 200);
+      const msgDetails = Array.isArray(fData.message)
+        ? fData.message.join(", ")
+        : fData.message || (ok ? "Dispatched via Fast2SMS" : `Fast2SMS HTTP ${fRes.status}`);
+
       return {
-        error418Detected: false,
-        raw: null,
-        statusText: err?.message || "Health check failed",
+        success: ok,
+        provider: "Fast2SMS",
+        messageId: fData.request_id || (ok ? "F2S-SENT" : undefined),
+        details: msgDetails,
+        raw: fData,
       };
     }
-  }
 
-  function getEffectiveAuthKey(): string {
-    return (
-      currentMsg91AuthKey ||
-      process.env.MSG91_AUTHKEY ||
-      process.env.VITE_MSG91_AUTHKEY ||
-      process.env.VITE_SMS_API_KEY ||
-      ""
-    ).trim();
-  }
+    // PROVIDER 2: MSG91
+    if (providerName === "msg91") {
+      const authKey = (overrideOpts?.authKey || overrideOpts?.apiKey || cfg.msg91.authKey || "").trim();
+      if (!authKey) {
+        return {
+          success: false,
+          provider: "MSG91",
+          details: "MSG91 AuthKey not configured.",
+        };
+      }
+      const senderId = (overrideOpts?.senderId || cfg.msg91.senderId || "EDUTRK").trim();
+      const templateId = (overrideOpts?.templateId || cfg.msg91.templateId || "").trim();
+      const route = (overrideOpts?.route || cfg.msg91.route || "4").trim();
+      const dltTeId = (overrideOpts?.dltTeId || cfg.msg91.dltTeId || "").trim();
 
-  function formatIndianMobile(raw: string): string {
-    let cleaned = (raw || "").replace(/[^0-9]/g, "");
-    if (cleaned.length === 10) {
-      cleaned = `91${cleaned}`;
+      // If Template ID is present, try Flow API
+      if (templateId) {
+        try {
+          const flowPayload = {
+            template_id: templateId,
+            short_url: "0",
+            recipients: [
+              {
+                mobiles: with91,
+                name: recipient.studentName || "Student",
+                subject: recipient.subject || "Attendance",
+                date: recipient.date || new Date().toISOString().split("T")[0],
+                message: text,
+              },
+            ],
+          };
+
+          const flowRes = await fetch("https://control.msg91.com/api/v5/flow/", {
+            method: "POST",
+            headers: {
+              authkey: authKey,
+              "content-type": "application/json",
+              accept: "application/json",
+            },
+            body: JSON.stringify(flowPayload),
+            signal: AbortSignal.timeout(10000),
+          });
+
+          const flowData: any = await flowRes.json().catch(() => ({}));
+          if (flowRes.ok && (flowData.type === "success" || flowRes.status === 200)) {
+            return {
+              success: true,
+              provider: "MSG91 Flow",
+              messageId: flowData.request_id,
+              details: flowData.message || "Accepted by MSG91 Flow",
+              raw: flowData,
+            };
+          }
+        } catch {
+          // Flow API failed or timed out, fallback to sendhttp below
+        }
+      }
+
+      // Direct sendhttp API
+      const queryParams = new URLSearchParams({
+        authkey: authKey,
+        mobiles: with91,
+        message: text,
+        sender: senderId,
+        route: route,
+      });
+      if (dltTeId) queryParams.append("DLT_TE_ID", dltTeId);
+
+      const httpRes = await fetch(`https://control.msg91.com/api/sendhttp.php?${queryParams.toString()}`, {
+        method: "GET",
+        signal: AbortSignal.timeout(10000),
+      });
+
+      const respText = await httpRes.text();
+      const is418 = respText.includes("418");
+      const ok = httpRes.ok && !respText.toLowerCase().includes("error") && !respText.toLowerCase().includes("invalid") && !is418;
+
+      return {
+        success: ok,
+        provider: "MSG91",
+        messageId: ok ? respText.trim() : undefined,
+        error418: is418,
+        details: is418
+          ? "MSG91 Error 418: IP whitelist active in MSG91 dashboard. Whitelist your server IP or disable IP restriction in MSG91 Authkey settings."
+          : (ok ? `Accepted by MSG91 (${respText.trim()})` : `MSG91: ${respText.trim() || `HTTP ${httpRes.status}`}`),
+        raw: respText.trim(),
+      };
     }
-    return cleaned;
+
+    // PROVIDER 3: Twilio
+    if (providerName === "twilio") {
+      const accountSid = (overrideOpts?.accountSid || cfg.twilio.accountSid || "").trim();
+      const authToken = (overrideOpts?.authToken || cfg.twilio.authToken || "").trim();
+      const fromNumber = (overrideOpts?.fromNumber || cfg.twilio.fromNumber || "").trim();
+
+      if (!accountSid || !authToken || !fromNumber) {
+        return {
+          success: false,
+          provider: "Twilio",
+          details: "Twilio credentials incomplete (Account SID, Auth Token, From Number required).",
+        };
+      }
+
+      const params = new URLSearchParams();
+      params.append("To", withPlus91);
+      params.append("From", fromNumber);
+      params.append("Body", text);
+
+      const authHeader = "Basic " + Buffer.from(`${accountSid}:${authToken}`).toString("base64");
+      const twRes = await fetch(`https://api.twilio.com/2010-04-01/Accounts/${accountSid}/Messages.json`, {
+        method: "POST",
+        headers: {
+          Authorization: authHeader,
+          "Content-Type": "application/x-www-form-urlencoded",
+        },
+        body: params.toString(),
+        signal: AbortSignal.timeout(10000),
+      });
+
+      const twData: any = await twRes.json().catch(() => ({}));
+      const ok = twRes.ok && Boolean(twData.sid);
+      return {
+        success: ok,
+        provider: "Twilio",
+        messageId: twData.sid,
+        details: ok ? `Delivered via Twilio (${twData.status})` : (twData.message || twData.error_message || `Twilio HTTP ${twRes.status}`),
+        raw: twData,
+      };
+    }
+
+    // PROVIDER 4: Textlocal
+    if (providerName === "textlocal") {
+      const apiKey = (overrideOpts?.apiKey || cfg.textlocal.apiKey || "").trim();
+      const sender = (overrideOpts?.sender || cfg.textlocal.sender || "TXTLCL").trim();
+      if (!apiKey) {
+        return {
+          success: false,
+          provider: "Textlocal",
+          details: "Textlocal API Key not configured.",
+        };
+      }
+
+      const tlParams = new URLSearchParams();
+      tlParams.append("apiKey", apiKey);
+      tlParams.append("numbers", with91);
+      tlParams.append("message", text);
+      tlParams.append("sender", sender);
+
+      const tlRes = await fetch("https://api.textlocal.in/send/", {
+        method: "POST",
+        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+        body: tlParams.toString(),
+        signal: AbortSignal.timeout(10000),
+      });
+
+      const tlData: any = await tlRes.json().catch(() => ({}));
+      const ok = tlRes.ok && tlData.status === "success";
+      return {
+        success: ok,
+        provider: "Textlocal",
+        messageId: tlData.batch_id,
+        details: ok ? "Accepted by Textlocal" : (tlData.errors?.[0]?.message || `Textlocal HTTP ${tlRes.status}`),
+        raw: tlData,
+      };
+    }
+
+    // PROVIDER 5: Custom Gateway / Webhook / Any REST API
+    if (providerName === "custom") {
+      const customUrl = (overrideOpts?.customUrl || overrideOpts?.url || cfg.custom.url || "").trim();
+      if (!customUrl) {
+        return {
+          success: false,
+          provider: "Custom Gateway",
+          details: "Custom Gateway URL is not configured.",
+        };
+      }
+      const method = ((overrideOpts?.customMethod || overrideOpts?.method || cfg.custom.method || "POST") as string).toUpperCase();
+
+      const replacePlaceholders = (str: string) => {
+        return str
+          .replace(/{mobile}/g, clean10)
+          .replace(/{clean10}/g, clean10)
+          .replace(/{with91}/g, with91)
+          .replace(/{withPlus91}/g, withPlus91)
+          .replace(/{message}/g, text)
+          .replace(/{encodedMessage}/g, encodeURIComponent(text))
+          .replace(/{studentName}/g, recipient.studentName || "")
+          .replace(/{subject}/g, recipient.subject || "")
+          .replace(/{date}/g, recipient.date || new Date().toISOString().split("T")[0])
+          .replace(/{apiKey}/g, overrideOpts?.apiKey || cfg.custom.apiKey || "")
+          .replace(/{senderId}/g, overrideOpts?.senderId || cfg.custom.senderId || "EDUTRK");
+      };
+
+      const finalUrl = replacePlaceholders(customUrl);
+
+      let reqHeaders: Record<string, string> = { "Content-Type": "application/json" };
+      const rawHeaders = overrideOpts?.customHeaders || overrideOpts?.headers || cfg.custom.headers;
+      if (rawHeaders) {
+        try {
+          const parsed = typeof rawHeaders === "string" ? JSON.parse(replacePlaceholders(rawHeaders)) : rawHeaders;
+          reqHeaders = { ...reqHeaders, ...parsed };
+        } catch {}
+      }
+
+      let fetchOpts: RequestInit = {
+        method,
+        headers: reqHeaders,
+        signal: AbortSignal.timeout(10000),
+      };
+
+      if (method === "POST" || method === "PUT" || method === "PATCH") {
+        const rawBody = overrideOpts?.customBody || overrideOpts?.bodyTemplate || cfg.custom.bodyTemplate || '{"to":"{clean10}","message":"{message}"}';
+        fetchOpts.body = replacePlaceholders(rawBody);
+      }
+
+      const cRes = await fetch(finalUrl, fetchOpts);
+      const respText = await cRes.text();
+      let parsedBody: any = null;
+      try {
+        parsedBody = JSON.parse(respText);
+      } catch {}
+
+      const ok = cRes.ok && !respText.toLowerCase().includes("error") && !respText.toLowerCase().includes("failed");
+      return {
+        success: ok,
+        provider: "Custom API Gateway",
+        messageId: parsedBody?.id || parsedBody?.message_id || parsedBody?.request_id || (ok ? "CUSTOM-SENT" : undefined),
+        details: parsedBody?.message || (ok ? "Delivered successfully via Custom API" : `Custom Gateway HTTP ${cRes.status}: ${respText.slice(0, 150)}`),
+        raw: parsedBody || respText,
+      };
+    }
+
+    return {
+      success: false,
+      provider: providerName,
+      details: `Unknown SMS provider: "${providerName}"`,
+    };
   }
 
-  // API 5: Get SMS Gateway Status & Diagnostics
+  // API 5: Get Multi-Provider SMS Gateway Status & Diagnostics
   app.get("/api/sms/status", async (req, res) => {
-    const activeKey = getEffectiveAuthKey();
     const serverIp = await getPublicIp();
-    const health = await checkMsg91Health(activeKey);
+    const activeProvider = smsConfig.activeProvider || "fast2sms";
+    const isConfigured = isProviderConfigured(activeProvider, smsConfig);
 
     res.json({
-      provider: "MSG91",
-      isConfigured: Boolean(activeKey && activeKey.length > 5),
-      senderId: currentMsg91SenderId,
-      templateId: currentMsg91TemplateId,
-      route: currentMsg91Route,
-      dltTeId: currentMsg91DltTeId,
-      activeMode: Boolean(activeKey && activeKey.length > 5) ? "live" : "simulation",
+      provider: activeProvider,
+      activeProvider,
+      isConfigured,
+      activeMode: isConfigured ? "live" : "simulation",
       totalDispatched: totalSmsDispatchedCount,
       lastDispatchedAt: lastSmsDispatchedTimestamp,
       serverIp,
-      error418Detected: health.error418Detected,
-      healthStatus: health.statusText,
+      healthStatus: isConfigured ? `Active (${activeProvider.toUpperCase()} Gateway Ready)` : "Simulation Mode (No credentials set)",
+      // Provider configs (masking sensitive parts slightly where applicable)
+      fast2sms: {
+        apiKey: smsConfig.fast2sms?.apiKey || "",
+        route: smsConfig.fast2sms?.route || "q",
+        isConfigured: Boolean(smsConfig.fast2sms?.apiKey && smsConfig.fast2sms.apiKey.length > 5),
+      },
+      msg91: {
+        authKey: smsConfig.msg91?.authKey || "",
+        senderId: smsConfig.msg91?.senderId || "EDUTRK",
+        templateId: smsConfig.msg91?.templateId || "",
+        route: smsConfig.msg91?.route || "4",
+        dltTeId: smsConfig.msg91?.dltTeId || "",
+        isConfigured: Boolean(smsConfig.msg91?.authKey && smsConfig.msg91.authKey.length > 5),
+      },
+      twilio: {
+        accountSid: smsConfig.twilio?.accountSid || "",
+        authToken: smsConfig.twilio?.authToken || "",
+        fromNumber: smsConfig.twilio?.fromNumber || "",
+        isConfigured: Boolean(smsConfig.twilio?.accountSid && smsConfig.twilio?.authToken && smsConfig.twilio?.fromNumber),
+      },
+      textlocal: {
+        apiKey: smsConfig.textlocal?.apiKey || "",
+        sender: smsConfig.textlocal?.sender || "TXTLCL",
+        isConfigured: Boolean(smsConfig.textlocal?.apiKey && smsConfig.textlocal.apiKey.length > 5),
+      },
+      custom: {
+        url: smsConfig.custom?.url || "",
+        method: smsConfig.custom?.method || "POST",
+        headers: smsConfig.custom?.headers || "{}",
+        bodyTemplate: smsConfig.custom?.bodyTemplate || '{"to":"{clean10}","message":"{message}"}',
+        apiKey: smsConfig.custom?.apiKey || "",
+        senderId: smsConfig.custom?.senderId || "EDUTRK",
+        isConfigured: Boolean(smsConfig.custom?.url && smsConfig.custom.url.startsWith("http")),
+      },
+      // Backward compatibility fields
+      senderId: smsConfig.msg91?.senderId || "EDUTRK",
+      templateId: smsConfig.msg91?.templateId || "",
+      route: smsConfig.msg91?.route || "4",
     });
   });
 
   // API 5.1: Update SMS Gateway Credentials dynamically from UI
   app.post("/api/sms/config", (req, res) => {
-    const { authKey, senderId, templateId, route, dltTeId } = req.body || {};
-    if (typeof authKey === "string") {
-      currentMsg91AuthKey = authKey.trim();
-      process.env.MSG91_AUTHKEY = currentMsg91AuthKey;
-      process.env.VITE_MSG91_AUTHKEY = currentMsg91AuthKey;
+    const {
+      activeProvider,
+      provider,
+      fast2sms,
+      msg91,
+      twilio,
+      textlocal,
+      custom,
+      // Backward compatibility fields
+      authKey,
+      senderId,
+      templateId,
+      route,
+      dltTeId,
+      apiKey,
+    } = req.body || {};
+
+    const chosenProvider = (activeProvider || provider || smsConfig.activeProvider || "fast2sms").toLowerCase();
+    if (["fast2sms", "msg91", "twilio", "textlocal", "custom"].includes(chosenProvider)) {
+      smsConfig.activeProvider = chosenProvider as any;
     }
-    if (typeof senderId === "string" && senderId.trim()) {
-      currentMsg91SenderId = senderId.trim();
-      process.env.MSG91_SENDER_ID = currentMsg91SenderId;
-      process.env.VITE_MSG91_SENDER_ID = currentMsg91SenderId;
+
+    if (fast2sms) {
+      smsConfig.fast2sms = {
+        apiKey: typeof fast2sms.apiKey === "string" ? fast2sms.apiKey.trim() : smsConfig.fast2sms.apiKey,
+        route: typeof fast2sms.route === "string" ? fast2sms.route.trim() : smsConfig.fast2sms.route,
+      };
+    }
+
+    if (msg91) {
+      smsConfig.msg91 = {
+        authKey: typeof msg91.authKey === "string" ? msg91.authKey.trim() : smsConfig.msg91.authKey,
+        senderId: typeof msg91.senderId === "string" ? msg91.senderId.trim() : smsConfig.msg91.senderId,
+        templateId: typeof msg91.templateId === "string" ? msg91.templateId.trim() : smsConfig.msg91.templateId,
+        route: typeof msg91.route === "string" ? msg91.route.trim() : smsConfig.msg91.route,
+        dltTeId: typeof msg91.dltTeId === "string" ? msg91.dltTeId.trim() : smsConfig.msg91.dltTeId,
+      };
+    }
+
+    if (twilio) {
+      smsConfig.twilio = {
+        accountSid: typeof twilio.accountSid === "string" ? twilio.accountSid.trim() : smsConfig.twilio.accountSid,
+        authToken: typeof twilio.authToken === "string" ? twilio.authToken.trim() : smsConfig.twilio.authToken,
+        fromNumber: typeof twilio.fromNumber === "string" ? twilio.fromNumber.trim() : smsConfig.twilio.fromNumber,
+      };
+    }
+
+    if (textlocal) {
+      smsConfig.textlocal = {
+        apiKey: typeof textlocal.apiKey === "string" ? textlocal.apiKey.trim() : smsConfig.textlocal.apiKey,
+        sender: typeof textlocal.sender === "string" ? textlocal.sender.trim() : smsConfig.textlocal.sender,
+      };
+    }
+
+    if (custom) {
+      smsConfig.custom = {
+        url: typeof custom.url === "string" ? custom.url.trim() : smsConfig.custom.url,
+        method: custom.method === "GET" ? "GET" : "POST",
+        headers: typeof custom.headers === "string" ? custom.headers.trim() : smsConfig.custom.headers,
+        bodyTemplate: typeof custom.bodyTemplate === "string" ? custom.bodyTemplate.trim() : smsConfig.custom.bodyTemplate,
+        apiKey: typeof custom.apiKey === "string" ? custom.apiKey.trim() : smsConfig.custom.apiKey,
+        senderId: typeof custom.senderId === "string" ? custom.senderId.trim() : smsConfig.custom.senderId,
+      };
+    }
+
+    // Handle legacy root fields
+    if (typeof authKey === "string") {
+      smsConfig.msg91.authKey = authKey.trim();
+    }
+    if (typeof apiKey === "string" && chosenProvider === "fast2sms") {
+      smsConfig.fast2sms.apiKey = apiKey.trim();
+    }
+    if (typeof senderId === "string") {
+      smsConfig.msg91.senderId = senderId.trim();
     }
     if (typeof templateId === "string") {
-      currentMsg91TemplateId = templateId.trim();
-      process.env.MSG91_TEMPLATE_ID = currentMsg91TemplateId;
+      smsConfig.msg91.templateId = templateId.trim();
     }
-    if (typeof route === "string" && route.trim()) {
-      currentMsg91Route = route.trim();
-      process.env.MSG91_ROUTE = currentMsg91Route;
+    if (typeof route === "string") {
+      smsConfig.msg91.route = route.trim();
     }
     if (typeof dltTeId === "string") {
-      currentMsg91DltTeId = dltTeId.trim();
-      process.env.MSG91_DLT_TE_ID = currentMsg91DltTeId;
+      smsConfig.msg91.dltTeId = dltTeId.trim();
     }
 
-    // Persist to .env file if available
-    try {
-      const envPath = path.resolve(process.cwd(), ".env");
-      let envContent = fs.existsSync(envPath) ? fs.readFileSync(envPath, "utf-8") : "";
-      if (currentMsg91AuthKey) {
-        if (/MSG91_AUTHKEY=.*/.test(envContent)) {
-          envContent = envContent.replace(/MSG91_AUTHKEY=.*/, `MSG91_AUTHKEY=${currentMsg91AuthKey}`);
-        } else {
-          envContent += `\nMSG91_AUTHKEY=${currentMsg91AuthKey}`;
-        }
-      }
-      if (currentMsg91SenderId) {
-        if (/MSG91_SENDER_ID=.*/.test(envContent)) {
-          envContent = envContent.replace(/MSG91_SENDER_ID=.*/, `MSG91_SENDER_ID=${currentMsg91SenderId}`);
-        } else {
-          envContent += `\nMSG91_SENDER_ID=${currentMsg91SenderId}`;
-        }
-      }
-      fs.writeFileSync(envPath, envContent, "utf-8");
-    } catch {
-      // Ignored non-fatal
-    }
+    saveSmsConfig(smsConfig);
+    const configured = isProviderConfigured(smsConfig.activeProvider, smsConfig);
+    addLog("success", `[SMS Gateway] Updated active provider to ${smsConfig.activeProvider.toUpperCase()} (Configured: ${configured})`);
 
-    addLog("success", `[MSG91 Gateway] Credentials updated! AuthKey configured: ${Boolean(currentMsg91AuthKey && currentMsg91AuthKey.length > 5)}`);
     res.json({
       success: true,
-      message: "MSG91 configuration updated successfully.",
-      isConfigured: Boolean(currentMsg91AuthKey && currentMsg91AuthKey.length > 5),
-      senderId: currentMsg91SenderId,
-      route: currentMsg91Route,
+      message: `SMS Gateway configuration updated successfully! Active Provider: ${smsConfig.activeProvider.toUpperCase()}`,
+      provider: smsConfig.activeProvider,
+      isConfigured: configured,
     });
   });
 
-  // API 6: Dispatch SMS batch via MSG91
+  // API 6: Dispatch SMS batch (Attendance, Absentee, General Alerts)
   app.post("/api/sms/send", async (req, res) => {
     const rawRecipients = req.body?.recipients || req.body?.smsList || req.body?.items || [];
     const recipients = Array.isArray(rawRecipients) ? rawRecipients : [];
-    const { senderId, templateId, dltTeId } = req.body || {};
+    const chosenProvider = (req.body?.provider || smsConfig.activeProvider || "fast2sms").toLowerCase();
+
     if (!Array.isArray(recipients) || recipients.length === 0) {
       return res.status(400).json({
         success: false,
@@ -428,249 +865,155 @@ async function startServer() {
       });
     }
 
-    const activeAuthKey = getEffectiveAuthKey();
-    const activeSender = senderId || currentMsg91SenderId || "EDUTRK";
-    const activeTemplate = templateId || currentMsg91TemplateId;
-    const activeDltTeId = dltTeId || currentMsg91DltTeId;
+    const isConfigured = isProviderConfigured(chosenProvider, smsConfig);
 
-    addLog("info", `[MSG91 Gateway] Dispatch request received for ${recipients.length} recipient(s) (Sender: ${activeSender})...`);
+    addLog("info", `[SMS Gateway] Dispatch request received for ${recipients.length} recipient(s) via ${chosenProvider.toUpperCase()}...`);
 
-    // If no AuthKey configured, simulate instant delivery and record
-    if (!activeAuthKey) {
+    // If no credentials configured, simulate delivery gracefully
+    if (!isConfigured) {
       totalSmsDispatchedCount += recipients.length;
       lastSmsDispatchedTimestamp = new Date().toISOString();
-      addLog("warn", `[MSG91 Gateway] No MSG91_AUTHKEY found in .env. Logged in simulation mode.`);
+      addLog("warn", `[SMS Gateway] No credentials configured for ${chosenProvider.toUpperCase()}. Logged in simulation mode.`);
       return res.json({
         success: true,
         simulated: true,
-        provider: "MSG91 (Simulation Mode)",
+        provider: `${chosenProvider.toUpperCase()} (Simulation Mode)`,
         dispatchedCount: recipients.length,
         failedCount: 0,
-        message: "SMS logged in simulation mode. Set MSG91_AUTHKEY in .env for live carrier delivery.",
+        message: `SMS logged in simulation mode. Enter your ${chosenProvider.toUpperCase()} API key in SMS Gateway Setup to send real cellular messages.`,
         results: recipients.map((r: any) => ({
           mobile: r.mobile,
           status: "sent",
-          details: "Simulated successfully. Live delivery requires MSG91_AUTHKEY.",
+          details: `Simulated successfully. Configure ${chosenProvider.toUpperCase()} API credentials for real carrier SMS.`,
         })),
       });
     }
 
-    // Live MSG91 Flow API (If template is specified)
-    if (activeTemplate) {
-      try {
-        addLog("info", `[MSG91 Gateway] Sending via Flow API with Template ID: ${activeTemplate}`);
-        const flowPayload = {
-          template_id: activeTemplate,
-          short_url: "0",
-          recipients: recipients.map((r: any) => ({
-            mobiles: formatIndianMobile(r.mobile),
-            name: r.studentName || "Student",
-            subject: r.subject || "College Subject",
-            date: r.date || new Date().toISOString().split("T")[0],
-            message: r.message || "",
-          })),
-        };
-
-        const flowRes = await fetch("https://control.msg91.com/api/v5/flow/", {
-          method: "POST",
-          headers: {
-            authkey: activeAuthKey,
-            "content-type": "application/json",
-            accept: "application/json",
-          },
-          body: JSON.stringify(flowPayload),
-          signal: AbortSignal.timeout(10000),
-        });
-
-        const flowData: any = await flowRes.json().catch(() => ({}));
-        totalSmsDispatchedCount += recipients.length;
-        lastSmsDispatchedTimestamp = new Date().toISOString();
-
-        if (flowRes.ok && (flowData.type === "success" || flowRes.status === 200)) {
-          addLog("success", `[MSG91 Gateway] Flow batch delivered! Request ID: ${flowData.request_id || "SUCCESS"}`);
-          return res.json({
-            success: true,
-            simulated: false,
-            provider: "MSG91 Flow API",
-            dispatchedCount: recipients.length,
-            failedCount: 0,
-            results: recipients.map((r: any) => ({
-              mobile: r.mobile,
-              status: "sent",
-              messageId: flowData.request_id,
-              details: flowData.message || "Accepted by MSG91",
-            })),
-          });
-        } else {
-          addLog("error", `[MSG91 Gateway] Flow API returned: ${flowData.message || flowRes.statusText}`);
-          // If Flow API failed due to invalid template, fall back to direct Send API below!
-        }
-      } catch (err: any) {
-        addLog("error", `[MSG91 Gateway] Network error during Flow dispatch: ${err?.message}`);
-      }
-    }
-
-    // Direct HTTP Send fallback (for custom text, absence messages, or direct alerts)
+    // LIVE DISPATCH
     try {
       const results: any[] = [];
       let sentCount = 0;
       let failCount = 0;
 
       for (const rec of recipients) {
-        const cleanMobile = formatIndianMobile(rec.mobile);
-        const textMsg = rec.message || `EduTrack Parent Alert: Attendance update for ${rec.studentName || "student"}.`;
-
-        const queryParams = new URLSearchParams({
-          authkey: activeAuthKey,
-          mobiles: cleanMobile,
-          message: textMsg,
-          sender: activeSender,
-          route: currentMsg91Route,
-        });
-
-        if (activeDltTeId) {
-          queryParams.append("DLT_TE_ID", activeDltTeId);
-        }
-
-        const httpRes = await fetch(`https://control.msg91.com/api/sendhttp.php?${queryParams.toString()}`, {
-          method: "GET",
-          signal: AbortSignal.timeout(8000),
-        });
-
-        const respText = await httpRes.text();
-        const isOk = httpRes.ok && !respText.toLowerCase().includes("error") && !respText.toLowerCase().includes("invalid");
-
-        if (isOk) {
+        const dispatchRes = await executeSingleSmsDispatch(rec, chosenProvider, smsConfig, req.body);
+        if (dispatchRes.success) {
           sentCount++;
           results.push({
             mobile: rec.mobile,
             status: "sent",
-            messageId: respText.trim(),
-            details: `Delivered via MSG91 (Request ID: ${respText.trim()})`,
+            messageId: dispatchRes.messageId,
+            details: dispatchRes.details,
+            raw: dispatchRes.raw,
           });
         } else {
           failCount++;
           results.push({
             mobile: rec.mobile,
             status: "failed",
-            details: respText.trim() || `HTTP ${httpRes.status}`,
+            details: dispatchRes.details,
+            raw: dispatchRes.raw,
           });
         }
       }
 
       totalSmsDispatchedCount += sentCount;
       lastSmsDispatchedTimestamp = new Date().toISOString();
-      addLog("success", `[MSG91 Gateway] Direct dispatch finished: ${sentCount} sent, ${failCount} failed.`);
+      addLog("success", `[SMS Gateway] Live dispatch via ${chosenProvider.toUpperCase()} complete: ${sentCount} sent, ${failCount} failed.`);
 
       return res.json({
         success: sentCount > 0 || failCount === 0,
         simulated: false,
-        provider: "MSG91 Send API",
+        provider: chosenProvider.toUpperCase(),
         dispatchedCount: sentCount,
         failedCount: failCount,
         results,
       });
     } catch (err: any) {
-      addLog("error", `[MSG91 Gateway] Failed to dispatch via MSG91: ${err?.message}`);
+      addLog("error", `[SMS Gateway] Error during batch dispatch: ${err?.message}`);
       return res.status(500).json({
         success: false,
         simulated: false,
-        message: err?.message || "Failed to connect to MSG91",
+        message: err?.message || "Internal error during SMS dispatch",
       });
     }
   });
 
-  // API 7: Diagnostic Test SMS via MSG91
+  // API 7: Diagnostic Test SMS with Live Execution & Detailed Reporting
   app.post("/api/sms/test", async (req, res) => {
-    const { mobile, message, authKey, senderId } = req.body || {};
+    const { mobile, message, provider, testConfig } = req.body || {};
     if (!mobile) {
       return res.status(400).json({ success: false, message: "Mobile number is required." });
     }
 
-    const testText = message || `[EduTrack] Test message from MSG91 Gateway. Verified at ${new Date().toLocaleTimeString()}.`;
-    addLog("info", `[MSG91 Gateway] Diagnostic test triggered for mobile: ${mobile}`);
+    const chosenProvider = (provider || testConfig?.provider || smsConfig.activeProvider || "fast2sms").toLowerCase();
+    const testText = message || `[EduTrack] Test message from ${chosenProvider.toUpperCase()} Gateway. Verified at ${new Date().toLocaleTimeString()}.`;
+    const serverIp = await getPublicIp();
 
-    const effectiveKey = (authKey || getEffectiveAuthKey()).trim();
+    addLog("info", `[SMS Gateway] Diagnostic test triggered for mobile: ${mobile} via ${chosenProvider.toUpperCase()}`);
 
-    if (!effectiveKey) {
+    // Merge any temporary test config passed from UI with saved config
+    const activeCfg: SmsConfigStore = {
+      ...smsConfig,
+      ...(testConfig ? { [chosenProvider]: { ...(smsConfig as any)[chosenProvider], ...testConfig } } : {}),
+    };
+
+    const isConfigured = isProviderConfigured(chosenProvider, activeCfg);
+
+    // If no credentials supplied at all, respond in simulation mode
+    if (!isConfigured) {
       return res.json({
         success: true,
         simulated: true,
-        gateway: "MSG91 (Simulation)",
-        message: "Test simulated successfully! To send real cellular SMS, add MSG91_AUTHKEY to your .env file.",
+        gateway: `${chosenProvider.toUpperCase()} (Simulation)`,
+        serverIp,
+        message: `Simulation Mode: No API credentials found for ${chosenProvider.toUpperCase()}. Please enter your API Key or credentials in the setup modal to send real messages to mobile phones.`,
         mobile,
         text: testText,
       });
     }
 
     try {
-      const cleanMobile = formatIndianMobile(mobile);
-      const activeSender = senderId || currentMsg91SenderId || "EDUTRK";
+      const dispatchRes = await executeSingleSmsDispatch(
+        { mobile, message: testText },
+        chosenProvider,
+        activeCfg,
+        testConfig || req.body
+      );
 
-      const queryParams = new URLSearchParams({
-        authkey: effectiveKey,
-        mobiles: cleanMobile,
-        message: testText,
-        sender: activeSender,
-        route: currentMsg91Route,
-      });
-      if (currentMsg91DltTeId) {
-        queryParams.append("DLT_TE_ID", currentMsg91DltTeId);
-      }
-
-      const testRes = await fetch(`https://control.msg91.com/api/sendhttp.php?${queryParams.toString()}`, {
-        method: "GET",
-        signal: AbortSignal.timeout(8000),
-      });
-
-      const responseBody = await testRes.text();
-      const isSuccess = testRes.ok && !responseBody.toLowerCase().includes("error") && !responseBody.toLowerCase().includes("invalid");
-
-      const serverIp = await getPublicIp();
-      const health = await checkMsg91Health(effectiveKey);
-
-      if (health.error418Detected) {
-        addLog("warn", `[MSG91 Gateway] Carrier rejected test! MSG91 Error 418: Server IP ${serverIp} not whitelisted.`);
-        return res.status(400).json({
-          success: false,
-          carrierBlocked: true,
-          error418: true,
-          serverIp,
-          gateway: "MSG91 Live",
-          message: `MSG91 Error 418: IP Not Whitelisted! MSG91 dashboard me IP restriction active hai jis wajah se message delivery block ho rahi hai. MSG91 Dashboard -> Authkey me jakar IP Restriction ko DISABLE karein, ya Server IP ${serverIp} whitelist karein.`,
-          rawResponse: responseBody.trim(),
-        });
-      }
-
-      if (isSuccess) {
+      if (dispatchRes.success) {
         totalSmsDispatchedCount += 1;
         lastSmsDispatchedTimestamp = new Date().toISOString();
-        addLog("success", `[MSG91 Gateway] Test SMS accepted! Response: ${responseBody.trim()}`);
+        addLog("success", `[SMS Gateway] Test SMS accepted by ${chosenProvider.toUpperCase()}! Details: ${dispatchRes.details}`);
         return res.json({
           success: true,
           simulated: false,
-          gateway: "MSG91 Live",
+          gateway: `${chosenProvider.toUpperCase()} Live`,
           serverIp,
-          message: `Test SMS accepted by MSG91 carrier network! (Request ID: ${responseBody.trim()})`,
-          rawResponse: responseBody.trim(),
+          message: `Test SMS accepted by ${chosenProvider.toUpperCase()}! ${dispatchRes.details}`,
+          rawResponse: dispatchRes.raw,
+          messageId: dispatchRes.messageId,
         });
       } else {
-        addLog("error", `[MSG91 Gateway] Test SMS rejected: ${responseBody.trim()}`);
-        return res.status(400).json({
+        addLog("warn", `[SMS Gateway] Test SMS rejected by ${chosenProvider.toUpperCase()}: ${dispatchRes.details}`);
+        return res.status(200).json({
           success: false,
           simulated: false,
-          gateway: "MSG91 Live",
+          gateway: `${chosenProvider.toUpperCase()} Live`,
           serverIp,
-          message: `MSG91 Error: ${responseBody.trim()}`,
-          rawResponse: responseBody.trim(),
+          carrierBlocked: dispatchRes.error418 || false,
+          error418: dispatchRes.error418 || false,
+          message: `${chosenProvider.toUpperCase()} Carrier Message: ${dispatchRes.details}`,
+          rawResponse: dispatchRes.raw,
         });
       }
     } catch (err: any) {
-      addLog("error", `[MSG91 Gateway] Test SMS connection error: ${err?.message}`);
+      addLog("error", `[SMS Gateway] Test SMS network error: ${err?.message}`);
       return res.status(500).json({
         success: false,
         simulated: false,
-        message: err?.message || "Failed to reach MSG91 server.",
+        serverIp,
+        message: err?.message || `Failed to connect to ${chosenProvider.toUpperCase()} server.`,
       });
     }
   });

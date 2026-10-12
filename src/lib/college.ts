@@ -207,6 +207,55 @@ export function getOtherAbsenceMessage(
 }
 
 /**
+ * Presence (Present Confirmation) SMS Generator Functions
+ */
+export function getEnglishPresenceMessage(
+  studentName: string,
+  _date: string,
+  subjectName: string,
+): string {
+  const shortSub = getSubjectShortName(subjectName);
+  return `Dear Parent, ${studentName} is marked PRESENT for ${shortSub} today. - EduTrack`;
+}
+
+export function getMarathiPresenceMessage(
+  studentName: string,
+  _date: string,
+  subjectName: string,
+): string {
+  const shortSub = getSubjectShortName(subjectName);
+  return `पालकहो, विद्यार्थी ${studentName} आज ${shortSub} तासाला उपस्थित (PRESENT) आहे. - EduTrack`;
+}
+
+export function getHindiPresenceMessage(
+  studentName: string,
+  _date: string,
+  subjectName: string,
+): string {
+  const shortSub = getSubjectShortName(subjectName);
+  return `प्रिय अभिभावक, छात्र ${studentName} आज ${shortSub} कक्षा में उपस्थित (PRESENT) है। - EduTrack`;
+}
+
+export function generatePresenceSmsMessage(
+  studentName: string,
+  date: string,
+  subjectName: string,
+  lang: SmsLanguage = "en",
+): string {
+  if (lang === "mr") {
+    return getMarathiPresenceMessage(studentName, date, subjectName);
+  }
+  if (lang === "hi") {
+    return getHindiPresenceMessage(studentName, date, subjectName);
+  }
+  if (lang === "bilingual_mr" || lang === "trilingual") {
+    const shortSub = getSubjectShortName(subjectName);
+    return `Dear Parent, ${studentName} is PRESENT for ${shortSub} today. विद्यार्थी ${studentName} आज ${shortSub} तासाला उपस्थित आहे. - EduTrack`;
+  }
+  return getEnglishPresenceMessage(studentName, date, subjectName);
+}
+
+/**
  * Master generator function for attendance SMS alerts - formatted in English, Marathi, or Other message (default English)
  */
 export function generateSmsMessage(
@@ -214,7 +263,11 @@ export function generateSmsMessage(
   date: string,
   subjectName: string,
   lang: SmsLanguage = "en",
+  status: "absent" | "present" = "absent",
 ): string {
+  if (status === "present") {
+    return generatePresenceSmsMessage(studentName, date, subjectName, lang);
+  }
   if (lang === "en") {
     return getEnglishAbsenceMessage(studentName, date, subjectName);
   }

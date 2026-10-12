@@ -21,6 +21,11 @@ import {
   Layers,
   Filter,
   BookOpen,
+  Table as TableIcon,
+  LayoutGrid,
+  Download,
+  Mail,
+  ArrowUpDown,
 } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import { localDb } from "../lib/supabase";
@@ -46,12 +51,21 @@ import {
   isValid10DigitMobile,
   getMobileValidationError,
   sanitizeMobileInput,
+  isValidEmail,
 } from "../lib/validation";
 import { Badge } from "../components/ui/badge";
 import { Button } from "../components/ui/button";
 import { Card } from "../components/ui/card";
 import { Input } from "../components/ui/input";
 import { Select } from "../components/ui/select";
+import {
+  Table,
+  TableHeader,
+  TableBody,
+  TableRow,
+  TableHead,
+  TableCell,
+} from "../components/ui/table";
 import { TeacherImportModal } from "../components/TeacherImportModal";
 import { TeacherProfileModal } from "../components/TeacherProfileModal";
 import { TeacherPasswordModal } from "../components/TeacherPasswordModal";
@@ -121,6 +135,9 @@ export const HODStaff: React.FC<HODStaffProps> = ({ mode }) => {
 
   const [search, setSearch] = useState("");
   const [selectedYearFilter, setSelectedYearFilter] = useState<string>("all");
+  const [viewMode, setViewMode] = useState<"table" | "grid">("table");
+  const [sortBy, setSortBy] = useState<"name" | "empid" | "role" | "exp">("name");
+  const [sortOrder, setSortOrder] = useState<"asc" | "desc">("asc");
   const [editing, setEditing] = useState<Teacher | null>(null);
   const [formOpen, setFormOpen] = useState(false);
   const [importModalOpen, setImportModalOpen] = useState(false);
@@ -148,7 +165,6 @@ export const HODStaff: React.FC<HODStaffProps> = ({ mode }) => {
     designation: "Assistant Professor",
     department_id: departmentId,
     qualification: "",
-    date_of_birth: "",
     experience_years: "",
     email: "",
     mobile: "",
@@ -237,16 +253,102 @@ export const HODStaff: React.FC<HODStaffProps> = ({ mode }) => {
         return false;
     }
 
-    const query = search.toLowerCase();
+    const query = search.toLowerCase().trim();
     return (
       !query ||
       teacher.full_name.toLowerCase().includes(query) ||
       teacher.employee_id.toLowerCase().includes(query) ||
       (teacher.email || "").toLowerCase().includes(query) ||
+      (teacher.mobile || "").includes(query) ||
       (teacher.designation || "").toLowerCase().includes(query) ||
       (teacher.qualification || "").toLowerCase().includes(query)
     );
   });
+
+  const sortedTeachers = useMemo(() => {
+    return [...visibleTeachers].sort((a, b) => {
+      let cmp = 0;
+      if (sortBy === "name") {
+        cmp = a.full_name.localeCompare(b.full_name);
+      } else if (sortBy === "empid") {
+        cmp = (a.employee_id || "").localeCompare(b.employee_id || "");
+      } else if (sortBy === "role") {
+        const roleOrder: Record<string, number> = {
+          hod: 0,
+          class_coordinator: 1,
+          lecturer: 2,
+        };
+        cmp = (roleOrder[a.role] ?? 2) - (roleOrder[b.role] ?? 2);
+      } else if (sortBy === "exp") {
+        const expA = parseInt(String(a.experience_years || 0)) || 0;
+        const expB = parseInt(String(b.experience_years || 0)) || 0;
+        cmp = expB - expA;
+      }
+      return sortOrder === "asc" ? cmp : -cmp;
+    });
+  }, [visibleTeachers, sortBy, sortOrder]);
+
+  const handleExportCsv = () => {
+    const headers = [
+      "Employee ID",
+      "Full Name",
+      "Designation",
+      "Role",
+      "Qualification",
+      "Experience",
+      "Email",
+      "Mobile",
+      "Coordinated Classes",
+      "Teaching Subjects",
+      "Status",
+    ];
+
+    const rows = sortedTeachers.map((t) => {
+      const tCcas = assignments.filter((a) => a.teacher_id === t.id);
+      const tCoordClasses = departmentClasses
+        .filter(
+          (c) =>
+            c.coordinator_teacher_id === t.id ||
+            tCcas.some((a) => a.class_id === c.id || a.class_name === c.name) ||
+            (t.assigned_classes || []).includes(c.name),
+        )
+        .map((c) => `${c.name} (Sem ${c.semester})`)
+        .join("; ");
+
+      const tTs = teacherSubjects.filter((ts) => ts.teacher_id === t.id);
+      const tSubjects = tTs
+        .map((ts) => {
+          const sub = departmentSubjects.find((s) => s.id === ts.subject_id);
+          return `${sub?.code || "SUB"}${ts.class_name ? ` [${ts.class_name}]` : ""}`;
+        })
+        .join("; ");
+
+      return [
+        `"${(t.employee_id || "").replace(/"/g, '""')}"`,
+        `"${(t.full_name || "").replace(/"/g, '""')}"`,
+        `"${(t.designation || "Assistant Professor").replace(/"/g, '""')}"`,
+        `"${(t.role || "lecturer").replace(/"/g, '""')}"`,
+        `"${(t.qualification || "").replace(/"/g, '""')}"`,
+        `"${(t.experience_years || "").replace(/"/g, '""')}"`,
+        `"${(t.email || "").replace(/"/g, '""')}"`,
+        `"${(t.mobile || "").replace(/"/g, '""')}"`,
+        `"${tCoordClasses.replace(/"/g, '""')}"`,
+        `"${tSubjects.replace(/"/g, '""')}"`,
+        `"${(t.status || "active").replace(/"/g, '""')}"`,
+      ].join(",");
+    });
+
+    const csvContent = "\uFEFF" + [headers.join(","), ...rows].join("\n");
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `${department?.code || "Department"}_Faculty_Roster_${new Date().toISOString().slice(0, 10)}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
 
   const openAdd = () => {
     setEditing(null);
@@ -260,7 +362,6 @@ export const HODStaff: React.FC<HODStaffProps> = ({ mode }) => {
       designation: "Assistant Professor",
       department_id: departmentId,
       qualification: "",
-      date_of_birth: "",
       experience_years: "",
       email: "",
       mobile: "",
@@ -343,7 +444,6 @@ export const HODStaff: React.FC<HODStaffProps> = ({ mode }) => {
       designation: teacher.designation || "Assistant Professor",
       department_id: teacher.department_id || departmentId,
       qualification: teacher.qualification || "",
-      date_of_birth: teacher.date_of_birth || "",
       experience_years: teacher.experience_years
         ? String(teacher.experience_years)
         : "",
@@ -376,12 +476,18 @@ export const HODStaff: React.FC<HODStaffProps> = ({ mode }) => {
   };
 
   const save = async () => {
-    if (!form.employee_id.trim() || !form.full_name.trim() || !departmentId) {
-      alert("Employee ID, full name, and department are required.");
+    // STRICT VALIDATION: Full Name, College Employee ID, and Email Address are mandatory!
+    if (!form.employee_id.trim() || !form.full_name.trim() || !form.email.trim()) {
+      alert("Validation Error: Teacher Full Name (*), College Employee ID Ref No (*), and Email Address (*) are strictly required.");
       return;
     }
 
-    if (form.mobile) {
+    if (!isValidEmail(form.email.trim())) {
+      alert(`Invalid Email Address: "${form.email.trim()}". Please enter a valid email format (e.g. teacher@college.edu).`);
+      return;
+    }
+
+    if (form.mobile && form.mobile.trim()) {
       const mobErr = getMobileValidationError(
         form.mobile,
         "Faculty Mobile",
@@ -434,9 +540,9 @@ export const HODStaff: React.FC<HODStaffProps> = ({ mode }) => {
       employee_id: form.employee_id.trim(),
       full_name: form.full_name.trim(),
       designation: form.designation.trim() || "Assistant Professor",
-      department_id: departmentId,
+      department_id: departmentId || "dept-1",
       qualification: form.qualification.trim() || null,
-      date_of_birth: form.date_of_birth.trim() || null,
+      date_of_birth: null, // DOB not required
       experience_years: form.experience_years.trim() || null,
       email: form.email.trim() || null,
       mobile: cleanMobile(form.mobile) || null, // Standardized 10-digit mobile
@@ -767,8 +873,9 @@ export const HODStaff: React.FC<HODStaffProps> = ({ mode }) => {
                   : `Add ${mode === "teachers" ? "Teacher" : "Class Coordinator"}`}
               </h2>
               <p className="text-xs text-muted-foreground mt-0.5">
-                Please provide faculty designations, qualification credentials,
-                reference ID, and optional phone.
+                Strict Validation: Only <strong className="text-foreground">Teacher Full Name (*)</strong>,{" "}
+                <strong className="text-foreground">Employee ID (*)</strong>, and{" "}
+                <strong className="text-foreground">Email Address (*)</strong> are strictly mandatory. Other fields (designation, qualification, experience, phone) are completely optional and can be left blank.
               </p>
             </div>
             <Button
@@ -781,27 +888,32 @@ export const HODStaff: React.FC<HODStaffProps> = ({ mode }) => {
           </div>
 
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {/* 1. Full Name */}
+            {/* 1. Full Name - STRICTLY MANDATORY */}
             <div className="space-y-1">
-              <label className="text-xs font-semibold text-foreground">
-                Teacher Full Name *
+              <label className="text-xs font-semibold text-foreground flex items-center gap-1">
+                <span>Teacher Full Name</span>
+                <span className="text-destructive font-bold text-sm">*</span>
+                <span className="text-[10px] text-destructive font-normal">(Required)</span>
               </label>
               <Input
-                placeholder="e.g. Dr. Arthur Pendelton"
+                placeholder="e.g. Dr. Arthur Pendelton (*)"
                 value={form.full_name}
                 onChange={(event) =>
                   setForm({ ...form, full_name: event.target.value })
                 }
+                className={!form.full_name.trim() ? "border-primary/50" : ""}
               />
             </div>
 
-            {/* 2. College Employee ID Reference No */}
+            {/* 2. College Employee ID Reference No - STRICTLY MANDATORY */}
             <div className="space-y-1">
-              <label className="text-xs font-semibold text-foreground">
-                College Employee ID Ref No *
+              <label className="text-xs font-semibold text-foreground flex items-center gap-1">
+                <span>College Employee ID Ref No</span>
+                <span className="text-destructive font-bold text-sm">*</span>
+                <span className="text-[10px] text-destructive font-normal">(Required)</span>
               </label>
               <Input
-                placeholder="e.g. EMP-CSE-101"
+                placeholder="e.g. EMP-CSE-101 (*)"
                 className="font-mono"
                 value={form.employee_id}
                 onChange={(event) =>
@@ -810,14 +922,15 @@ export const HODStaff: React.FC<HODStaffProps> = ({ mode }) => {
               />
             </div>
 
-            {/* 3. Academic Designation */}
+            {/* 3. Academic Designation - OPTIONAL */}
             <div className="space-y-1">
-              <label className="text-xs font-semibold text-foreground">
-                Academic Designation
+              <label className="text-xs font-semibold text-foreground flex items-center justify-between">
+                <span>Academic Designation</span>
+                <span className="text-[10px] text-muted-foreground font-normal">(Optional)</span>
               </label>
               <div className="space-y-1.5">
                 <Input
-                  placeholder="e.g. Associate Professor"
+                  placeholder="e.g. Assistant Professor (Optional)"
                   value={form.designation}
                   onChange={(event) =>
                     setForm({ ...form, designation: event.target.value })
@@ -838,13 +951,14 @@ export const HODStaff: React.FC<HODStaffProps> = ({ mode }) => {
               </div>
             </div>
 
-            {/* 4. Qualification */}
+            {/* 4. Qualification - OPTIONAL */}
             <div className="space-y-1">
-              <label className="text-xs font-semibold text-foreground">
-                Highest Qualification
+              <label className="text-xs font-semibold text-foreground flex items-center justify-between">
+                <span>Highest Qualification</span>
+                <span className="text-[10px] text-muted-foreground font-normal">(Optional)</span>
               </label>
               <Input
-                placeholder="e.g. Ph.D in Computer Science"
+                placeholder="e.g. Ph.D, M.Tech (Optional)"
                 value={form.qualification}
                 onChange={(event) =>
                   setForm({ ...form, qualification: event.target.value })
@@ -852,27 +966,14 @@ export const HODStaff: React.FC<HODStaffProps> = ({ mode }) => {
               />
             </div>
 
-            {/* 5. Date of Birth */}
+            {/* 5. Year of Experience - OPTIONAL */}
             <div className="space-y-1">
-              <label className="text-xs font-semibold text-foreground">
-                Date of Birth
+              <label className="text-xs font-semibold text-foreground flex items-center justify-between">
+                <span>Year of Experience</span>
+                <span className="text-[10px] text-muted-foreground font-normal">(Optional)</span>
               </label>
               <Input
-                type="date"
-                value={form.date_of_birth}
-                onChange={(event) =>
-                  setForm({ ...form, date_of_birth: event.target.value })
-                }
-              />
-            </div>
-
-            {/* 6. Year of Experience */}
-            <div className="space-y-1">
-              <label className="text-xs font-semibold text-foreground">
-                Year of Experience
-              </label>
-              <Input
-                placeholder="e.g. 8 Years or 8"
+                placeholder="e.g. 8 Years (Optional)"
                 value={form.experience_years}
                 onChange={(event) =>
                   setForm({ ...form, experience_years: event.target.value })
@@ -880,7 +981,7 @@ export const HODStaff: React.FC<HODStaffProps> = ({ mode }) => {
               />
             </div>
 
-            {/* 7. Phone / Mobile (10-digit validation) */}
+            {/* 6. Phone / Mobile - OPTIONAL */}
             <div className="space-y-1">
               <label className="text-xs font-semibold text-foreground flex items-center justify-between">
                 <span>Phone / Mobile</span>
@@ -895,8 +996,8 @@ export const HODStaff: React.FC<HODStaffProps> = ({ mode }) => {
                     {form.mobile.length}/10 digits
                   </span>
                 ) : (
-                  <span className="text-[11px] font-normal text-muted-foreground">
-                    (Optional / 10 digits)
+                  <span className="text-[10px] text-muted-foreground font-normal">
+                    (Optional)
                   </span>
                 )}
               </label>
@@ -905,7 +1006,7 @@ export const HODStaff: React.FC<HODStaffProps> = ({ mode }) => {
                 inputMode="numeric"
                 pattern="[0-9]*"
                 maxLength={10}
-                placeholder="9876543210 (10 digits)"
+                placeholder="9876543210 (Optional)"
                 value={form.mobile}
                 onChange={(event) =>
                   setForm({
@@ -920,22 +1021,25 @@ export const HODStaff: React.FC<HODStaffProps> = ({ mode }) => {
                 }`}
               />
               <p className="text-[10px] text-muted-foreground">
-                Strictly 10 digits only if provided (e.g. 9876543210).
+                Optional: strictly 10 digits only if provided (e.g. 9876543210).
               </p>
             </div>
 
-            {/* 8. Email */}
+            {/* 7. Email - STRICTLY MANDATORY */}
             <div className="space-y-1">
-              <label className="text-xs font-semibold text-foreground">
-                Email Address
+              <label className="text-xs font-semibold text-foreground flex items-center gap-1">
+                <span>Email Address</span>
+                <span className="text-destructive font-bold text-sm">*</span>
+                <span className="text-[10px] text-destructive font-normal">(Required)</span>
               </label>
               <Input
                 type="email"
-                placeholder="e.g. teacher@edutrack.edu"
+                placeholder="e.g. teacher@college.edu (*)"
                 value={form.email}
                 onChange={(event) =>
                   setForm({ ...form, email: event.target.value })
                 }
+                className={!form.email.trim() ? "border-primary/50" : ""}
               />
             </div>
 
@@ -1528,349 +1632,805 @@ export const HODStaff: React.FC<HODStaffProps> = ({ mode }) => {
 
       {/* Teacher List Card */}
       <Card className="p-5 shadow-xs">
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 mb-5">
-          <div className="relative max-w-md w-full">
-            <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
-            <Input
-              className="pl-9"
-              placeholder={`Search by name, Employee ID, designation, or qualification...`}
-              value={search}
-              onChange={(event) => setSearch(event.target.value)}
-            />
+        {/* Controls: Search, View Mode Toggle, Sorting, Export, and Track Filters */}
+        <div className="space-y-3.5 mb-5">
+          <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3">
+            {/* Search Input */}
+            <div className="relative flex-1 max-w-md">
+              <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
+              <Input
+                className="pl-9 pr-8"
+                placeholder={`Search by name, ID, mobile, designation, qualification...`}
+                value={search}
+                onChange={(event) => setSearch(event.target.value)}
+              />
+              {search && (
+                <button
+                  type="button"
+                  onClick={() => setSearch("")}
+                  className="absolute right-2.5 top-2.5 text-xs text-muted-foreground hover:text-foreground"
+                >
+                  ✕
+                </button>
+              )}
+            </div>
+
+            {/* View Mode Toggle, Sort, and Export Actions */}
+            <div className="flex flex-wrap items-center gap-2">
+              {/* Tabular vs Card View Toggle */}
+              <div className="flex items-center gap-1 border border-border rounded-lg p-0.5 bg-muted/40">
+                <button
+                  type="button"
+                  onClick={() => setViewMode("table")}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-md transition-all ${
+                    viewMode === "table"
+                      ? "bg-background text-foreground shadow-xs border border-border/80"
+                      : "text-muted-foreground hover:text-foreground"
+                  }`}
+                  title="Tabular Form (Spreadsheet View)"
+                >
+                  <TableIcon className="h-3.5 w-3.5 text-primary" />
+                  <span>Tabular View</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setViewMode("grid")}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-md transition-all ${
+                    viewMode === "grid"
+                      ? "bg-background text-foreground shadow-xs border border-border/80"
+                      : "text-muted-foreground hover:text-foreground"
+                  }`}
+                  title="Card Grid View"
+                >
+                  <LayoutGrid className="h-3.5 w-3.5" />
+                  <span>Card View</span>
+                </button>
+              </div>
+
+              {/* Sort By Dropdown */}
+              <div className="flex items-center gap-1">
+                <Select
+                  value={sortBy}
+                  onChange={(e) => setSortBy(e.target.value as any)}
+                  className="h-9 text-xs w-[130px]"
+                  options={[
+                    { value: "name", label: "Sort: Name" },
+                    { value: "empid", label: "Sort: Emp ID" },
+                    { value: "role", label: "Sort: Role" },
+                    { value: "exp", label: "Sort: Experience" },
+                  ]}
+                />
+                <Button
+                  variant="outline"
+                  size="icon"
+                  className="h-9 w-9 text-xs"
+                  title={`Sort ${sortOrder === "asc" ? "Ascending" : "Descending"}`}
+                  onClick={() =>
+                    setSortOrder((prev) => (prev === "asc" ? "desc" : "asc"))
+                  }
+                >
+                  <ArrowUpDown className="h-3.5 w-3.5" />
+                </Button>
+              </div>
+
+              {/* Export to CSV Button */}
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleExportCsv}
+                className="h-9 text-xs gap-1.5 border-border hover:border-primary/50"
+                title="Download staff roster as CSV file"
+              >
+                <Download className="h-3.5 w-3.5 text-primary" />
+                <span>Export CSV</span>
+              </Button>
+            </div>
           </div>
 
-          {/* 4-Year Engineering & Parallel Track Filters */}
-          <div className="flex flex-wrap items-center gap-1.5 text-xs">
-            <span className="text-muted-foreground font-medium mr-1 flex items-center gap-1">
-              <Filter className="h-3 w-3" /> Track:
-            </span>
-            <button
-              onClick={() => setSelectedYearFilter("all")}
-              className={`px-2.5 py-1 rounded-md font-medium transition-colors ${
-                selectedYearFilter === "all"
-                  ? "bg-primary text-primary-foreground shadow-xs"
-                  : "bg-muted text-muted-foreground hover:text-foreground"
-              }`}
-            >
-              All Years (1–4)
-            </button>
-            <button
-              onClick={() => setSelectedYearFilter("odd")}
-              className={`px-2.5 py-1 rounded-md font-medium transition-colors ${
-                selectedYearFilter === "odd"
-                  ? "bg-emerald-600 text-white shadow-xs"
-                  : "bg-muted text-muted-foreground hover:text-foreground"
-              }`}
-            >
-              Odd Track (1, 3, 5, 7)
-            </button>
-            <button
-              onClick={() => setSelectedYearFilter("even")}
-              className={`px-2.5 py-1 rounded-md font-medium transition-colors ${
-                selectedYearFilter === "even"
-                  ? "bg-emerald-600 text-white shadow-xs"
-                  : "bg-muted text-muted-foreground hover:text-foreground"
-              }`}
-            >
-              Even Track (2, 4, 6, 8)
-            </button>
-            {ENGINEERING_YEARS.map((y) => (
+          {/* Track Filter & Roster Summary Pill */}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pt-2 border-t border-border/60">
+            {/* 4-Year Engineering & Parallel Track Filters */}
+            <div className="flex flex-wrap items-center gap-1.5 text-xs">
+              <span className="text-muted-foreground font-medium mr-1 flex items-center gap-1">
+                <Filter className="h-3 w-3" /> Track:
+              </span>
               <button
-                key={y.year}
-                onClick={() => setSelectedYearFilter(String(y.year))}
+                onClick={() => setSelectedYearFilter("all")}
                 className={`px-2.5 py-1 rounded-md font-medium transition-colors ${
-                  selectedYearFilter === String(y.year)
+                  selectedYearFilter === "all"
                     ? "bg-primary text-primary-foreground shadow-xs"
                     : "bg-muted text-muted-foreground hover:text-foreground"
                 }`}
               >
-                {y.shortName}
+                All Years (1–4)
               </button>
-            ))}
+              <button
+                onClick={() => setSelectedYearFilter("odd")}
+                className={`px-2.5 py-1 rounded-md font-medium transition-colors ${
+                  selectedYearFilter === "odd"
+                    ? "bg-emerald-600 text-white shadow-xs"
+                    : "bg-muted text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                Odd Track (1, 3, 5, 7)
+              </button>
+              <button
+                onClick={() => setSelectedYearFilter("even")}
+                className={`px-2.5 py-1 rounded-md font-medium transition-colors ${
+                  selectedYearFilter === "even"
+                    ? "bg-emerald-600 text-white shadow-xs"
+                    : "bg-muted text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                Even Track (2, 4, 6, 8)
+              </button>
+              {ENGINEERING_YEARS.map((y) => (
+                <button
+                  key={y.year}
+                  onClick={() => setSelectedYearFilter(String(y.year))}
+                  className={`px-2.5 py-1 rounded-md font-medium transition-colors ${
+                    selectedYearFilter === String(y.year)
+                      ? "bg-primary text-primary-foreground shadow-xs"
+                      : "bg-muted text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  {y.shortName}
+                </button>
+              ))}
+            </div>
+
+            {/* Roster Counts Summary */}
+            <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
+              <span className="font-semibold text-foreground">
+                Showing {sortedTeachers.length} of {departmentTeachers.length} Faculty
+              </span>
+              <span>•</span>
+              <span>
+                {departmentTeachers.filter((t) => t.role === "hod").length} HOD
+              </span>
+              <span>•</span>
+              <span className="text-emerald-600 dark:text-emerald-400 font-medium">
+                {
+                  departmentTeachers.filter(
+                    (t) =>
+                      t.role === "class_coordinator" ||
+                      coordinatorIds.has(t.id) ||
+                      t.is_class_coordinator,
+                  ).length
+                }{" "}
+                Coordinators
+              </span>
+              <span>•</span>
+              <span>
+                {
+                  departmentTeachers.filter(
+                    (t) =>
+                      t.role !== "hod" &&
+                      t.role !== "class_coordinator" &&
+                      !coordinatorIds.has(t.id) &&
+                      !t.is_class_coordinator,
+                  ).length
+                }{" "}
+                Lecturers
+              </span>
+            </div>
           </div>
         </div>
 
-        <div className="grid gap-3.5 md:grid-cols-2">
-          {visibleTeachers.length === 0 ? (
-            <div className="py-14 text-center md:col-span-2 space-y-3">
-              <div className="h-12 w-12 rounded-full bg-muted flex items-center justify-center mx-auto text-muted-foreground">
-                <Users className="h-6 w-6" />
-              </div>
-              <p className="text-sm font-semibold text-foreground">
-                No {mode} found matching query
-              </p>
-              <p className="text-xs text-muted-foreground max-w-sm mx-auto">
-                Add staff manually or use the Excel / CSV import to load
-                multiple faculty teachers at once.
-              </p>
-              <div className="flex items-center justify-center gap-2 pt-2">
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => setImportModalOpen(true)}
-                >
-                  <FileSpreadsheet className="h-4 w-4 mr-1 text-emerald-600" />
-                  Import Excel / CSV
-                </Button>
-                <Button size="sm" onClick={openAdd}>
-                  <Plus className="h-4 w-4 mr-1" />
-                  Add Teacher Manually
-                </Button>
-              </div>
-            </div>
-          ) : (
-            visibleTeachers.map((teacher) => (
-              <div
-                key={teacher.id}
-                className="flex flex-col sm:flex-row sm:items-center justify-between rounded-xl border border-border p-4 bg-card hover:border-primary/40 transition-all gap-3 shadow-xs"
-              >
-                <div className="flex items-start gap-3.5 min-w-0">
-                  {/* Photo or Initials Avatar */}
-                  <div className="relative shrink-0">
-                    <div className="h-12 w-12 rounded-xl border border-border bg-primary/10 text-primary flex items-center justify-center overflow-hidden font-bold font-display shadow-xs">
-                      {teacher.photo_url ? (
-                        <img
-                          src={teacher.photo_url}
-                          alt={teacher.full_name}
-                          className="h-full w-full object-cover"
-                        />
-                      ) : (
-                        <User className="h-6 w-6 text-primary/70" />
-                      )}
-                    </div>
-                  </div>
-
-                  <div className="min-w-0 flex-1">
-                    <div className="flex flex-wrap items-center gap-1.5">
-                      <p className="truncate text-sm font-bold text-foreground">
-                        {teacher.full_name}
-                      </p>
-                      <Badge
-                        variant="outline"
-                        className="text-[10px] px-1.5 py-0 font-medium bg-primary/5 text-primary border-primary/20"
+        {/* ========================================================================= */}
+        {/* VIEW MODE 1: TABULAR FORM (DEFAULT) */}
+        {/* ========================================================================= */}
+        {viewMode === "table" ? (
+          <div className="rounded-xl border border-border bg-card overflow-hidden shadow-xs">
+            <div className="overflow-x-auto">
+              <Table className="w-full text-xs">
+                <TableHeader className="bg-muted/70 border-b border-border">
+                  <TableRow>
+                    <TableHead className="w-12 text-center font-bold">#</TableHead>
+                    <TableHead className="min-w-[210px] font-bold">Faculty Member</TableHead>
+                    <TableHead className="min-w-[110px] font-bold">College ID</TableHead>
+                    <TableHead className="min-w-[130px] font-bold">Academic Role</TableHead>
+                    <TableHead className="min-w-[170px] font-bold">Coordinated Classes</TableHead>
+                    <TableHead className="min-w-[190px] font-bold">Teaching Subjects</TableHead>
+                    <TableHead className="min-w-[150px] font-bold">Qualification & Exp</TableHead>
+                    <TableHead className="min-w-[150px] font-bold">Contact Details</TableHead>
+                    <TableHead className="min-w-[110px] font-bold">Portal Access</TableHead>
+                    <TableHead className="min-w-[120px] text-right font-bold pr-4">Actions</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody className="divide-y divide-border">
+                  {sortedTeachers.length === 0 ? (
+                    <TableRow>
+                      <TableCell
+                        colSpan={10}
+                        className="py-14 text-center text-muted-foreground"
                       >
-                        {teacher.designation || "Assistant Professor"}
-                      </Badge>
-                    </div>
+                        <div className="max-w-md mx-auto space-y-3">
+                          <div className="h-12 w-12 rounded-full bg-muted flex items-center justify-center mx-auto text-muted-foreground">
+                            <Users className="h-6 w-6" />
+                          </div>
+                          <p className="text-sm font-semibold text-foreground">
+                            No {mode} found matching query
+                          </p>
+                          <p className="text-xs text-muted-foreground">
+                            Add staff manually or use the Excel / CSV import to load
+                            multiple faculty teachers at once.
+                          </p>
+                          <div className="flex items-center justify-center gap-2 pt-2">
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => setImportModalOpen(true)}
+                            >
+                              <FileSpreadsheet className="h-4 w-4 mr-1 text-emerald-600" />
+                              Import Excel / CSV
+                            </Button>
+                            <Button size="sm" onClick={openAdd}>
+                              <Plus className="h-4 w-4 mr-1" />
+                              Add Teacher Manually
+                            </Button>
+                          </div>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ) : (
+                    sortedTeachers.map((teacher, idx) => {
+                      const teacherCcas = assignments.filter(
+                        (a) => a.teacher_id === teacher.id,
+                      );
+                      const teacherCoordinatedClasses = departmentClasses.filter(
+                        (c) =>
+                          c.coordinator_teacher_id === teacher.id ||
+                          teacherCcas.some(
+                            (a) =>
+                              a.class_id === c.id || a.class_name === c.name,
+                          ) ||
+                          (teacher.assigned_classes || []).includes(c.name),
+                      );
+                      const isCC =
+                        teacher.role === "class_coordinator" ||
+                        teacher.is_class_coordinator ||
+                        teacherCoordinatedClasses.length > 0 ||
+                        teacherCcas.length > 0;
 
-                    <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-muted-foreground mt-1">
-                      <span className="font-mono font-semibold text-foreground bg-muted px-1.5 py-0.2 rounded text-[11px]">
-                        ID: {teacher.employee_id}
-                      </span>
+                      const teacherTs = teacherSubjects.filter(
+                        (ts) => ts.teacher_id === teacher.id,
+                      );
+                      const groupedTs: Record<string, string[]> = {};
+                      for (const ts of teacherTs) {
+                        if (!groupedTs[ts.subject_id])
+                          groupedTs[ts.subject_id] = [];
+                        if (
+                          ts.class_name &&
+                          !groupedTs[ts.subject_id].includes(ts.class_name)
+                        ) {
+                          groupedTs[ts.subject_id].push(ts.class_name);
+                        }
+                      }
 
-                      {teacher.qualification && (
-                        <span className="truncate text-[11px]">
-                          • {teacher.qualification}
-                        </span>
-                      )}
+                      return (
+                        <TableRow
+                          key={teacher.id}
+                          className="hover:bg-muted/40 transition-colors"
+                        >
+                          {/* 1. Index # */}
+                          <TableCell className="text-center font-mono text-xs text-muted-foreground font-semibold">
+                            {idx + 1}
+                          </TableCell>
 
-                      {teacher.experience_years && (
-                        <span className="text-[11px]">
-                          •{" "}
-                          {String(teacher.experience_years).includes("Year")
-                            ? teacher.experience_years
-                            : `${teacher.experience_years} Yrs`}
-                        </span>
-                      )}
-                    </div>
-
-                    <div className="flex flex-wrap items-center gap-2 mt-1.5 text-[11px] text-muted-foreground">
-                      {teacher.mobile ? (
-                        <span className="flex items-center gap-1">
-                          <Phone className="h-3 w-3 text-primary" />
-                          {teacher.mobile}
-                        </span>
-                      ) : (
-                        <span className="italic text-muted-foreground/80">
-                          Phone: Not set
-                        </span>
-                      )}
-
-                      {teacher.date_of_birth && (
-                        <span className="flex items-center gap-1">
-                          <Calendar className="h-3 w-3" />
-                          DOB: {teacher.date_of_birth}
-                        </span>
-                      )}
-                    </div>
-
-                    {/* Engineering 4-Year Academic Assignment Badges */}
-                    <div className="mt-2.5 pt-2 border-t border-border/50 flex flex-wrap items-center gap-1.5">
-                      {(() => {
-                        const teacherCcas = assignments.filter(
-                          (a) => a.teacher_id === teacher.id,
-                        );
-                        const teacherCoordinatedClasses =
-                          departmentClasses.filter(
-                            (c) =>
-                              c.coordinator_teacher_id === teacher.id ||
-                              teacherCcas.some(
-                                (a) =>
-                                  a.class_id === c.id ||
-                                  a.class_name === c.name,
-                              ) ||
-                              (teacher.assigned_classes || []).includes(c.name),
-                          );
-                        const isCC =
-                          teacher.role === "class_coordinator" ||
-                          teacher.is_class_coordinator ||
-                          teacherCoordinatedClasses.length > 0 ||
-                          teacherCcas.length > 0;
-
-                        const teacherTs = teacherSubjects.filter(
-                          (ts) => ts.teacher_id === teacher.id,
-                        );
-
-                        return (
-                          <div className="space-y-1.5 w-full">
-                            {isCC && (
-                              <div className="flex flex-wrap items-center gap-1.5">
-                                <Badge className="bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border border-emerald-500/30 text-[10px] font-semibold">
-                                  CC (
-                                  {teacherCoordinatedClasses.length ||
-                                    teacherCcas.length ||
-                                    1}
-                                  ):{" "}
-                                  {teacherCoordinatedClasses.length > 0
-                                    ? teacherCoordinatedClasses
-                                        .map(
-                                          (c) =>
-                                            `${c.name} (Sem ${c.semester})`,
-                                        )
-                                        .join(", ")
-                                    : teacherCcas.length > 0
-                                      ? teacherCcas
-                                          .map(
-                                            (a) =>
-                                              `${a.class_name || `Sem ${a.semester}`}`,
-                                          )
-                                          .join(", ")
-                                      : `${teacher.assigned_year ? `${teacher.assigned_year === 1 ? "1st" : teacher.assigned_year === 2 ? "2nd" : teacher.assigned_year === 3 ? "3rd" : "4th"} Year` : "2nd Year"} · Sem ${teacher.assigned_semester || 3}`}
-                                </Badge>
-                                <span className="text-[10px] text-muted-foreground font-medium">
-                                  Class Coordinator
+                          {/* 2. Faculty Name + Designation + Avatar */}
+                          <TableCell className="font-medium">
+                            <div className="flex items-center gap-3">
+                              <div className="h-10 w-10 shrink-0 rounded-lg border border-border bg-primary/10 text-primary flex items-center justify-center overflow-hidden font-bold font-display shadow-2xs">
+                                {teacher.photo_url ? (
+                                  <img
+                                    src={teacher.photo_url}
+                                    alt={teacher.full_name}
+                                    className="h-full w-full object-cover"
+                                  />
+                                ) : (
+                                  <span className="text-xs">
+                                    {teacher.full_name
+                                      .split(" ")
+                                      .map((n) => n[0])
+                                      .slice(0, 2)
+                                      .join("")
+                                      .toUpperCase()}
+                                  </span>
+                                )}
+                              </div>
+                              <div className="min-w-0">
+                                <button
+                                  type="button"
+                                  onClick={() => setProfileModalTeacher(teacher)}
+                                  className="font-bold text-sm text-foreground hover:text-primary transition-colors text-left block truncate max-w-[190px]"
+                                  title="View faculty dossier"
+                                >
+                                  {teacher.full_name}
+                                </button>
+                                <span className="text-[11px] text-muted-foreground block truncate max-w-[190px]">
+                                  {teacher.designation || "Assistant Professor"}
                                 </span>
                               </div>
-                            )}
+                            </div>
+                          </TableCell>
 
-                            {teacherTs.length > 0 ? (
-                              <div className="flex flex-wrap items-center gap-1">
-                                <span className="text-[10px] text-muted-foreground font-semibold mr-0.5">
-                                  Teaching:
-                                </span>
-                                {(() => {
-                                  const groupedTs: Record<string, string[]> =
-                                    {};
-                                  for (const ts of teacherTs) {
-                                    if (!groupedTs[ts.subject_id])
-                                      groupedTs[ts.subject_id] = [];
-                                    if (
-                                      ts.class_name &&
-                                      !groupedTs[ts.subject_id].includes(
-                                        ts.class_name,
-                                      )
-                                    ) {
-                                      groupedTs[ts.subject_id].push(
-                                        ts.class_name,
-                                      );
-                                    }
-                                  }
-                                  return Object.entries(groupedTs).map(
-                                    ([sId, cNames]) => {
-                                      const sub = departmentSubjects.find(
-                                        (s) => s.id === sId,
-                                      );
-                                      return (
-                                        <Badge
-                                          key={sId}
-                                          variant="outline"
-                                          className="text-[10px] font-mono bg-muted/40 text-foreground"
-                                        >
-                                          {sub?.code || "SUB"}
-                                          {cNames.length > 0
-                                            ? ` (${cNames.join(", ")})`
-                                            : ""}
-                                        </Badge>
-                                      );
-                                    },
-                                  );
-                                })()}
-                              </div>
+                          {/* 3. College Employee ID */}
+                          <TableCell>
+                            <span className="font-mono text-xs font-bold bg-muted px-2 py-0.5 rounded border border-border text-foreground">
+                              {teacher.employee_id}
+                            </span>
+                          </TableCell>
+
+                          {/* 4. Academic Role */}
+                          <TableCell>
+                            {teacher.role === "hod" ? (
+                              <Badge className="bg-primary text-primary-foreground font-semibold text-[11px]">
+                                HOD & Lecturer
+                              </Badge>
+                            ) : isCC ? (
+                              <Badge className="bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border border-emerald-500/30 font-semibold text-[11px]">
+                                Class Coordinator
+                              </Badge>
                             ) : (
-                              !isCC && (
-                                <div className="flex flex-wrap items-center gap-1.5">
+                              <Badge variant="secondary" className="font-medium text-[11px]">
+                                Lecturer
+                              </Badge>
+                            )}
+                          </TableCell>
+
+                          {/* 5. Coordinated Classes */}
+                          <TableCell>
+                            {isCC ? (
+                              <div className="flex flex-wrap gap-1 max-w-[200px]">
+                                {teacherCoordinatedClasses.length > 0 ? (
+                                  teacherCoordinatedClasses.map((c) => (
+                                    <Badge
+                                      key={c.id}
+                                      variant="outline"
+                                      className="text-[10px] bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border-emerald-500/30"
+                                    >
+                                      {c.name} (Sem {c.semester})
+                                    </Badge>
+                                  ))
+                                ) : teacherCcas.length > 0 ? (
+                                  teacherCcas.map((a, i) => (
+                                    <Badge
+                                      key={i}
+                                      variant="outline"
+                                      className="text-[10px] bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border-emerald-500/30"
+                                    >
+                                      {a.class_name || `Sem ${a.semester}`}
+                                    </Badge>
+                                  ))
+                                ) : (
                                   <Badge
                                     variant="outline"
-                                    className="text-[10px] font-mono text-muted-foreground bg-muted/40"
+                                    className="text-[10px] bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border-emerald-500/30"
                                   >
-                                    Teaching:{" "}
-                                    {teacher.assigned_year
-                                      ? `${teacher.assigned_year === 1 ? "1st" : teacher.assigned_year === 2 ? "2nd" : teacher.assigned_year === 3 ? "3rd" : "4th"} Year`
-                                      : "2nd Year"}
-                                    ,{" "}
-                                    {getSemesterEngineeringLabel(
-                                      teacher.assigned_semester || 3,
-                                    )}{" "}
-                                    (Sem {teacher.assigned_semester || 3})
+                                    Sem {teacher.assigned_semester || 3}
                                   </Badge>
-                                </div>
-                              )
+                                )}
+                              </div>
+                            ) : (
+                              <span className="text-muted-foreground/50 text-xs">—</span>
                             )}
-                          </div>
-                        );
-                      })()}
-                    </div>
-                  </div>
+                          </TableCell>
+
+                          {/* 6. Teaching Subjects */}
+                          <TableCell>
+                            {teacherTs.length > 0 ? (
+                              <div className="flex flex-wrap gap-1 max-w-[210px]">
+                                {Object.entries(groupedTs).map(([sId, cNames]) => {
+                                  const sub = departmentSubjects.find(
+                                    (s) => s.id === sId,
+                                  );
+                                  return (
+                                    <Badge
+                                      key={sId}
+                                      variant="outline"
+                                      className="text-[10px] font-mono bg-muted/60 text-foreground border-border/80"
+                                      title={sub?.name || ""}
+                                    >
+                                      {sub?.code || "SUB"}
+                                      {cNames.length > 0
+                                        ? ` (${cNames.join(", ")})`
+                                        : ""}
+                                    </Badge>
+                                  );
+                                })}
+                              </div>
+                            ) : (
+                              <Badge
+                                variant="outline"
+                                className="text-[10px] font-mono text-muted-foreground bg-muted/30"
+                              >
+                                Year {teacher.assigned_year || 2} · Sem{" "}
+                                {teacher.assigned_semester || 3}
+                              </Badge>
+                            )}
+                          </TableCell>
+
+                          {/* 7. Qualification & Experience */}
+                          <TableCell>
+                            <div className="space-y-0.5 text-xs">
+                              <span
+                                className="font-medium text-foreground block truncate max-w-[160px]"
+                                title={teacher.qualification || ""}
+                              >
+                                {teacher.qualification || "B.Tech / M.Tech"}
+                              </span>
+                              {teacher.experience_years && (
+                                <span className="text-[11px] text-muted-foreground font-mono">
+                                  {String(teacher.experience_years).includes("Year")
+                                    ? teacher.experience_years
+                                    : `${teacher.experience_years} Yrs Exp`}
+                                </span>
+                              )}
+                            </div>
+                          </TableCell>
+
+                          {/* 8. Contact Details */}
+                          <TableCell>
+                            <div className="space-y-1 text-xs">
+                              {teacher.mobile ? (
+                                <a
+                                  href={`tel:${teacher.mobile}`}
+                                  className="flex items-center gap-1.5 font-mono text-[11px] text-foreground hover:text-primary transition-colors"
+                                >
+                                  <Phone className="h-3 w-3 text-primary shrink-0" />
+                                  <span>{teacher.mobile}</span>
+                                </a>
+                              ) : (
+                                <span className="text-[11px] text-muted-foreground/60 italic">
+                                  No phone
+                                </span>
+                              )}
+                              {teacher.email && (
+                                <span
+                                  className="flex items-center gap-1.5 text-[11px] text-muted-foreground truncate max-w-[150px]"
+                                  title={teacher.email}
+                                >
+                                  <Mail className="h-3 w-3 shrink-0" />
+                                  <span className="truncate">{teacher.email}</span>
+                                </span>
+                              )}
+                            </div>
+                          </TableCell>
+
+                          {/* 9. Portal Login */}
+                          <TableCell>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => setPasswordModalTeacher(teacher)}
+                              className="h-7 text-[11px] font-medium gap-1 px-2 border-border/80 hover:border-primary/50 text-foreground hover:text-primary"
+                              title="Set or reset portal login password"
+                            >
+                              <KeyRound className="h-3 w-3 text-primary" />
+                              <span>Password</span>
+                            </Button>
+                          </TableCell>
+
+                          {/* 10. Actions */}
+                          <TableCell className="text-right pr-4">
+                            <div className="flex items-center justify-end gap-1">
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => setProfileModalTeacher(teacher)}
+                                className="h-7 w-7 text-muted-foreground hover:text-primary"
+                                title="View faculty dossier"
+                              >
+                                <Eye className="h-3.5 w-3.5" />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => openEdit(teacher)}
+                                className="h-7 w-7 text-muted-foreground hover:text-foreground"
+                                title="Edit teacher"
+                              >
+                                <Edit3 className="h-3.5 w-3.5" />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => remove(teacher)}
+                                className="h-7 w-7 text-destructive hover:bg-destructive/10"
+                                title="Delete teacher"
+                              >
+                                <Trash2 className="h-3.5 w-3.5" />
+                              </Button>
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })
+                  )}
+                </TableBody>
+              </Table>
+            </div>
+          </div>
+        ) : (
+          /* ========================================================================= */
+          /* VIEW MODE 2: CARD GRID VIEW */
+          /* ========================================================================= */
+          <div className="grid gap-3.5 md:grid-cols-2">
+            {sortedTeachers.length === 0 ? (
+              <div className="py-14 text-center md:col-span-2 space-y-3">
+                <div className="h-12 w-12 rounded-full bg-muted flex items-center justify-center mx-auto text-muted-foreground">
+                  <Users className="h-6 w-6" />
                 </div>
-
-                {/* Card Actions */}
-                <div className="flex items-center justify-end sm:justify-start gap-1 pt-2 sm:pt-0 border-t sm:border-t-0 border-border/50">
+                <p className="text-sm font-semibold text-foreground">
+                  No {mode} found matching query
+                </p>
+                <p className="text-xs text-muted-foreground max-w-sm mx-auto">
+                  Add staff manually or use the Excel / CSV import to load
+                  multiple faculty teachers at once.
+                </p>
+                <div className="flex items-center justify-center gap-2 pt-2">
                   <Button
-                    variant="outline"
                     size="sm"
-                    onClick={() => setPasswordModalTeacher(teacher)}
-                    className="h-8 text-xs font-medium text-foreground hover:text-primary px-2"
-                    title="Set or reset portal login password"
-                  >
-                    <KeyRound className="h-3.5 w-3.5 mr-1 text-primary" />
-                    Password
-                  </Button>
-
-                  <Button
                     variant="outline"
-                    size="sm"
-                    onClick={() => setProfileModalTeacher(teacher)}
-                    className="h-8 text-xs font-medium text-foreground hover:text-primary px-2.5"
-                    title="View faculty dossier"
+                    onClick={() => setImportModalOpen(true)}
                   >
-                    <Eye className="h-3.5 w-3.5 mr-1 text-primary" />
-                    Dossier
+                    <FileSpreadsheet className="h-4 w-4 mr-1 text-emerald-600" />
+                    Import Excel / CSV
                   </Button>
-
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => openEdit(teacher)}
-                    className="h-8 w-8 text-muted-foreground hover:text-foreground"
-                    title="Edit profile"
-                  >
-                    <Edit3 className="h-3.5 w-3.5" />
-                  </Button>
-
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => remove(teacher)}
-                    className="h-8 w-8 text-destructive hover:bg-destructive/10"
-                    title="Delete teacher"
-                  >
-                    <Trash2 className="h-3.5 w-3.5" />
+                  <Button size="sm" onClick={openAdd}>
+                    <Plus className="h-4 w-4 mr-1" />
+                    Add Teacher Manually
                   </Button>
                 </div>
               </div>
-            ))
-          )}
-        </div>
+            ) : (
+              sortedTeachers.map((teacher) => (
+                <div
+                  key={teacher.id}
+                  className="flex flex-col sm:flex-row sm:items-center justify-between rounded-xl border border-border p-4 bg-card hover:border-primary/40 transition-all gap-3 shadow-xs"
+                >
+                  <div className="flex items-start gap-3.5 min-w-0">
+                    {/* Photo or Initials Avatar */}
+                    <div className="relative shrink-0">
+                      <div className="h-12 w-12 rounded-xl border border-border bg-primary/10 text-primary flex items-center justify-center overflow-hidden font-bold font-display shadow-xs">
+                        {teacher.photo_url ? (
+                          <img
+                            src={teacher.photo_url}
+                            alt={teacher.full_name}
+                            className="h-full w-full object-cover"
+                          />
+                        ) : (
+                          <User className="h-6 w-6 text-primary/70" />
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="min-w-0 flex-1">
+                      <div className="flex flex-wrap items-center gap-1.5">
+                        <p className="truncate text-sm font-bold text-foreground">
+                          {teacher.full_name}
+                        </p>
+                        <Badge
+                          variant="outline"
+                          className="text-[10px] px-1.5 py-0 font-medium bg-primary/5 text-primary border-primary/20"
+                        >
+                          {teacher.designation || "Assistant Professor"}
+                        </Badge>
+                      </div>
+
+                      <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-muted-foreground mt-1">
+                        <span className="font-mono font-semibold text-foreground bg-muted px-1.5 py-0.2 rounded text-[11px]">
+                          ID: {teacher.employee_id}
+                        </span>
+
+                        {teacher.qualification && (
+                          <span className="truncate text-[11px]">
+                            • {teacher.qualification}
+                          </span>
+                        )}
+
+                        {teacher.experience_years && (
+                          <span className="text-[11px]">
+                            •{" "}
+                            {String(teacher.experience_years).includes("Year")
+                              ? teacher.experience_years
+                              : `${teacher.experience_years} Yrs`}
+                          </span>
+                        )}
+                      </div>
+
+                      <div className="flex flex-wrap items-center gap-2 mt-1.5 text-[11px] text-muted-foreground">
+                        {teacher.mobile ? (
+                          <span className="flex items-center gap-1">
+                            <Phone className="h-3 w-3 text-primary" />
+                            {teacher.mobile}
+                          </span>
+                        ) : (
+                          <span className="italic text-muted-foreground/80">
+                            Phone: Not set
+                          </span>
+                        )}
+                      </div>
+
+                      {/* Engineering 4-Year Academic Assignment Badges */}
+                      <div className="mt-2.5 pt-2 border-t border-border/50 flex flex-wrap items-center gap-1.5">
+                        {(() => {
+                          const teacherCcas = assignments.filter(
+                            (a) => a.teacher_id === teacher.id,
+                          );
+                          const teacherCoordinatedClasses =
+                            departmentClasses.filter(
+                              (c) =>
+                                c.coordinator_teacher_id === teacher.id ||
+                                teacherCcas.some(
+                                  (a) =>
+                                    a.class_id === c.id ||
+                                    a.class_name === c.name,
+                                ) ||
+                                (teacher.assigned_classes || []).includes(c.name),
+                            );
+                          const isCC =
+                            teacher.role === "class_coordinator" ||
+                            teacher.is_class_coordinator ||
+                            teacherCoordinatedClasses.length > 0 ||
+                            teacherCcas.length > 0;
+
+                          const teacherTs = teacherSubjects.filter(
+                            (ts) => ts.teacher_id === teacher.id,
+                          );
+
+                          return (
+                            <div className="space-y-1.5 w-full">
+                              {isCC && (
+                                <div className="flex flex-wrap items-center gap-1.5">
+                                  <Badge className="bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border border-emerald-500/30 text-[10px] font-semibold">
+                                    CC (
+                                    {teacherCoordinatedClasses.length ||
+                                      teacherCcas.length ||
+                                      1}
+                                    ):{" "}
+                                    {teacherCoordinatedClasses.length > 0
+                                      ? teacherCoordinatedClasses
+                                          .map(
+                                            (c) =>
+                                              `${c.name} (Sem ${c.semester})`,
+                                          )
+                                          .join(", ")
+                                      : teacherCcas.length > 0
+                                        ? teacherCcas
+                                            .map(
+                                              (a) =>
+                                                `${a.class_name || `Sem ${a.semester}`}`,
+                                            )
+                                            .join(", ")
+                                        : `${teacher.assigned_year ? `${teacher.assigned_year === 1 ? "1st" : teacher.assigned_year === 2 ? "2nd" : teacher.assigned_year === 3 ? "3rd" : "4th"} Year` : "2nd Year"} · Sem ${teacher.assigned_semester || 3}`}
+                                  </Badge>
+                                  <span className="text-[10px] text-muted-foreground font-medium">
+                                    Class Coordinator
+                                  </span>
+                                </div>
+                              )}
+
+                              {teacherTs.length > 0 ? (
+                                <div className="flex flex-wrap items-center gap-1">
+                                  <span className="text-[10px] text-muted-foreground font-semibold mr-0.5">
+                                    Teaching:
+                                  </span>
+                                  {(() => {
+                                    const groupedTs: Record<string, string[]> =
+                                      {};
+                                    for (const ts of teacherTs) {
+                                      if (!groupedTs[ts.subject_id])
+                                        groupedTs[ts.subject_id] = [];
+                                      if (
+                                        ts.class_name &&
+                                        !groupedTs[ts.subject_id].includes(
+                                          ts.class_name,
+                                        )
+                                      ) {
+                                        groupedTs[ts.subject_id].push(
+                                          ts.class_name,
+                                        );
+                                      }
+                                    }
+                                    return Object.entries(groupedTs).map(
+                                      ([sId, cNames]) => {
+                                        const sub = departmentSubjects.find(
+                                          (s) => s.id === sId,
+                                        );
+                                        return (
+                                          <Badge
+                                            key={sId}
+                                            variant="outline"
+                                            className="text-[10px] font-mono bg-muted/40 text-foreground"
+                                          >
+                                            {sub?.code || "SUB"}
+                                            {cNames.length > 0
+                                              ? ` (${cNames.join(", ")})`
+                                              : ""}
+                                          </Badge>
+                                        );
+                                      },
+                                    );
+                                  })()}
+                                </div>
+                              ) : (
+                                !isCC && (
+                                  <div className="flex flex-wrap items-center gap-1.5">
+                                    <Badge
+                                      variant="outline"
+                                      className="text-[10px] font-mono text-muted-foreground bg-muted/40"
+                                    >
+                                      Teaching:{" "}
+                                      {teacher.assigned_year
+                                        ? `${teacher.assigned_year === 1 ? "1st" : teacher.assigned_year === 2 ? "2nd" : teacher.assigned_year === 3 ? "3rd" : "4th"} Year`
+                                        : "2nd Year"}
+                                      ,{" "}
+                                      {getSemesterEngineeringLabel(
+                                        teacher.assigned_semester || 3,
+                                      )}{" "}
+                                      (Sem {teacher.assigned_semester || 3})
+                                    </Badge>
+                                  </div>
+                                )
+                              )}
+                            </div>
+                          );
+                        })()}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Card Actions */}
+                  <div className="flex items-center justify-end sm:justify-start gap-1 pt-2 sm:pt-0 border-t sm:border-t-0 border-border/50">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setPasswordModalTeacher(teacher)}
+                      className="h-8 text-xs font-medium text-foreground hover:text-primary px-2"
+                      title="Set or reset portal login password"
+                    >
+                      <KeyRound className="h-3.5 w-3.5 mr-1 text-primary" />
+                      Password
+                    </Button>
+
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setProfileModalTeacher(teacher)}
+                      className="h-8 text-xs font-medium text-foreground hover:text-primary px-2.5"
+                      title="View faculty dossier"
+                    >
+                      <Eye className="h-3.5 w-3.5 mr-1 text-primary" />
+                      Dossier
+                    </Button>
+
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => openEdit(teacher)}
+                      className="h-8 w-8 text-muted-foreground hover:text-foreground"
+                      title="Edit profile"
+                    >
+                      <Edit3 className="h-3.5 w-3.5" />
+                    </Button>
+
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => remove(teacher)}
+                      className="h-8 w-8 text-destructive hover:bg-destructive/10"
+                      title="Delete teacher"
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </Button>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+        )}
       </Card>
     </div>
   );

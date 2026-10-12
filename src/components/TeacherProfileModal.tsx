@@ -249,25 +249,7 @@ export const TeacherProfileModal: React.FC<TeacherProfileModalProps> = ({
               <p className="text-[11px] text-muted-foreground">Official payroll & login key</p>
             </div>
 
-            {/* 5. Date of Birth */}
-            <div className="rounded-xl border border-border p-3.5 bg-card space-y-1">
-              <div className="flex items-center gap-1.5 text-muted-foreground font-medium">
-                <Calendar className="h-4 w-4 text-primary" />
-                <span>Date of Birth</span>
-              </div>
-              <p className="text-sm font-semibold text-foreground">
-                {teacher.date_of_birth
-                  ? new Date(teacher.date_of_birth).toLocaleDateString("en-US", {
-                      year: "numeric",
-                      month: "long",
-                      day: "numeric",
-                    })
-                  : "Not Provided"}
-              </p>
-              <p className="text-[11px] text-muted-foreground">Birth record in file</p>
-            </div>
-
-            {/* 6. Year of Experience */}
+            {/* 5. Year of Experience */}
             <div className="rounded-xl border border-border p-3.5 bg-card space-y-1">
               <div className="flex items-center gap-1.5 text-muted-foreground font-medium">
                 <Clock className="h-4 w-4 text-primary" />

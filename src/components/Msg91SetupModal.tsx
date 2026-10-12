@@ -24,12 +24,16 @@ import {
   Terminal,
   HelpCircle,
   Radio,
+  Sliders,
+  Globe,
+  Code2,
 } from "lucide-react";
 import {
   getSmsGatewayStatus,
   sendTestSmsViaGateway,
   updateSmsGatewayConfig,
   SmsGatewayStatus,
+  SmsProviderType,
 } from "../lib/smsService";
 
 interface Msg91SetupModalProps {
@@ -43,24 +47,52 @@ export const Msg91SetupModal: React.FC<Msg91SetupModalProps> = ({
   onOpenChange,
   onTestSent,
 }) => {
-  const [activeTab, setActiveTab] = useState<"status" | "config" | "guide">("status");
+  const [activeTab, setActiveTab] = useState<"test" | "providers" | "guide">("test");
   const [status, setStatus] = useState<SmsGatewayStatus | null>(null);
   const [loadingStatus, setLoadingStatus] = useState(false);
 
-  // Configuration edit state
-  const [authKeyInput, setAuthKeyInput] = useState("");
-  const [senderIdInput, setSenderIdInput] = useState("EDUTRK");
-  const [routeInput, setRouteInput] = useState("4");
-  const [templateIdInput, setTemplateIdInput] = useState("");
+  // Selected provider in settings tab
+  const [selectedProvider, setSelectedProvider] = useState<SmsProviderType>("fast2sms");
+
+  // Provider-specific input state
+  // 1. Fast2SMS
+  const [fast2smsApiKey, setFast2smsApiKey] = useState("");
+  const [fast2smsRoute, setFast2smsRoute] = useState("q");
+
+  // 2. MSG91
+  const [msg91AuthKey, setMsg91AuthKey] = useState("");
+  const [msg91SenderId, setMsg91SenderId] = useState("EDUTRK");
+  const [msg91Route, setMsg91Route] = useState("4");
+  const [msg91TemplateId, setMsg91TemplateId] = useState("");
+  const [msg91DltTeId, setMsg91DltTeId] = useState("");
+
+  // 3. Twilio
+  const [twilioAccountSid, setTwilioAccountSid] = useState("");
+  const [twilioAuthToken, setTwilioAuthToken] = useState("");
+  const [twilioFromNumber, setTwilioFromNumber] = useState("");
+
+  // 4. Textlocal
+  const [textlocalApiKey, setTextlocalApiKey] = useState("");
+  const [textlocalSender, setTextlocalSender] = useState("TXTLCL");
+
+  // 5. Custom Gateway
+  const [customUrl, setCustomUrl] = useState("");
+  const [customMethod, setCustomMethod] = useState<"POST" | "GET">("POST");
+  const [customHeaders, setCustomHeaders] = useState('{\n  "Content-Type": "application/json"\n}');
+  const [customBody, setCustomBody] = useState('{\n  "to": "{clean10}",\n  "message": "{message}"\n}');
+  const [customApiKey, setCustomApiKey] = useState("");
+  const [customSenderId, setCustomSenderId] = useState("EDUTRK");
+
   const [isSavingConfig, setIsSavingConfig] = useState(false);
   const [configSaveStatus, setConfigSaveStatus] = useState<string | null>(null);
 
   // Test form state
   const [testMobile, setTestMobile] = useState("");
   const [testMessage, setTestMessage] = useState(
-    "Dear Parent, Aarav Sharma is absent for Data Structures today. Please contact college office. - EduTrack"
+    "Dear Parent, Student Rohan Patil is absent for Mathematics today. Marked via EduTrack SMIT."
   );
-  const [testPreset, setTestPreset] = useState<"en" | "mr" | "custom">("en");
+  const [testPreset, setTestPreset] = useState<"en" | "mr" | "hi" | "custom">("en");
+  const [testProviderChoice, setTestProviderChoice] = useState<string>("active");
   const [isSendingTest, setIsSendingTest] = useState(false);
   const [testResult, setTestResult] = useState<{
     success: boolean;
@@ -70,10 +102,11 @@ export const Msg91SetupModal: React.FC<Msg91SetupModalProps> = ({
     carrierBlocked?: boolean;
     error418?: boolean;
     serverIp?: string;
+    gateway?: string;
+    messageId?: string;
     time?: string;
   } | null>(null);
 
-  const [copiedEnv, setCopiedEnv] = useState(false);
   const [copiedIp, setCopiedIp] = useState(false);
 
   const handleCopyIp = (ip: string) => {
@@ -87,6 +120,35 @@ export const Msg91SetupModal: React.FC<Msg91SetupModalProps> = ({
     try {
       const data = await getSmsGatewayStatus();
       setStatus(data);
+      if (data.activeProvider) {
+        setSelectedProvider(data.activeProvider as SmsProviderType);
+      } else if (data.provider) {
+        setSelectedProvider(data.provider as SmsProviderType);
+      }
+
+      // Populate provider fields from server status if available
+      if (data.fast2sms?.apiKey) setFast2smsApiKey(data.fast2sms.apiKey);
+      if (data.fast2sms?.route) setFast2smsRoute(data.fast2sms.route);
+
+      if (data.msg91?.authKey) setMsg91AuthKey(data.msg91.authKey);
+      if (data.msg91?.senderId) setMsg91SenderId(data.msg91.senderId);
+      if (data.msg91?.templateId) setMsg91TemplateId(data.msg91.templateId);
+      if (data.msg91?.route) setMsg91Route(data.msg91.route);
+      if (data.msg91?.dltTeId) setMsg91DltTeId(data.msg91.dltTeId);
+
+      if (data.twilio?.accountSid) setTwilioAccountSid(data.twilio.accountSid);
+      if (data.twilio?.authToken) setTwilioAuthToken(data.twilio.authToken);
+      if (data.twilio?.fromNumber) setTwilioFromNumber(data.twilio.fromNumber);
+
+      if (data.textlocal?.apiKey) setTextlocalApiKey(data.textlocal.apiKey);
+      if (data.textlocal?.sender) setTextlocalSender(data.textlocal.sender);
+
+      if (data.custom?.url) setCustomUrl(data.custom.url);
+      if (data.custom?.method) setCustomMethod(data.custom.method as "POST" | "GET");
+      if (data.custom?.headers) setCustomHeaders(data.custom.headers);
+      if (data.custom?.bodyTemplate) setCustomBody(data.custom.bodyTemplate);
+      if (data.custom?.apiKey) setCustomApiKey(data.custom.apiKey);
+      if (data.custom?.senderId) setCustomSenderId(data.custom.senderId);
     } finally {
       setLoadingStatus(false);
     }
@@ -100,30 +162,57 @@ export const Msg91SetupModal: React.FC<Msg91SetupModalProps> = ({
     }
   }, [open]);
 
-  useEffect(() => {
-    if (status) {
-      if (status.senderId) setSenderIdInput(status.senderId);
-      if (status.route) setRouteInput(status.route);
-      if (status.templateId) setTemplateIdInput(status.templateId);
-    }
-  }, [status]);
-
-  const handleSaveConfig = async (e: React.FormEvent) => {
+  const handleSaveActiveConfig = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSavingConfig(true);
     setConfigSaveStatus(null);
+
     try {
-      const res = await updateSmsGatewayConfig({
-        authKey: authKeyInput.trim() || undefined,
-        senderId: senderIdInput.trim() || undefined,
-        route: routeInput.trim() || undefined,
-        templateId: templateIdInput.trim() || undefined,
-      });
+      const payload: any = {
+        activeProvider: selectedProvider,
+      };
+
+      if (selectedProvider === "fast2sms") {
+        payload.fast2sms = {
+          apiKey: fast2smsApiKey.trim(),
+          route: fast2smsRoute.trim(),
+        };
+      } else if (selectedProvider === "msg91") {
+        payload.msg91 = {
+          authKey: msg91AuthKey.trim(),
+          senderId: msg91SenderId.trim(),
+          templateId: msg91TemplateId.trim(),
+          route: msg91Route.trim(),
+          dltTeId: msg91DltTeId.trim(),
+        };
+      } else if (selectedProvider === "twilio") {
+        payload.twilio = {
+          accountSid: twilioAccountSid.trim(),
+          authToken: twilioAuthToken.trim(),
+          fromNumber: twilioFromNumber.trim(),
+        };
+      } else if (selectedProvider === "textlocal") {
+        payload.textlocal = {
+          apiKey: textlocalApiKey.trim(),
+          sender: textlocalSender.trim(),
+        };
+      } else if (selectedProvider === "custom") {
+        payload.custom = {
+          url: customUrl.trim(),
+          method: customMethod,
+          headers: customHeaders.trim(),
+          bodyTemplate: customBody.trim(),
+          apiKey: customApiKey.trim(),
+          senderId: customSenderId.trim(),
+        };
+      }
+
+      const res = await updateSmsGatewayConfig(payload);
       if (res.success) {
-        setConfigSaveStatus("Credentials updated successfully! MSG91 Gateway is active.");
-        fetchStatus();
+        setConfigSaveStatus(`Success! ${selectedProvider.toUpperCase()} is now your active SMS Gateway.`);
+        await fetchStatus();
       } else {
-        setConfigSaveStatus("Failed: " + res.message);
+        setConfigSaveStatus("Save failed: " + res.message);
       }
     } catch (err: any) {
       setConfigSaveStatus("Error: " + err.message);
@@ -132,25 +221,30 @@ export const Msg91SetupModal: React.FC<Msg91SetupModalProps> = ({
     }
   };
 
-  const handlePresetChange = (preset: "en" | "mr" | "custom") => {
+  const handlePresetChange = (preset: "en" | "mr" | "hi" | "custom") => {
     setTestPreset(preset);
     if (preset === "en") {
       setTestMessage(
-        "Dear Parent, Student Rohan Patil is absent for Mathematics today (09-10-2026). Attendance marked via EduTrack."
+        "Dear Parent, Student Rohan Patil is absent for Mathematics today. Marked via EduTrack SMIT."
       );
     } else if (preset === "mr") {
       setTestMessage(
-        "पालकहो, विद्यार्थी रोहन पाटील आज (09-10-2026) गणित विषयाच्या तासाला गैरहजर आहे. - EduTrack SMIT"
+        "पालकहो, विद्यार्थी रोहन पाटील आज गणित विषयाच्या तासाला गैरहजर आहे. - EduTrack SMIT"
+      );
+    } else if (preset === "hi") {
+      setTestMessage(
+        "प्रिय अभिभावक, छात्र रोहन पाटिल आज गणित कक्षा में अनुपस्थित है। - EduTrack SMIT"
       );
     }
   };
 
   const handleSendTest = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!testMobile.trim() || testMobile.replace(/[^0-9]/g, "").length < 10) {
+    const cleanNumbers = testMobile.replace(/[^0-9]/g, "");
+    if (!cleanNumbers || cleanNumbers.length < 10) {
       setTestResult({
         success: false,
-        message: "Kripya 10-digit ka valid mobile number dalein.",
+        message: "Kripya valid 10-digit mobile number dalein (e.g. 9876543210).",
         time: new Date().toLocaleTimeString(),
       });
       return;
@@ -160,7 +254,11 @@ export const Msg91SetupModal: React.FC<Msg91SetupModalProps> = ({
     setTestResult(null);
 
     try {
-      const res = await sendTestSmsViaGateway(testMobile.trim(), testMessage.trim());
+      const chosenProvider = testProviderChoice === "active" ? (status?.activeProvider || "fast2sms") : testProviderChoice;
+      const res = await sendTestSmsViaGateway(testMobile.trim(), testMessage.trim(), {
+        provider: chosenProvider,
+      });
+
       setTestResult({
         success: res.success,
         message: res.message,
@@ -169,6 +267,8 @@ export const Msg91SetupModal: React.FC<Msg91SetupModalProps> = ({
         carrierBlocked: res.carrierBlocked,
         error418: res.error418,
         serverIp: res.serverIp,
+        gateway: res.gateway,
+        messageId: res.messageId,
         time: new Date().toLocaleTimeString(),
       });
       fetchStatus();
@@ -184,18 +284,7 @@ export const Msg91SetupModal: React.FC<Msg91SetupModalProps> = ({
     }
   };
 
-  const envSnippet = `# MSG91 SMS Gateway Configuration
-MSG91_AUTHKEY=your_msg91_authkey_here
-MSG91_SENDER_ID=EDUTRK
-MSG91_TEMPLATE_ID=your_dlt_template_id_here
-MSG91_ROUTE=4
-MSG91_DLT_TE_ID=`;
-
-  const copyEnvSnippet = () => {
-    navigator.clipboard.writeText(envSnippet);
-    setCopiedEnv(true);
-    setTimeout(() => setCopiedEnv(false), 2000);
-  };
+  const activeProviderName = (status?.activeProvider || status?.provider || "fast2sms").toUpperCase();
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -204,16 +293,16 @@ MSG91_DLT_TE_ID=`;
         <DialogHeader className="p-5 pb-3 border-b border-border/60 bg-muted/20">
           <div className="flex items-start justify-between">
             <div className="space-y-1">
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 flex-wrap">
                 <div className="p-1.5 rounded-lg bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
                   <MessageSquare className="h-5 w-5" />
                 </div>
                 <DialogTitle className="text-xl font-bold tracking-tight">
-                  MSG91 SMS Gateway Setup & Testing
+                  Universal SMS Gateway Setup
                 </DialogTitle>
                 {status?.isConfigured ? (
-                  <Badge className="bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border-emerald-500/30 text-xs">
-                    <CheckCircle className="h-3 w-3 mr-1 inline" /> Live Carrier
+                  <Badge className="bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border-emerald-500/30 text-xs font-semibold">
+                    <CheckCircle className="h-3 w-3 mr-1 inline" /> {activeProviderName} Live Active
                   </Badge>
                 ) : (
                   <Badge variant="outline" className="border-amber-500/40 text-amber-600 dark:text-amber-400 bg-amber-500/10 text-xs">
@@ -222,7 +311,7 @@ MSG91_DLT_TE_ID=`;
                 )}
               </div>
               <DialogDescription className="text-xs text-muted-foreground">
-                Official SMS Gateway Integration for EduTrack Parent Alerts & Attendance Dispatch
+                Connect any SMS provider (Fast2SMS, MSG91, Twilio, Textlocal, or Custom API) to send real cellular messages to parents.
               </DialogDescription>
             </div>
 
@@ -231,551 +320,700 @@ MSG91_DLT_TE_ID=`;
               size="sm"
               onClick={fetchStatus}
               disabled={loadingStatus}
-              className="h-8 text-xs text-muted-foreground"
-              title="Refresh Gateway Status"
+              className="h-8 px-2 text-xs"
             >
-              <RefreshCw className={`h-3.5 w-3.5 mr-1 ${loadingStatus ? "animate-spin" : ""}`} />
-              Refresh
+              <RefreshCw className={`h-3.5 w-3.5 ${loadingStatus ? "animate-spin" : ""}`} />
             </Button>
           </div>
 
           {/* Navigation Tabs */}
-          <div className="flex items-center gap-2 pt-3">
+          <div className="flex items-center gap-1.5 mt-3 pt-2 border-t border-border/40">
             <button
-              type="button"
-              onClick={() => setActiveTab("status")}
-              className={`px-3 py-1.5 text-xs font-semibold rounded-md transition-all ${
-                activeTab === "status"
-                  ? "bg-primary text-primary-foreground shadow-sm"
-                  : "bg-muted/50 text-muted-foreground hover:text-foreground"
+              onClick={() => setActiveTab("test")}
+              className={`px-3 py-1.5 text-xs font-semibold rounded-md transition-all flex items-center gap-1.5 ${
+                activeTab === "test"
+                  ? "bg-primary text-primary-foreground shadow-xs"
+                  : "text-muted-foreground hover:text-foreground hover:bg-muted"
               }`}
             >
-              <Zap className="h-3.5 w-3.5 inline mr-1" />
-              Live Test & Status
+              <Send className="h-3.5 w-3.5" />
+              Live Test SMS
             </button>
             <button
-              type="button"
-              onClick={() => setActiveTab("config")}
-              className={`px-3 py-1.5 text-xs font-semibold rounded-md transition-all ${
-                activeTab === "config"
-                  ? "bg-primary text-primary-foreground shadow-sm"
-                  : "bg-muted/50 text-muted-foreground hover:text-foreground"
+              onClick={() => setActiveTab("providers")}
+              className={`px-3 py-1.5 text-xs font-semibold rounded-md transition-all flex items-center gap-1.5 ${
+                activeTab === "providers"
+                  ? "bg-primary text-primary-foreground shadow-xs"
+                  : "text-muted-foreground hover:text-foreground hover:bg-muted"
               }`}
             >
-              <Terminal className="h-3.5 w-3.5 inline mr-1" />
-              Configuration (.env)
+              <Sliders className="h-3.5 w-3.5" />
+              Providers & API Keys
             </button>
             <button
-              type="button"
               onClick={() => setActiveTab("guide")}
-              className={`px-3 py-1.5 text-xs font-semibold rounded-md transition-all ${
+              className={`px-3 py-1.5 text-xs font-semibold rounded-md transition-all flex items-center gap-1.5 ${
                 activeTab === "guide"
-                  ? "bg-primary text-primary-foreground shadow-sm"
-                  : "bg-muted/50 text-muted-foreground hover:text-foreground"
+                  ? "bg-primary text-primary-foreground shadow-xs"
+                  : "text-muted-foreground hover:text-foreground hover:bg-muted"
               }`}
             >
-              <HelpCircle className="h-3.5 w-3.5 inline mr-1" />
-              Setup Guide (Steps)
+              <ShieldCheck className="h-3.5 w-3.5" />
+              IP & Carrier Diagnostics
             </button>
           </div>
         </DialogHeader>
 
-        {/* Content Body */}
-        <div className="flex-1 overflow-y-auto p-5 space-y-5">
-          {/* TAB 1: STATUS & TEST */}
-          {activeTab === "status" && (
-            <div className="space-y-5">
-              {/* Carrier Warning for MSG91 Error 418 (IP Whitelist Required) */}
-              {(status?.error418Detected || testResult?.error418) && (
-                <div className="p-4 rounded-xl border border-rose-500/40 bg-rose-500/10 text-rose-950 dark:text-rose-200 space-y-3">
-                  <div className="flex items-start gap-3">
-                    <AlertCircle className="h-5 w-5 text-rose-600 dark:text-rose-400 mt-0.5 shrink-0" />
-                    <div className="space-y-1">
-                      <div className="font-bold text-sm text-rose-700 dark:text-rose-300">
-                        Carrier Alert: MSG91 Error 418 (IP Not Whitelisted)
-                      </div>
-                      <p className="text-xs leading-relaxed opacity-90">
-                        Aapke MSG91 dashboard me aapki AuthKey par <strong>IP Restriction</strong> enable hai. Is wajah se MSG91 ne SMS requests ko carrier level par reject/hold kar rakha hai.
-                      </p>
-                    </div>
+        {/* Modal Body */}
+        <div className="p-5 overflow-y-auto space-y-4 flex-1">
+          {/* TAB 1: LIVE TEST SMS */}
+          {activeTab === "test" && (
+            <div className="space-y-4">
+              <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/5 p-3.5 flex items-start gap-3">
+                <Zap className="h-5 w-5 text-emerald-600 dark:text-emerald-400 shrink-0 mt-0.5" />
+                <div className="text-xs space-y-1">
+                  <div className="font-semibold text-foreground flex items-center gap-2">
+                    Active Gateway: <span className="text-emerald-600 dark:text-emerald-400 font-bold">{activeProviderName}</span>
+                    <span className="text-[10px] text-muted-foreground">
+                      ({status?.isConfigured ? "Real Carrier Mode" : "Simulation Mode"})
+                    </span>
                   </div>
-
-                  <div className="bg-background/80 dark:bg-background/40 p-3 rounded-lg border border-rose-500/20 text-xs space-y-2">
-                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-                      <span className="font-semibold text-foreground">
-                        Current Server Public IP:
-                      </span>
-                      <div className="flex items-center gap-2">
-                        <code className="px-2 py-1 rounded bg-muted font-mono font-bold text-primary text-xs">
-                          {status?.serverIp || testResult?.serverIp || "34.34.254.233"}
-                        </code>
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="sm"
-                          onClick={() => handleCopyIp(status?.serverIp || testResult?.serverIp || "34.34.254.233")}
-                          className="h-7 text-xs gap-1"
-                        >
-                          {copiedIp ? <Check className="h-3 w-3 text-emerald-500" /> : <Copy className="h-3 w-3" />}
-                          {copiedIp ? "Copied" : "Copy IP"}
-                        </Button>
-                      </div>
-                    </div>
-
-                    <div className="pt-1.5 border-t border-border/50 space-y-1.5 text-[11px] text-muted-foreground">
-                      <div className="font-semibold text-foreground">Isko Fix Karne ke Steps (1 Minute):</div>
-                      <ol className="list-decimal list-inside space-y-1 pl-1">
-                        <li>
-                          <strong>MSG91 Dashboard</strong> kholein (<a href="https://control.msg91.com" target="_blank" rel="noreferrer" className="text-primary underline">control.msg91.com</a>).
-                        </li>
-                        <li>
-                          Sidebar me <strong>Authkey</strong> par click karein aur apni AuthKey select karein.
-                        </li>
-                        <li>
-                          <strong>Option 1 (Sabse Recommended):</strong> <strong>"IP Restriction"</strong> setting ko <strong>OFF / Disable</strong> kar dein taaki kisi bhi environment (AI Studio ya Local VS Code) se SMS bina block huye deliver ho sakein.
-                        </li>
-                        <li>
-                          <strong>Option 2:</strong> Upar diya gaya Server IP (<code>{status?.serverIp || testResult?.serverIp || "34.34.254.233"}</code>) Whitelist box me paste karke Save karein.
-                        </li>
-                        <li>
-                          <strong>TRAI DLT Mandate (India):</strong> MSG91 trial account me custom Sender ID <code>EDUTRK</code> tabhi deliver hota hai jab TRAI DLT portal par Entity & Template approved ho.
-                        </li>
-                      </ol>
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {/* Status Summary Banner */}
-              <div
-                className={`p-4 rounded-xl border flex items-start gap-3.5 ${
-                  status?.isConfigured
-                    ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-950 dark:text-emerald-200"
-                    : "bg-amber-500/10 border-amber-500/30 text-amber-950 dark:text-amber-200"
-                }`}
-              >
-                {status?.isConfigured ? (
-                  <CheckCircle className="h-5 w-5 text-emerald-600 dark:text-emerald-400 mt-0.5 shrink-0" />
-                ) : (
-                  <AlertCircle className="h-5 w-5 text-amber-600 dark:text-amber-400 mt-0.5 shrink-0" />
-                )}
-                <div className="space-y-1 text-xs">
-                  <div className="font-bold text-sm">
-                    {status?.isConfigured
-                      ? "MSG91 Cloud Gateway Active (Live Sending Ready)"
-                      : "MSG91 Gateway in Simulation Mode"}
-                  </div>
-                  <p className="opacity-90 leading-relaxed">
-                    {status?.isConfigured
-                      ? `Credentials verified. Messages marked during attendance will be delivered via MSG91 (Sender ID: ${status?.senderId || "EDUTRK"}).`
-                      : "Abhi .env file me MSG91_AUTHKEY add nahi hai. App safely simulation mode me chal raha hai aur SMS logs record kar raha hai. Live SMS ke liye Setup Guide dekhein."}
+                  <p className="text-muted-foreground">
+                    Type any phone number below to send a live test SMS. If you have another provider key, switch to the <strong>Providers & API Keys</strong> tab.
                   </p>
                 </div>
               </div>
 
-              {/* Quick Status Cards */}
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
-                <div className="p-3 rounded-lg border border-border bg-card/60">
-                  <div className="text-[10px] text-muted-foreground uppercase font-semibold">Gateway</div>
-                  <div className="text-sm font-bold mt-0.5">MSG91</div>
-                  <div className="text-[11px] text-muted-foreground">Flow / Send API</div>
-                </div>
-                <div className="p-3 rounded-lg border border-border bg-card/60">
-                  <div className="text-[10px] text-muted-foreground uppercase font-semibold">Sender ID</div>
-                  <div className="text-sm font-bold mt-0.5">{status?.senderId || "EDUTRK"}</div>
-                  <div className="text-[11px] text-muted-foreground">DLT Header</div>
-                </div>
-                <div className="p-3 rounded-lg border border-border bg-card/60">
-                  <div className="text-[10px] text-muted-foreground uppercase font-semibold">Route</div>
-                  <div className="text-sm font-bold mt-0.5">Route {status?.route || "4"}</div>
-                  <div className="text-[11px] text-muted-foreground">Transactional</div>
-                </div>
-                <div className="p-3 rounded-lg border border-border bg-card/60">
-                  <div className="text-[10px] text-muted-foreground uppercase font-semibold">Total Dispatched</div>
-                  <div className="text-sm font-bold mt-0.5">{status?.totalDispatched || 0}</div>
-                  <div className="text-[11px] text-muted-foreground">Since server start</div>
-                </div>
-              </div>
-
-              {/* Live Test Console */}
-              <div className="p-4 rounded-xl border border-border bg-card/40 space-y-4">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <Send className="h-4 w-4 text-primary" />
-                    <h4 className="text-xs font-bold uppercase tracking-wider">Test SMS Dispatch</h4>
-                  </div>
-                  <div className="flex items-center gap-1">
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      onClick={() => handlePresetChange("en")}
-                      className={`h-6 px-2 text-[11px] ${testPreset === "en" ? "border-primary bg-primary/10" : ""}`}
-                    >
-                      English
-                    </Button>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      onClick={() => handlePresetChange("mr")}
-                      className={`h-6 px-2 text-[11px] ${testPreset === "mr" ? "border-primary bg-primary/10" : ""}`}
-                    >
-                      मराठी (Marathi)
-                    </Button>
-                  </div>
+              <form onSubmit={handleSendTest} className="space-y-3.5">
+                <div>
+                  <label className="text-xs font-semibold text-foreground block mb-1.5">
+                    Parent / Recipient Mobile Number (10 Digits) *
+                  </label>
+                  <Input
+                    type="tel"
+                    placeholder="e.g. 9876543210"
+                    value={testMobile}
+                    onChange={(e) => setTestMobile(e.target.value)}
+                    className="font-mono text-sm tracking-wide"
+                    maxLength={13}
+                    required
+                  />
                 </div>
 
-                <form onSubmit={handleSendTest} className="space-y-3">
-                  <div>
-                    <label className="text-xs font-medium mb-1 block">Parent Mobile Number (10 digits)</label>
-                    <div className="relative">
-                      <span className="absolute left-3 top-2.5 text-xs text-muted-foreground font-mono">+91</span>
-                      <Input
-                        type="tel"
-                        maxLength={10}
-                        placeholder="9876543210"
-                        value={testMobile}
-                        onChange={(e) => setTestMobile(e.target.value.replace(/[^0-9]/g, ""))}
-                        className="pl-11 font-mono text-sm"
-                        required
-                      />
+                <div>
+                  <div className="flex items-center justify-between mb-1.5">
+                    <label className="text-xs font-semibold text-foreground">
+                      Simple Text Message
+                    </label>
+                    <div className="flex items-center gap-1 text-[11px]">
+                      <button
+                        type="button"
+                        onClick={() => handlePresetChange("en")}
+                        className={`px-2 py-0.5 rounded text-[10px] font-semibold transition-all ${
+                          testPreset === "en" ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"
+                        }`}
+                      >
+                        English
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handlePresetChange("mr")}
+                        className={`px-2 py-0.5 rounded text-[10px] font-semibold transition-all ${
+                          testPreset === "mr" ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"
+                        }`}
+                      >
+                        मराठी
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handlePresetChange("hi")}
+                        className={`px-2 py-0.5 rounded text-[10px] font-semibold transition-all ${
+                          testPreset === "hi" ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"
+                        }`}
+                      >
+                        हिंदी
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handlePresetChange("custom")}
+                        className={`px-2 py-0.5 rounded text-[10px] font-semibold transition-all ${
+                          testPreset === "custom" ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"
+                        }`}
+                      >
+                        Custom
+                      </button>
                     </div>
                   </div>
-
-                  <div>
-                    <label className="text-xs font-medium mb-1 block">Message Content</label>
-                    <textarea
-                      rows={2}
-                      value={testMessage}
-                      onChange={(e) => {
-                        setTestMessage(e.target.value);
-                        setTestPreset("custom");
-                      }}
-                      className="w-full text-xs font-mono rounded-md border border-input bg-background px-3 py-2 leading-relaxed focus:outline-none focus:ring-1 focus:ring-ring"
-                    />
-                    <div className="flex justify-between text-[11px] text-muted-foreground mt-1">
-                      <span>{testMessage.length} characters</span>
-                      <span>1 SMS credit (~160 chars)</span>
-                    </div>
+                  <textarea
+                    rows={3}
+                    value={testMessage}
+                    onChange={(e) => {
+                      setTestMessage(e.target.value);
+                      setTestPreset("custom");
+                    }}
+                    className="w-full rounded-md border border-input bg-background px-3 py-2 text-xs ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                    placeholder="Enter message text..."
+                    required
+                  />
+                  <div className="flex items-center justify-between mt-1 text-[11px] text-muted-foreground">
+                    <span>Characters: {testMessage.length}</span>
+                    <span>Standard cellular SMS: 1 credit per 160 characters</span>
                   </div>
+                </div>
 
+                <div className="flex items-center gap-3 pt-1">
                   <Button
                     type="submit"
                     disabled={isSendingTest}
-                    className="w-full sm:w-auto text-xs font-semibold gap-1.5"
+                    className="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-xs px-5 shadow-xs"
                   >
-                    <Send className={`h-3.5 w-3.5 ${isSendingTest ? "animate-spin" : ""}`} />
-                    {isSendingTest ? "Sending via MSG91..." : "Send Test SMS Now"}
-                  </Button>
-                </form>
-
-                {/* Test Result Display */}
-                {testResult && (
-                  <div
-                    className={`p-3.5 rounded-lg border text-xs space-y-1.5 ${
-                      testResult.success
-                        ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-950 dark:text-emerald-200"
-                        : "bg-red-500/10 border-red-500/30 text-red-950 dark:text-red-200"
-                    }`}
-                  >
-                    <div className="flex items-center justify-between font-bold">
-                      <span className="flex items-center gap-1.5">
-                        {testResult.success ? (
-                          <CheckCircle className="h-4 w-4 text-emerald-600" />
-                        ) : (
-                          <AlertCircle className="h-4 w-4 text-red-600" />
-                        )}
-                        {testResult.success ? "Dispatch Succeeded" : "Dispatch Failed"}
-                      </span>
-                      <span className="text-[10px] opacity-75">{testResult.time}</span>
-                    </div>
-                    <p className="leading-relaxed opacity-95">{testResult.message}</p>
-                    {testResult.raw && (
-                      <div className="mt-1 pt-1 border-t border-border/40 font-mono text-[10px] opacity-80 truncate">
-                        Raw Response: {JSON.stringify(testResult.raw)}
-                      </div>
+                    {isSendingTest ? (
+                      <>
+                        <RefreshCw className="h-3.5 w-3.5 mr-1.5 animate-spin" />
+                        Dispatching to Carrier...
+                      </>
+                    ) : (
+                      <>
+                        <Send className="h-3.5 w-3.5 mr-1.5" />
+                        Send Live Test SMS Now
+                      </>
                     )}
+                  </Button>
+
+                  <span className="text-xs text-muted-foreground">
+                    Sent via: <strong>{activeProviderName}</strong>
+                  </span>
+                </div>
+              </form>
+
+              {/* Real-time result feedback */}
+              {testResult && (
+                <div
+                  className={`rounded-xl border p-4 text-xs space-y-2.5 transition-all ${
+                    testResult.success
+                      ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-950 dark:text-emerald-100"
+                      : "border-red-500/40 bg-red-500/10 text-red-950 dark:text-red-100"
+                  }`}
+                >
+                  <div className="flex items-center justify-between font-bold">
+                    <span className="flex items-center gap-1.5">
+                      {testResult.success ? (
+                        <CheckCircle className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
+                      ) : (
+                        <AlertCircle className="h-4 w-4 text-red-600 dark:text-red-400" />
+                      )}
+                      {testResult.success ? "SMS Dispatched Successfully!" : "Dispatch Rejected / Notice"}
+                    </span>
+                    <span className="text-[10px] opacity-75 font-mono">{testResult.time}</span>
                   </div>
-                )}
-              </div>
+
+                  <p className="leading-relaxed">{testResult.message}</p>
+
+                  {testResult.error418 && (
+                    <div className="rounded-lg bg-amber-500/15 border border-amber-500/30 p-2.5 text-[11px] text-amber-900 dark:text-amber-200 space-y-1">
+                      <div className="font-bold flex items-center gap-1">
+                        <ShieldCheck className="h-3.5 w-3.5" /> MSG91 Error 418 IP Restriction:
+                      </div>
+                      <p>
+                        MSG91 account me IP Whitelist enabled hai. MSG91 Dashboard me jakar AuthKey ki IP restriction DISABLE karein, ya server IP whitelist karein:
+                      </p>
+                      {testResult.serverIp && (
+                        <div className="flex items-center gap-2 mt-1">
+                          <code className="bg-background/80 px-2 py-0.5 rounded font-mono font-bold">
+                            {testResult.serverIp}
+                          </code>
+                          <button
+                            type="button"
+                            onClick={() => handleCopyIp(testResult.serverIp!)}
+                            className="text-xs underline font-semibold"
+                          >
+                            {copiedIp ? "Copied!" : "Copy IP"}
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {testResult.raw && (
+                    <details className="text-[10px] bg-background/50 rounded-md p-2 border border-border/50">
+                      <summary className="cursor-pointer font-mono font-semibold opacity-80">
+                        View Raw Carrier Response
+                      </summary>
+                      <pre className="mt-1 overflow-x-auto whitespace-pre-wrap font-mono p-1">
+                        {typeof testResult.raw === "string" ? testResult.raw : JSON.stringify(testResult.raw, null, 2)}
+                      </pre>
+                    </details>
+                  )}
+                </div>
+              )}
             </div>
           )}
 
-          {/* TAB 2: CONFIGURATION */}
-          {activeTab === "config" && (
+          {/* TAB 2: PROVIDERS & CREDENTIALS */}
+          {activeTab === "providers" && (
             <div className="space-y-4">
-              <div className="p-3.5 rounded-lg bg-muted/40 border border-border text-xs space-y-2">
-                <div className="font-semibold flex items-center gap-1.5">
-                  <ShieldCheck className="h-4 w-4 text-primary" />
-                  Live MSG91 Gateway Configuration
-                </div>
-                <p className="text-muted-foreground leading-relaxed">
-                  Apne MSG91 dashboard ki credentials yaha enter karein. Yeh seedhe backend me sync ho jayegi aur real mobile SMS dispatch shuru ho jayega.
-                </p>
+              <div className="text-xs text-muted-foreground">
+                Select your preferred SMS provider and enter credentials. Click <strong>Save & Set Active Gateway</strong> to start sending messages through it.
               </div>
 
-              {/* Direct Configuration Form */}
-              <form onSubmit={handleSaveConfig} className="p-4 rounded-xl border border-border bg-card/50 space-y-3.5 text-xs">
-                <div className="font-bold flex items-center justify-between">
-                  <span className="flex items-center gap-1.5">
-                    <Zap className="h-4 w-4 text-primary" />
-                    Configure MSG91 Credentials
-                  </span>
-                  <Badge variant={status?.isConfigured ? "default" : "secondary"} className="text-[10px]">
-                    {status?.isConfigured ? "Live Gateway Active" : "Simulation Mode"}
-                  </Badge>
-                </div>
+              {/* Provider Selector Tabs */}
+              <div className="grid grid-cols-2 sm:grid-cols-5 gap-1.5 p-1 bg-muted/50 rounded-xl border border-border/60">
+                <button
+                  type="button"
+                  onClick={() => setSelectedProvider("fast2sms")}
+                  className={`py-2 px-2.5 rounded-lg text-xs font-semibold transition-all text-center ${
+                    selectedProvider === "fast2sms"
+                      ? "bg-background text-foreground shadow-xs border border-border/80"
+                      : "text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  ⚡ Fast2SMS
+                  <span className="block text-[9px] font-normal text-emerald-500 font-sans">Simple • No DLT</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setSelectedProvider("msg91")}
+                  className={`py-2 px-2.5 rounded-lg text-xs font-semibold transition-all text-center ${
+                    selectedProvider === "msg91"
+                      ? "bg-background text-foreground shadow-xs border border-border/80"
+                      : "text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  📱 MSG91
+                  <span className="block text-[9px] font-normal text-muted-foreground font-sans">Flow & HTTP</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setSelectedProvider("twilio")}
+                  className={`py-2 px-2.5 rounded-lg text-xs font-semibold transition-all text-center ${
+                    selectedProvider === "twilio"
+                      ? "bg-background text-foreground shadow-xs border border-border/80"
+                      : "text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  🌐 Twilio
+                  <span className="block text-[9px] font-normal text-muted-foreground font-sans">Global SMS</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setSelectedProvider("textlocal")}
+                  className={`py-2 px-2.5 rounded-lg text-xs font-semibold transition-all text-center ${
+                    selectedProvider === "textlocal"
+                      ? "bg-background text-foreground shadow-xs border border-border/80"
+                      : "text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  📩 Textlocal
+                  <span className="block text-[9px] font-normal text-muted-foreground font-sans">India / UK</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setSelectedProvider("custom")}
+                  className={`py-2 px-2.5 rounded-lg text-xs font-semibold transition-all text-center ${
+                    selectedProvider === "custom"
+                      ? "bg-background text-foreground shadow-xs border border-border/80"
+                      : "text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  🛠️ Custom API
+                  <span className="block text-[9px] font-normal text-muted-foreground font-sans">Any REST URL</span>
+                </button>
+              </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <div className="sm:col-span-2">
-                    <label className="font-medium mb-1 block">
-                      MSG91 AuthKey <span className="text-red-500">*</span>
-                    </label>
-                    <Input
-                      type="text"
-                      placeholder={status?.isConfigured ? "•••••••••••••••••••••••• (Active Key Configured)" : "Paste your MSG91 AuthKey here"}
-                      value={authKeyInput}
-                      onChange={(e) => setAuthKeyInput(e.target.value)}
-                      className="font-mono text-xs"
-                    />
-                    <p className="text-[11px] text-muted-foreground mt-1">
-                      Dashboard → Developers → AuthKey se generate kiya gaya 24-32 characters ka code.
+              {/* Provider Config Forms */}
+              <form onSubmit={handleSaveActiveConfig} className="space-y-4 pt-1">
+                {/* 1. Fast2SMS Form */}
+                {selectedProvider === "fast2sms" && (
+                  <div className="rounded-xl border border-border/80 bg-muted/20 p-4 space-y-3.5">
+                    <div className="flex items-center justify-between">
+                      <div className="font-bold text-sm text-foreground flex items-center gap-1.5">
+                        <Zap className="h-4 w-4 text-emerald-500" />
+                        Fast2SMS Gateway Configuration
+                      </div>
+                      <a
+                        href="https://www.fast2sms.com"
+                        target="_blank"
+                        rel="noreferrer"
+                        className="text-[11px] text-primary hover:underline flex items-center gap-1"
+                      >
+                        fast2sms.com <ExternalLink className="h-3 w-3" />
+                      </a>
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      Fast2SMS is the easiest option for Indian colleges. <strong>No DLT registration required</strong> for Quick SMS route! Just copy your API Authorization key from Fast2SMS dashboard.
                     </p>
-                  </div>
 
-                  <div>
-                    <label className="font-medium mb-1 block">Sender ID (Header)</label>
-                    <Input
-                      type="text"
-                      maxLength={6}
-                      placeholder="EDUTRK"
-                      value={senderIdInput}
-                      onChange={(e) => setSenderIdInput(e.target.value.toUpperCase())}
-                      className="font-mono text-xs uppercase"
-                    />
-                    <p className="text-[11px] text-muted-foreground mt-1">
-                      6-alphabets DLT Sender ID (Default: EDUTRK).
-                    </p>
-                  </div>
+                    <div className="space-y-1.5">
+                      <label className="text-xs font-semibold text-foreground">
+                        Fast2SMS Authorization API Key *
+                      </label>
+                      <Input
+                        type="password"
+                        placeholder="Paste your Fast2SMS API key here..."
+                        value={fast2smsApiKey}
+                        onChange={(e) => setFast2smsApiKey(e.target.value)}
+                        className="font-mono text-xs"
+                      />
+                    </div>
 
-                  <div>
-                    <label className="font-medium mb-1 block">Route</label>
-                    <Input
-                      type="text"
-                      placeholder="4"
-                      value={routeInput}
-                      onChange={(e) => setRouteInput(e.target.value)}
-                      className="font-mono text-xs"
-                    />
-                    <p className="text-[11px] text-muted-foreground mt-1">
-                      4 = Transactional / Instant OTP/Alerts route.
-                    </p>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="space-y-1.5">
+                        <label className="text-xs font-semibold text-foreground">SMS Route</label>
+                        <select
+                          value={fast2smsRoute}
+                          onChange={(e) => setFast2smsRoute(e.target.value)}
+                          className="w-full h-9 rounded-md border border-input bg-background px-3 text-xs"
+                        >
+                          <option value="q">Quick SMS (route=q, No DLT required)</option>
+                          <option value="otp">OTP / Fast Delivery (route=otp)</option>
+                          <option value="v3">V3 Route (route=v3)</option>
+                          <option value="dlt">DLT Approved (route=dlt)</option>
+                        </select>
+                      </div>
+                      <div className="space-y-1.5">
+                        <label className="text-xs font-semibold text-foreground">Language Mode</label>
+                        <div className="h-9 flex items-center text-xs text-muted-foreground px-2">
+                          Auto (English / Marathi / Hindi Unicode supported)
+                        </div>
+                      </div>
+                    </div>
                   </div>
+                )}
 
-                  <div className="sm:col-span-2">
-                    <label className="font-medium mb-1 block">DLT Template / Flow ID (Optional)</label>
-                    <Input
-                      type="text"
-                      placeholder="Leave blank to use direct Send API"
-                      value={templateIdInput}
-                      onChange={(e) => setTemplateIdInput(e.target.value)}
-                      className="font-mono text-xs"
-                    />
-                    <p className="text-[11px] text-muted-foreground mt-1">
-                      Agar MSG91 Flow use kar rahe hain toh Template ID daalein, warna Send API direct kaam karega.
-                    </p>
+                {/* 2. MSG91 Form */}
+                {selectedProvider === "msg91" && (
+                  <div className="rounded-xl border border-border/80 bg-muted/20 p-4 space-y-3.5">
+                    <div className="flex items-center justify-between">
+                      <div className="font-bold text-sm text-foreground flex items-center gap-1.5">
+                        <MessageSquare className="h-4 w-4 text-blue-500" />
+                        MSG91 Gateway Configuration
+                      </div>
+                      <a
+                        href="https://control.msg91.com"
+                        target="_blank"
+                        rel="noreferrer"
+                        className="text-[11px] text-primary hover:underline flex items-center gap-1"
+                      >
+                        msg91.com <ExternalLink className="h-3 w-3" />
+                      </a>
+                    </div>
+
+                    <div className="space-y-1.5">
+                      <label className="text-xs font-semibold text-foreground">
+                        MSG91 AuthKey *
+                      </label>
+                      <Input
+                        type="password"
+                        placeholder="Enter your MSG91 AuthKey..."
+                        value={msg91AuthKey}
+                        onChange={(e) => setMsg91AuthKey(e.target.value)}
+                        className="font-mono text-xs"
+                      />
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="space-y-1.5">
+                        <label className="text-xs font-semibold text-foreground">Sender ID</label>
+                        <Input
+                          placeholder="e.g. EDUTRK"
+                          value={msg91SenderId}
+                          onChange={(e) => setMsg91SenderId(e.target.value)}
+                          maxLength={6}
+                          className="font-mono text-xs uppercase"
+                        />
+                      </div>
+                      <div className="space-y-1.5">
+                        <label className="text-xs font-semibold text-foreground">Route</label>
+                        <Input
+                          placeholder="e.g. 4"
+                          value={msg91Route}
+                          onChange={(e) => setMsg91Route(e.target.value)}
+                          className="font-mono text-xs"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="space-y-1.5">
+                        <label className="text-xs font-semibold text-foreground">
+                          Flow Template ID (Optional)
+                        </label>
+                        <Input
+                          placeholder="e.g. 64b8f... (For MSG91 Flow API)"
+                          value={msg91TemplateId}
+                          onChange={(e) => setMsg91TemplateId(e.target.value)}
+                          className="font-mono text-xs"
+                        />
+                      </div>
+                      <div className="space-y-1.5">
+                        <label className="text-xs font-semibold text-foreground">
+                          DLT Template ID (DLT_TE_ID)
+                        </label>
+                        <Input
+                          placeholder="e.g. 170716..."
+                          value={msg91DltTeId}
+                          onChange={(e) => setMsg91DltTeId(e.target.value)}
+                          className="font-mono text-xs"
+                        />
+                      </div>
+                    </div>
                   </div>
+                )}
+
+                {/* 3. Twilio Form */}
+                {selectedProvider === "twilio" && (
+                  <div className="rounded-xl border border-border/80 bg-muted/20 p-4 space-y-3.5">
+                    <div className="flex items-center justify-between">
+                      <div className="font-bold text-sm text-foreground flex items-center gap-1.5">
+                        <Globe className="h-4 w-4 text-purple-500" />
+                        Twilio SMS Configuration
+                      </div>
+                      <a
+                        href="https://console.twilio.com"
+                        target="_blank"
+                        rel="noreferrer"
+                        className="text-[11px] text-primary hover:underline flex items-center gap-1"
+                      >
+                        twilio.com <ExternalLink className="h-3 w-3" />
+                      </a>
+                    </div>
+
+                    <div className="space-y-1.5">
+                      <label className="text-xs font-semibold text-foreground">Account SID *</label>
+                      <Input
+                        placeholder="e.g. ACxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+                        value={twilioAccountSid}
+                        onChange={(e) => setTwilioAccountSid(e.target.value)}
+                        className="font-mono text-xs"
+                      />
+                    </div>
+
+                    <div className="space-y-1.5">
+                      <label className="text-xs font-semibold text-foreground">Auth Token *</label>
+                      <Input
+                        type="password"
+                        placeholder="Twilio Auth Token"
+                        value={twilioAuthToken}
+                        onChange={(e) => setTwilioAuthToken(e.target.value)}
+                        className="font-mono text-xs"
+                      />
+                    </div>
+
+                    <div className="space-y-1.5">
+                      <label className="text-xs font-semibold text-foreground">From Phone Number *</label>
+                      <Input
+                        placeholder="e.g. +1234567890"
+                        value={twilioFromNumber}
+                        onChange={(e) => setTwilioFromNumber(e.target.value)}
+                        className="font-mono text-xs"
+                      />
+                    </div>
+                  </div>
+                )}
+
+                {/* 4. Textlocal Form */}
+                {selectedProvider === "textlocal" && (
+                  <div className="rounded-xl border border-border/80 bg-muted/20 p-4 space-y-3.5">
+                    <div className="flex items-center justify-between">
+                      <div className="font-bold text-sm text-foreground flex items-center gap-1.5">
+                        <MessageSquare className="h-4 w-4 text-amber-500" />
+                        Textlocal SMS Configuration
+                      </div>
+                      <a
+                        href="https://www.textlocal.in"
+                        target="_blank"
+                        rel="noreferrer"
+                        className="text-[11px] text-primary hover:underline flex items-center gap-1"
+                      >
+                        textlocal.in <ExternalLink className="h-3 w-3" />
+                      </a>
+                    </div>
+
+                    <div className="space-y-1.5">
+                      <label className="text-xs font-semibold text-foreground">Textlocal API Key *</label>
+                      <Input
+                        type="password"
+                        placeholder="Textlocal API Key"
+                        value={textlocalApiKey}
+                        onChange={(e) => setTextlocalApiKey(e.target.value)}
+                        className="font-mono text-xs"
+                      />
+                    </div>
+
+                    <div className="space-y-1.5">
+                      <label className="text-xs font-semibold text-foreground">Sender Name</label>
+                      <Input
+                        placeholder="e.g. TXTLCL"
+                        value={textlocalSender}
+                        onChange={(e) => setTextlocalSender(e.target.value)}
+                        maxLength={6}
+                        className="font-mono text-xs"
+                      />
+                    </div>
+                  </div>
+                )}
+
+                {/* 5. Custom API / Webhook Form */}
+                {selectedProvider === "custom" && (
+                  <div className="rounded-xl border border-border/80 bg-muted/20 p-4 space-y-3.5">
+                    <div className="font-bold text-sm text-foreground flex items-center gap-1.5">
+                      <Code2 className="h-4 w-4 text-emerald-500" />
+                      Custom Gateway / Webhook / Any REST API
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      Use this to connect any SMS gateway in the world (e.g. 2Factor, SMSHorizon, Kaleyra, IndiaSMS). Placeholders: <code>{"{clean10}"}</code>, <code>{"{with91}"}</code>, <code>{"{message}"}</code>, <code>{"{apiKey}"}</code>.
+                    </p>
+
+                    <div className="grid grid-cols-4 gap-2">
+                      <div className="col-span-1 space-y-1">
+                        <label className="text-xs font-semibold text-foreground">Method</label>
+                        <select
+                          value={customMethod}
+                          onChange={(e) => setCustomMethod(e.target.value as any)}
+                          className="w-full h-9 rounded-md border border-input bg-background px-2 text-xs"
+                        >
+                          <option value="POST">POST</option>
+                          <option value="GET">GET</option>
+                        </select>
+                      </div>
+                      <div className="col-span-3 space-y-1">
+                        <label className="text-xs font-semibold text-foreground">Gateway Endpoint URL *</label>
+                        <Input
+                          placeholder="https://api.sms-provider.com/v1/send"
+                          value={customUrl}
+                          onChange={(e) => setCustomUrl(e.target.value)}
+                          className="font-mono text-xs"
+                          required
+                        />
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="space-y-1">
+                        <label className="text-xs font-semibold text-foreground">Custom Headers (JSON)</label>
+                        <textarea
+                          rows={3}
+                          value={customHeaders}
+                          onChange={(e) => setCustomHeaders(e.target.value)}
+                          className="w-full rounded-md border border-input bg-background p-2 font-mono text-[11px]"
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <label className="text-xs font-semibold text-foreground">
+                          {customMethod === "POST" ? "Payload Template (JSON)" : "Query Parameters"}
+                        </label>
+                        <textarea
+                          rows={3}
+                          value={customBody}
+                          onChange={(e) => setCustomBody(e.target.value)}
+                          className="w-full rounded-md border border-input bg-background p-2 font-mono text-[11px]"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Save button and status message */}
+                <div className="flex items-center gap-3 pt-2">
+                  <Button
+                    type="submit"
+                    disabled={isSavingConfig}
+                    className="font-semibold text-xs bg-primary text-primary-foreground shadow-xs"
+                  >
+                    {isSavingConfig ? (
+                      <>
+                        <RefreshCw className="h-3.5 w-3.5 mr-1.5 animate-spin" />
+                        Saving Configuration...
+                      </>
+                    ) : (
+                      <>
+                        <Check className="h-3.5 w-3.5 mr-1.5" />
+                        Save & Set {selectedProvider.toUpperCase()} as Active Gateway
+                      </>
+                    )}
+                  </Button>
                 </div>
 
                 {configSaveStatus && (
                   <div
-                    className={`p-2.5 rounded text-xs flex items-center gap-2 ${
-                      configSaveStatus.includes("successfully") || configSaveStatus.includes("active")
-                        ? "bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border border-emerald-500/30"
-                        : "bg-red-500/10 text-red-700 dark:text-red-300 border border-red-500/30"
+                    className={`rounded-lg p-3 text-xs font-semibold flex items-center gap-2 ${
+                      configSaveStatus.startsWith("Success")
+                        ? "bg-emerald-500/15 text-emerald-800 dark:text-emerald-200 border border-emerald-500/30"
+                        : "bg-red-500/15 text-red-800 dark:text-red-200 border border-red-500/30"
                     }`}
                   >
-                    <CheckCircle className="h-4 w-4 shrink-0" />
-                    <span>{configSaveStatus}</span>
+                    <Info className="h-4 w-4 shrink-0" />
+                    {configSaveStatus}
                   </div>
                 )}
-
-                <div className="flex items-center gap-2 pt-1">
-                  <Button
-                    type="submit"
-                    disabled={isSavingConfig}
-                    size="sm"
-                    className="text-xs font-semibold gap-1.5"
-                  >
-                    <RefreshCw className={`h-3.5 w-3.5 ${isSavingConfig ? "animate-spin" : ""}`} />
-                    {isSavingConfig ? "Updating..." : "Save & Activate Credentials"}
-                  </Button>
-                </div>
               </form>
-
-              <div className="space-y-3 pt-2">
-                <div className="flex items-center justify-between">
-                  <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
-                    Required `.env` Variables
-                  </label>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={copyEnvSnippet}
-                    className="h-7 text-xs gap-1"
-                  >
-                    {copiedEnv ? <Check className="h-3 w-3 text-emerald-500" /> : <Copy className="h-3 w-3" />}
-                    {copiedEnv ? "Copied" : "Copy .env Snippet"}
-                  </Button>
-                </div>
-
-                <div className="p-3 rounded-lg bg-black/90 text-emerald-400 font-mono text-xs overflow-x-auto border border-zinc-800 leading-relaxed">
-                  <pre>{envSnippet}</pre>
-                </div>
-              </div>
-
-              {/* Table of config variables */}
-              <div className="rounded-lg border border-border overflow-hidden">
-                <table className="w-full text-xs">
-                  <thead className="bg-muted/50 border-b border-border">
-                    <tr>
-                      <th className="text-left p-2.5 font-semibold">Variable</th>
-                      <th className="text-left p-2.5 font-semibold">Description</th>
-                      <th className="text-left p-2.5 font-semibold">Active Value</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-border/60">
-                    <tr>
-                      <td className="p-2.5 font-mono text-primary font-medium">MSG91_AUTHKEY</td>
-                      <td className="p-2.5 text-muted-foreground">Your 24/32-character AuthKey from MSG91 dashboard</td>
-                      <td className="p-2.5 font-mono">
-                        {status?.isConfigured ? "••••••••••••• (Configured)" : "None (Simulation)"}
-                      </td>
-                    </tr>
-                    <tr>
-                      <td className="p-2.5 font-mono text-primary font-medium">MSG91_SENDER_ID</td>
-                      <td className="p-2.5 text-muted-foreground">6-character DLT registered sender header (e.g., EDUTRK)</td>
-                      <td className="p-2.5 font-mono">{status?.senderId || "EDUTRK"}</td>
-                    </tr>
-                    <tr>
-                      <td className="p-2.5 font-mono text-primary font-medium">MSG91_TEMPLATE_ID</td>
-                      <td className="p-2.5 text-muted-foreground">Optional Flow Template ID for DLT approved templates</td>
-                      <td className="p-2.5 font-mono">{status?.templateId || "None (Using Send API)"}</td>
-                    </tr>
-                    <tr>
-                      <td className="p-2.5 font-mono text-primary font-medium">MSG91_ROUTE</td>
-                      <td className="p-2.5 text-muted-foreground">SMS delivery route (4 = Transactional / High Priority)</td>
-                      <td className="p-2.5 font-mono">{status?.route || "4"}</td>
-                    </tr>
-                  </tbody>
-                </table>
-              </div>
             </div>
           )}
 
-          {/* TAB 3: STEP-BY-STEP SETUP GUIDE */}
+          {/* TAB 3: GUIDE & IP DIAGNOSTICS */}
           {activeTab === "guide" && (
             <div className="space-y-4 text-xs">
-              <div className="p-3.5 rounded-lg bg-emerald-500/10 border border-emerald-500/30 text-emerald-950 dark:text-emerald-200">
-                <div className="font-bold text-sm mb-1">MSG91 Setup Guide (Aasan Steps) 🚀</div>
-                <p className="opacity-90 leading-relaxed">
-                  Aapke EduTrack app me MSG91 connect karne ke liye niche diye gaye 4 steps follow karein:
+              <div className="rounded-xl border border-border/80 bg-muted/20 p-4 space-y-3">
+                <div className="font-bold text-sm text-foreground flex items-center gap-2">
+                  <ShieldCheck className="h-4 w-4 text-emerald-500" />
+                  Server Public IP & Whitelisting
+                </div>
+                <p className="text-muted-foreground leading-relaxed">
+                  If your SMS carrier (like MSG91) requires server IP whitelisting or returns Error 418, whitelist this cloud server IP in your carrier account:
                 </p>
+                <div className="flex items-center gap-2">
+                  <code className="bg-background px-3 py-1.5 rounded-lg border border-border font-mono font-bold text-sm text-primary">
+                    {status?.serverIp || "34.34.254.233"}
+                  </code>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    onClick={() => handleCopyIp(status?.serverIp || "34.34.254.233")}
+                    className="h-8 text-xs font-semibold"
+                  >
+                    {copiedIp ? <Check className="h-3.5 w-3.5 text-emerald-500 mr-1" /> : <Copy className="h-3.5 w-3.5 mr-1" />}
+                    {copiedIp ? "Copied!" : "Copy Server IP"}
+                  </Button>
+                </div>
               </div>
 
-              <div className="space-y-3">
-                {/* Step 1 */}
-                <div className="p-3.5 rounded-lg border border-border bg-card/60 space-y-1.5">
-                  <div className="flex items-center gap-2 font-bold text-sm text-primary">
-                    <span className="flex h-5 w-5 items-center justify-center rounded-full bg-primary text-primary-foreground text-xs font-bold">
-                      1
-                    </span>
-                    MSG91 Account Banayein
+              <div className="space-y-2">
+                <h4 className="font-bold text-foreground">Frequently Asked Questions (FAQ)</h4>
+
+                <div className="rounded-lg border border-border/70 p-3 space-y-1">
+                  <div className="font-semibold text-foreground">
+                    Q: Muze simple plain SMS bhejna hai bina kisi DLT issue ke. Kaunsa provider use karein?
                   </div>
-                  <p className="text-muted-foreground leading-relaxed pl-7">
-                    Official website par jayein:{" "}
-                    <a
-                      href="https://msg91.com"
-                      target="_blank"
-                      rel="noreferrer"
-                      className="text-primary hover:underline font-semibold inline-flex items-center gap-0.5"
-                    >
-                      msg91.com <ExternalLink className="h-3 w-3" />
-                    </a>
-                    . Account register karein aur free SMS credits prapt karein.
+                  <p className="text-muted-foreground">
+                    <strong>Fast2SMS</strong> use karein! Fast2SMS me 30 second me account ban jata hai, aur bina DLT registration ke Quick SMS (route=q) se seedha 10-digit number par real cellular SMS send hota hai.
                   </p>
                 </div>
 
-                {/* Step 2 */}
-                <div className="p-3.5 rounded-lg border border-border bg-card/60 space-y-1.5">
-                  <div className="flex items-center gap-2 font-bold text-sm text-primary">
-                    <span className="flex h-5 w-5 items-center justify-center rounded-full bg-primary text-primary-foreground text-xs font-bold">
-                      2
-                    </span>
-                    AuthKey Generate Karein & IP Restriction Disable Karein (Important!)
+                <div className="rounded-lg border border-border/70 p-3 space-y-1">
+                  <div className="font-semibold text-foreground">
+                    Q: MSG91 me Error 418 aa raha hai, iska kya solution hai?
                   </div>
-                  <div className="text-muted-foreground leading-relaxed pl-7 space-y-1.5">
-                    <p>
-                      MSG91 Dashboard me login karne ke baad: <strong>Developers</strong> → <strong>Authkey</strong> par jayein.
-                    </p>
-                    <p className="p-2 rounded bg-amber-500/10 text-amber-900 dark:text-amber-200 border border-amber-500/20 text-[11px]">
-                      ⚠️ <strong>Crucial Step:</strong> Apni AuthKey ki settings me jakar <strong>"IP Restriction"</strong> ya <strong>"Whitelist IP"</strong> ko <strong>OFF / Disable</strong> karein. Agar yeh ON rehta hai, toh MSG91 carrier <code>Error 418</code> return karta hai aur kisi bhi machine (AI Studio ya Local VS Code) se SMS phone par deliver nahi hota.
-                    </p>
-                  </div>
+                  <p className="text-muted-foreground">
+                    MSG91 dashboard me jakar <strong>Authkey</strong> settings kholein. Wahan "IP Restriction" toggle ko <strong>DISABLE</strong> karein, ya upar diya gaya Server IP ({status?.serverIp || "34.34.254.233"}) whitelist karein.
+                  </p>
                 </div>
 
-                {/* Step 3 */}
-                <div className="p-3.5 rounded-lg border border-border bg-card/60 space-y-1.5">
-                  <div className="flex items-center gap-2 font-bold text-sm text-primary">
-                    <span className="flex h-5 w-5 items-center justify-center rounded-full bg-primary text-primary-foreground text-xs font-bold">
-                      3
-                    </span>
-                    VS Code me `.env` File me Add Karein
+                <div className="rounded-lg border border-border/70 p-3 space-y-1">
+                  <div className="font-semibold text-foreground">
+                    Q: Kya attendence mark karte waqt parents ko automatic message jayega?
                   </div>
-                  <div className="pl-7 space-y-2">
-                    <p className="text-muted-foreground leading-relaxed">
-                      Apne project ke root folder me <code>.env</code> file kholein aur yeh lines add karein:
-                    </p>
-                    <div className="p-2.5 rounded bg-black/80 font-mono text-[11px] text-emerald-400 border border-zinc-800">
-                      MSG91_AUTHKEY=aapki_msg91_authkey_yaha_dalein<br />
-                      MSG91_SENDER_ID=EDUTRK<br />
-                      MSG91_ROUTE=4
-                    </div>
-                    <p className="text-[11px] text-muted-foreground">
-                      Save karne ke baad VS Code terminal me <code>npm run dev</code> restart karein.
-                    </p>
-                  </div>
-                </div>
-
-                {/* Step 4 */}
-                <div className="p-3.5 rounded-lg border border-border bg-card/60 space-y-1.5">
-                  <div className="flex items-center gap-2 font-bold text-sm text-primary">
-                    <span className="flex h-5 w-5 items-center justify-center rounded-full bg-primary text-primary-foreground text-xs font-bold">
-                      4
-                    </span>
-                    Live Dispatch Verify Karein!
-                  </div>
-                  <p className="text-muted-foreground leading-relaxed pl-7">
-                    Upar <strong>"Live Test & Status"</strong> tab me apna mobile number daalkar test karein. Jaise hi test successful hoga, jab bhi teachers daily attendance submit karenge ya HOD alerts bhejenge, parents ke phone par real SMS deliver hona shuru ho jayega!
+                  <p className="text-muted-foreground">
+                    Haan! Jab teacher ya admin Absentee mark karte hain, EduTrack background me active SMS provider ke through parents ke registered mobile number par notification bhej deta hai.
                   </p>
                 </div>
               </div>
             </div>
           )}
-        </div>
-
-        {/* Footer */}
-        <div className="p-4 border-t border-border/60 bg-muted/20 flex items-center justify-between">
-          <div className="text-[11px] text-muted-foreground flex items-center gap-1.5">
-            <Info className="h-3.5 w-3.5" />
-            <span>TRAI DLT compliant · Supports English & Marathi</span>
-          </div>
-          <Button variant="outline" size="sm" onClick={() => onOpenChange(false)}>
-            Close
-          </Button>
         </div>
       </DialogContent>
     </Dialog>
   );
 };
+
+export const SmsGatewayModal = Msg91SetupModal;

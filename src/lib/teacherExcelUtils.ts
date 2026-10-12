@@ -233,12 +233,12 @@ export async function parseTeacherSpreadsheet(
     // Mobile cleaning and validation
     const cleanedMobile = cleanMobile(mobile);
 
-    // Validation
-    if (!full_name) {
-      errors.push("Teacher Full Name is required");
+    // Validation - STRICTLY Full Name, Employee ID, and Email Address are Mandatory
+    if (!full_name || !full_name.trim()) {
+      errors.push("Teacher Full Name is strictly required (*)");
     }
-    if (!employee_id) {
-      errors.push("College Employee ID Reference No is required");
+    if (!employee_id || !employee_id.trim()) {
+      errors.push("College Employee ID Reference No is strictly required (*)");
     } else {
       const normEmp = employee_id.trim().toLowerCase();
       if (existingEmpIds.has(normEmp)) {
@@ -250,47 +250,37 @@ export async function parseTeacherSpreadsheet(
       seenEmpIdsInFile.add(normEmp);
     }
 
-    // Optional fields default warnings / remarks
-    if (!designation) {
-      warnings.push("Designation empty (will default to Assistant Professor)");
-      designation = "Assistant Professor";
-    }
-    if (!qualification) {
-      warnings.push("Qualification empty");
-    }
-    if (!date_of_birth) {
-      warnings.push("Date of birth not provided");
-    }
-    if (!experience_years) {
-      warnings.push("Experience not provided");
+    // Email validation: STRICTLY MANDATORY (*)
+    if (!email || !email.trim()) {
+      errors.push("Faculty Email Address is strictly required (*)");
+    } else if (!isValidEmail(email.trim())) {
+      errors.push(`Invalid email format: "${email.trim()}"`);
     }
 
-    // Mobile validation (Optional, but if provided must be valid 10 digits)
-    if (!mobile) {
-      warnings.push("Phone not set (can be updated manually in profile)");
-    } else {
+    // Default designation if omitted
+    if (!designation) {
+      designation = "Assistant Professor";
+    }
+
+    // Mobile validation: completely optional; only validate if user actually provided a number
+    if (mobile && mobile.trim()) {
       const mobileErr = getMobileValidationError(mobile, "Phone / Mobile", false);
       if (mobileErr) {
         errors.push(mobileErr);
       }
     }
 
-    // Email validation
-    if (email && !isValidEmail(email)) {
-      warnings.push(`Faculty Email '${email}' has an invalid email format`);
-    }
-
     parsed.push({
       rowNumber,
-      full_name,
-      employee_id,
-      designation,
+      full_name: full_name.trim(),
+      employee_id: employee_id.trim(),
+      designation: designation.trim() || "Assistant Professor",
       department,
-      qualification,
-      date_of_birth,
-      experience_years,
-      mobile: cleanedMobile || mobile,
-      email,
+      qualification: qualification.trim(),
+      date_of_birth: "",
+      experience_years: experience_years.trim(),
+      mobile: cleanedMobile || mobile.trim(),
+      email: email.trim(),
       role,
       errors,
       warnings,
@@ -302,7 +292,7 @@ export async function parseTeacherSpreadsheet(
 }
 
 /**
- * Generates and downloads a sample Excel (.xlsx) file with the requested format
+ * Generates and downloads a sample Excel (.xlsx) file with Name, ID & Email mandatory
  */
 export function downloadTeacherExcelTemplate(departmentName: string = "Computer Science & Engineering") {
   const sampleData = [
@@ -311,8 +301,7 @@ export function downloadTeacherExcelTemplate(departmentName: string = "Computer 
       "College Employee ID Reference No": "EMP-CSE-201",
       "Designation": "Associate Professor",
       "Department": departmentName,
-      "Qualification": "Ph.D in Artificial Intelligence",
-      "Date of Birth": "1984-07-18",
+      "Qualification": "Ph.D in AI",
       "Year of Experience": "12 Years",
       "Phone": "9876543210",
       "Email": "aarav.sharma@edutrack.edu",
@@ -322,22 +311,20 @@ export function downloadTeacherExcelTemplate(departmentName: string = "Computer 
       "College Employee ID Reference No": "EMP-CSE-202",
       "Designation": "Assistant Professor",
       "Department": departmentName,
-      "Qualification": "M.Tech in Cyber Security",
-      "Date of Birth": "1991-03-25",
-      "Year of Experience": "6 Years",
-      "Phone": "9876543211",
-      "Email": "meera.k@edutrack.edu",
+      "Qualification": "", // Optional
+      "Year of Experience": "", // Optional
+      "Phone": "", // Optional
+      "Email": "meera.k@edutrack.edu", // Required (*)
     },
     {
-      "Full Name": "Mr. Rajesh Pillai",
+      "Full Name": "Rajesh Pillai",
       "College Employee ID Reference No": "EMP-CSE-203",
-      "Designation": "Lecturer",
+      "Designation": "", // Optional - defaults to Assistant Professor
       "Department": departmentName,
-      "Qualification": "M.Sc in Computer Science",
-      "Date of Birth": "1994-11-12",
-      "Year of Experience": "4 Years",
+      "Qualification": "", // Optional
+      "Year of Experience": "", // Optional
       "Phone": "", // Optional
-      "Email": "", // Optional
+      "Email": "rajesh.p@edutrack.edu", // Required (*)
     },
   ];
 
@@ -345,15 +332,14 @@ export function downloadTeacherExcelTemplate(departmentName: string = "Computer 
 
   // Set column widths
   worksheet["!cols"] = [
-    { wch: 24 }, // Full Name
-    { wch: 32 }, // College Employee ID Reference No
-    { wch: 22 }, // Designation
-    { wch: 32 }, // Department
-    { wch: 32 }, // Qualification
-    { wch: 16 }, // Date of Birth
-    { wch: 20 }, // Year of Experience
-    { wch: 18 }, // Phone
-    { wch: 28 }, // Email
+    { wch: 26 }, // Full Name (*)
+    { wch: 32 }, // College Employee ID Reference No (*)
+    { wch: 22 }, // Designation (Optional)
+    { wch: 32 }, // Department (Optional)
+    { wch: 26 }, // Qualification (Optional)
+    { wch: 20 }, // Year of Experience (Optional)
+    { wch: 18 }, // Phone (Optional)
+    { wch: 28 }, // Email (*)
   ];
 
   const workbook = XLSX.utils.book_new();
@@ -363,52 +349,48 @@ export function downloadTeacherExcelTemplate(departmentName: string = "Computer 
 }
 
 /**
- * Generates and downloads a sample CSV (.csv) file with the requested format
+ * Generates and downloads a sample CSV (.csv) file with Name, ID & Email mandatory
  */
 export function downloadTeacherCsvTemplate(departmentName: string = "Computer Science & Engineering") {
   const headers = [
     "Full Name",
     "College Employee ID Reference No",
+    "Email",
     "Designation",
     "Department",
     "Qualification",
-    "Date of Birth",
     "Year of Experience",
     "Phone",
-    "Email",
   ];
 
   const rows = [
     [
       "Dr. Aarav Sharma",
       "EMP-CSE-201",
+      "aarav.sharma@edutrack.edu",
       "Associate Professor",
       `"${departmentName}"`,
-      "Ph.D in Artificial Intelligence",
-      "1984-07-18",
+      "Ph.D in AI",
       "12 Years",
-      "+91 98765 43210",
-      "aarav.sharma@edutrack.edu",
+      "9876543210",
     ],
     [
       "Prof. Meera Kulkarni",
       "EMP-CSE-202",
+      "meera.k@edutrack.edu",
       "Assistant Professor",
       `"${departmentName}"`,
-      "M.Tech in Cyber Security",
-      "1991-03-25",
-      "6 Years",
-      "+91 98765 43211",
-      "meera.k@edutrack.edu",
+      "",
+      "",
+      "",
     ],
     [
-      "Mr. Rajesh Pillai",
+      "Rajesh Pillai",
       "EMP-CSE-203",
-      "Lecturer",
+      "rajesh.p@edutrack.edu",
+      "",
       `"${departmentName}"`,
-      "M.Sc in Computer Science",
-      "1994-11-12",
-      "4 Years",
+      "",
       "",
       "",
     ],

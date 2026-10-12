@@ -269,7 +269,7 @@ export const SmsLogs: React.FC = () => {
             className="text-xs font-semibold border-emerald-500/40 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-800 dark:text-emerald-300"
           >
             <Zap className="h-3.5 w-3.5 mr-1.5 text-emerald-600 dark:text-emerald-400" />
-            MSG91 Gateway
+            SMS Gateway ({gatewayStatus?.isConfigured ? (gatewayStatus?.activeProvider || gatewayStatus?.provider || 'Live').toUpperCase() : 'Setup'})
             <span className={`ml-1.5 inline-block h-2 w-2 rounded-full ${gatewayStatus?.isConfigured ? 'bg-emerald-500 animate-pulse' : 'bg-amber-500'}`} />
           </Button>
 

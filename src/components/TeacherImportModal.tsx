@@ -50,6 +50,10 @@ export const TeacherImportModal: React.FC<TeacherImportModalProps> = ({
   onImportComplete,
 }) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const departments = localDb.departments;
+  const [selectedDeptId, setSelectedDeptId] = useState<string>(
+    department?.id || departments[0]?.id || "dept-1"
+  );
   const [dragOver, setDragOver] = useState(false);
   const [fileName, setFileName] = useState<string | null>(null);
   const [isParsing, setIsParsing] = useState(false);
@@ -144,9 +148,11 @@ export const TeacherImportModal: React.FC<TeacherImportModalProps> = ({
         }
       }
 
-      // Email Validation
-      if (row.email && !isValidEmail(row.email)) {
-        errors.push(`Invalid email format "${row.email}"`);
+      // Email Validation - Strictly Mandatory (*)
+      if (!row.email || !row.email.trim()) {
+        errors.push("Email address is strictly required (*)");
+      } else if (!isValidEmail(row.email.trim())) {
+        errors.push(`Invalid email format "${row.email.trim()}"`);
       }
 
       row.errors = errors;
@@ -177,11 +183,25 @@ export const TeacherImportModal: React.FC<TeacherImportModalProps> = ({
     }
 
     setIsImporting(true);
-    const departmentId = department?.id || "dept-1";
 
     try {
       for (const item of validRows) {
         const isCoordinator = item.role === "class_coordinator";
+
+        // Determine department per row or use fallback
+        const rowDept = (item.department || "").trim().toLowerCase();
+        const matchedDept = departments.find(
+          (d) =>
+            d.name.toLowerCase() === rowDept ||
+            d.code.toLowerCase() === rowDept ||
+            d.id.toLowerCase() === rowDept
+        );
+        const departmentId =
+          department?.id ||
+          matchedDept?.id ||
+          selectedDeptId ||
+          departments[0]?.id ||
+          "dept-1";
 
         // 1. Insert teacher record
         const teacherData = {
@@ -192,7 +212,7 @@ export const TeacherImportModal: React.FC<TeacherImportModalProps> = ({
           designation: item.designation.trim() || "Assistant Professor",
           department_id: departmentId,
           qualification: item.qualification.trim() || null,
-          date_of_birth: item.date_of_birth.trim() || null,
+          date_of_birth: null, // DOB not required
           experience_years: item.experience_years.trim() || null,
           role: item.role,
           is_class_coordinator: isCoordinator,
@@ -326,12 +346,12 @@ export const TeacherImportModal: React.FC<TeacherImportModalProps> = ({
                 <p className="text-muted-foreground text-[10px]">Reference No (e.g. EMP102)</p>
               </div>
               <div className="bg-muted/40 p-2 rounded-lg border border-border/60">
-                <p className="font-bold text-foreground font-sans">Date of Birth</p>
-                <p className="text-muted-foreground text-[10px]">YYYY-MM-DD or standard</p>
+                <p className="font-bold text-foreground font-sans text-primary">Email Address *</p>
+                <p className="text-muted-foreground text-[10px]">teacher@college.edu</p>
               </div>
               <div className="bg-muted/40 p-2 rounded-lg border border-border/60">
                 <p className="font-bold text-foreground font-sans">Year of Experience</p>
-                <p className="text-muted-foreground text-[10px]">e.g. 8 Years or 8</p>
+                <p className="text-muted-foreground text-[10px]">e.g. 8 Years (Optional)</p>
               </div>
               <div className="bg-muted/40 p-2 rounded-lg border border-border/60">
                 <p className="font-bold text-foreground font-sans">Phone (Optional)</p>
@@ -339,6 +359,31 @@ export const TeacherImportModal: React.FC<TeacherImportModalProps> = ({
               </div>
             </div>
           </div>
+
+          {/* Department Selection for College-wide Admin Import */}
+          {!department && departments.length > 0 && (
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 p-3 bg-muted/30 rounded-xl border border-border/70 text-xs">
+              <div>
+                <span className="font-semibold text-foreground block">
+                  Fallback Department Assignment:
+                </span>
+                <span className="text-[11px] text-muted-foreground">
+                  Teachers whose spreadsheet row has a Department column will automatically match their department.
+                </span>
+              </div>
+              <select
+                value={selectedDeptId}
+                onChange={(e) => setSelectedDeptId(e.target.value)}
+                className="h-8 rounded-md border border-input bg-background px-2.5 text-xs font-medium min-w-[200px]"
+              >
+                {departments.map((d) => (
+                  <option key={d.id} value={d.id}>
+                    {d.name} ({d.code})
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
 
           {/* Upload Dropzone */}
           {rows.length === 0 ? (
@@ -583,18 +628,30 @@ export const TeacherImportModal: React.FC<TeacherImportModalProps> = ({
                 </div>
               </div>
 
+              {/* Mandatory Fields Notice */}
+              <div className="flex items-center gap-2 p-2.5 rounded-lg border border-primary/20 bg-primary/5 text-xs text-foreground">
+                <span className="font-bold text-primary bg-primary/10 px-1.5 py-0.5 rounded text-[11px]">
+                  Strict Validation Rule
+                </span>
+                <span className="text-muted-foreground">
+                  Strictly Mandatory: <strong className="text-foreground">Full Name *</strong>,{" "}
+                  <strong className="text-foreground">College Emp ID *</strong>, and{" "}
+                  <strong className="text-foreground">Email Address *</strong>. Other fields (Designation, Qualification, Experience, Phone) remain optional.
+                </span>
+              </div>
+
               {/* Editable Spreadsheet Table Container */}
               <div className="border border-border rounded-xl overflow-hidden overflow-x-auto max-h-[380px]">
                 <table className="w-full text-xs text-left">
                   <thead className="bg-muted text-muted-foreground text-[11px] uppercase tracking-wider font-semibold sticky top-0 z-10 border-b border-border">
                     <tr>
                       <th className="py-2.5 px-3 w-10 text-center">#</th>
-                      <th className="py-2.5 px-3 min-w-[140px]">Full Name *</th>
+                      <th className="py-2.5 px-3 min-w-[150px]">Full Name *</th>
                       <th className="py-2.5 px-3 min-w-[130px]">College Emp ID *</th>
-                      <th className="py-2.5 px-3 min-w-[130px]">Designation</th>
-                      <th className="py-2.5 px-3 min-w-[130px]">Qualification</th>
-                      <th className="py-2.5 px-3 min-w-[110px]">Date of Birth</th>
-                      <th className="py-2.5 px-3 min-w-[100px]">Experience</th>
+                      <th className="py-2.5 px-3 min-w-[150px]">Email *</th>
+                      <th className="py-2.5 px-3 min-w-[130px]">Designation (Opt)</th>
+                      <th className="py-2.5 px-3 min-w-[130px]">Qualification (Opt)</th>
+                      <th className="py-2.5 px-3 min-w-[110px]">Experience (Opt)</th>
                       <th className="py-2.5 px-3 min-w-[120px]">Phone (Opt)</th>
                       <th className="py-2.5 px-3 w-12 text-center">Remove</th>
                     </tr>
@@ -635,7 +692,7 @@ export const TeacherImportModal: React.FC<TeacherImportModalProps> = ({
                                   e.target.value
                                 )
                               }
-                              placeholder="Required full name"
+                              placeholder="Required full name (*)"
                               className={`h-7 text-xs px-2 ${
                                 !row.full_name.trim()
                                   ? "border-destructive focus-visible:ring-destructive"
@@ -655,11 +712,35 @@ export const TeacherImportModal: React.FC<TeacherImportModalProps> = ({
                                   e.target.value
                                 )
                               }
-                              placeholder="e.g. EMP-105"
+                              placeholder="e.g. EMP-105 (*)"
                               className={`h-7 text-xs px-2 font-mono ${
                                 !row.employee_id.trim() ||
                                 row.errors.some((e) => e.includes("Employee ID"))
                                   ? "border-destructive focus-visible:ring-destructive"
+                                  : ""
+                              }`}
+                            />
+                          </td>
+
+                          {/* Email Address - MANDATORY */}
+                          <td className="py-1.5 px-2">
+                            <Input
+                              type="email"
+                              value={row.email}
+                              onChange={(e) =>
+                                handleCellChange(
+                                  originalIndex,
+                                  "email",
+                                  e.target.value
+                                )
+                              }
+                              placeholder="teacher@college.edu (*)"
+                              className={`h-7 text-xs px-2 ${
+                                !row.email.trim() ||
+                                row.errors.some((e) =>
+                                  e.toLowerCase().includes("email"),
+                                )
+                                  ? "border-destructive focus-visible:ring-destructive bg-destructive/5"
                                   : ""
                               }`}
                             />
@@ -693,23 +774,6 @@ export const TeacherImportModal: React.FC<TeacherImportModalProps> = ({
                                 )
                               }
                               placeholder="e.g. Ph.D, M.Tech"
-                              className="h-7 text-xs px-2"
-                            />
-                          </td>
-
-                          {/* Date of Birth */}
-                          <td className="py-1.5 px-2">
-                            <Input
-                              type="text"
-                              value={row.date_of_birth}
-                              onChange={(e) =>
-                                handleCellChange(
-                                  originalIndex,
-                                  "date_of_birth",
-                                  e.target.value
-                                )
-                              }
-                              placeholder="YYYY-MM-DD"
                               className="h-7 text-xs px-2"
                             />
                           </td>

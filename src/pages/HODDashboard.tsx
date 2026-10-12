@@ -279,8 +279,10 @@ export const HODDashboard: React.FC = () => {
       if (mobileErr) errs.push(mobileErr);
     }
 
-    if (teacherForm.email && !isValidEmail(teacherForm.email)) {
-      errs.push("Please provide a valid email address for faculty.");
+    if (!teacherForm.email || !teacherForm.email.trim()) {
+      errs.push("Faculty email address is strictly required (*)");
+    } else if (!isValidEmail(teacherForm.email.trim())) {
+      errs.push("Please provide a valid email address for faculty (*).");
     }
 
     if (errs.length > 0) {
@@ -1235,8 +1237,10 @@ export const HODDashboard: React.FC = () => {
                     />
                   </div>
                   <div>
-                    <label className="text-xs font-semibold text-muted-foreground mb-1 block">
-                      Email
+                    <label className="text-xs font-semibold text-muted-foreground mb-1 flex items-center gap-1">
+                      <span>Email</span>
+                      <span className="text-destructive font-bold text-sm">*</span>
+                      <span className="text-[10px] text-destructive font-normal">(Required)</span>
                     </label>
                     <Input
                       type="email"
@@ -1247,7 +1251,8 @@ export const HODDashboard: React.FC = () => {
                           email: e.target.value,
                         })
                       }
-                      placeholder="j.doe@college.edu"
+                      placeholder="j.doe@college.edu (*)"
+                      className={!teacherForm.email.trim() ? "border-primary/50" : ""}
                     />
                   </div>
                   <div>

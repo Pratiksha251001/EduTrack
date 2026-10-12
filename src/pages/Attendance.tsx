@@ -293,7 +293,10 @@ export const Attendance: React.FC = () => {
     (st) => (attendanceState[st.id] || "present") === "absent"
   );
 
-  const handleConfirmSubmission = async (chosenLang: SmsLanguage) => {
+  const handleConfirmSubmission = async (
+    chosenLang: SmsLanguage,
+    targetMode: "absent_only" | "present_only" | "both" = "absent_only"
+  ) => {
     if (!selectedSubject) return;
     setSaving(true);
 
@@ -314,24 +317,38 @@ export const Attendance: React.FC = () => {
     const currentAbsentees = cohortStudents.filter(
       (st) => (attendanceState[st.id] || "present") === "absent"
     );
+    const currentPresents = cohortStudents.filter(
+      (st) => (attendanceState[st.id] || "present") === "present"
+    );
+
+    // Determine target students based on targetMode
+    const targetList: Array<{ student: Student; status: "absent" | "present" }> = [];
+    if (targetMode === "absent_only" || targetMode === "both") {
+      currentAbsentees.forEach((st) => targetList.push({ student: st, status: "absent" }));
+    }
+    if (targetMode === "present_only" || targetMode === "both") {
+      currentPresents.forEach((st) => targetList.push({ student: st, status: "present" }));
+    }
 
     const dispatchedList: Array<{
       student: Student;
       status: "sent" | "failed";
       message: string;
+      attendanceStatus: "absent" | "present";
     }> = [];
 
-    if (currentAbsentees.length > 0) {
-      // Prepare payload for MSG91 Gateway
-      const gatewayPayload = currentAbsentees
-        .filter((st) => st.parent_mobile && st.parent_mobile.replace(/[^0-9]/g, "").length >= 10)
-        .map((st) => ({
+    if (targetList.length > 0) {
+      // Prepare payload for SMS Gateway
+      const gatewayPayload = targetList
+        .filter(({ student: st }) => st.parent_mobile && st.parent_mobile.replace(/[^0-9]/g, "").length >= 10)
+        .map(({ student: st, status }) => ({
           mobile: st.parent_mobile!,
           message: generateSmsMessage(
             st.full_name,
             selectedDate,
             selectedSubject.name,
-            chosenLang
+            chosenLang,
+            status
           ),
           studentName: st.full_name,
           studentId: st.id,
@@ -344,16 +361,17 @@ export const Attendance: React.FC = () => {
         try {
           gatewayResult = await dispatchSmsViaGateway(gatewayPayload);
         } catch (err) {
-          console.warn("MSG91 gateway attendance dispatch notice:", err);
+          console.warn("SMS gateway attendance dispatch notice:", err);
         }
       }
 
-      const smsEntries = currentAbsentees.map((st) => {
+      const smsEntries = targetList.map(({ student: st, status }) => {
         const msg = generateSmsMessage(
           st.full_name,
           selectedDate,
           selectedSubject.name,
-          chosenLang
+          chosenLang,
+          status
         );
         const cleanPhone = (st.parent_mobile || "").replace(/[^0-9]/g, "");
         const hasMobile = cleanPhone.length >= 10;
@@ -362,12 +380,13 @@ export const Attendance: React.FC = () => {
           (r: any) => r.mobile === st.parent_mobile || r.mobile?.includes(cleanPhone.slice(-10))
         );
         const isDelivered = hasMobile && (!gResult || gResult.status === "sent");
-        const status = isDelivered ? ("sent" as const) : ("failed" as const);
+        const deliverStatus = isDelivered ? ("sent" as const) : ("failed" as const);
 
         dispatchedList.push({
           student: st,
-          status,
+          status: deliverStatus,
           message: msg,
+          attendanceStatus: status,
         });
 
         return {
@@ -376,12 +395,12 @@ export const Attendance: React.FC = () => {
           student_name: st.full_name,
           parent_mobile: st.parent_mobile,
           message: msg,
-          status,
+          status: deliverStatus,
           attendance_date: selectedDate,
           sent_at: new Date().toISOString(),
           language: chosenLang,
-          gateway: gatewayResult?.provider || "MSG91",
-          gateway_response: gResult?.details || (hasMobile ? "Accepted by MSG91" : "Invalid parent mobile"),
+          gateway: gatewayResult?.provider || "SMS Gateway",
+          gateway_response: gResult?.details || (hasMobile ? "Dispatched" : "Invalid parent mobile"),
         };
       });
 
@@ -402,7 +421,7 @@ export const Attendance: React.FC = () => {
       className: classLabel || undefined,
       date: selectedDate,
       totalStudents: cohortStudents.length,
-      presentCount: cohortStudents.length - currentAbsentees.length,
+      presentCount: currentPresents.length,
       absentCount: currentAbsentees.length,
       smsCount: dispatchedList.filter((d) => d.status === "sent").length,
     });
@@ -414,17 +433,24 @@ export const Attendance: React.FC = () => {
       subject: selectedSubject,
       className: classLabel || undefined,
       date: selectedDate,
-      totalPresent: cohortStudents.length - currentAbsentees.length,
+      totalPresent: currentPresents.length,
       recipients: dispatchedList,
       language: chosenLang,
     });
     setReceiptOpen(true);
 
     const targetClassText = classLabel ? `for ${classLabel}` : "";
+    const smsCountText = `${dispatchedList.length} Parent SMS (${
+      targetMode === "present_only"
+        ? "Present Only"
+        : targetMode === "both"
+        ? "Present + Absent"
+        : "Absent Only"
+    })`;
     setSuccessMsg(
-      `Attendance saved ${targetClassText}! ${currentAbsentees.length} Parent SMS alert(s) dispatched in ${
+      `Attendance saved ${targetClassText}! ${smsCountText} dispatched in ${
         currentLang?.label || chosenLang
-      }. View them in SMS Log History anytime.`
+      }. View in SMS Log History anytime.`
     );
     setTimeout(() => setSuccessMsg(""), 12000);
   };

@@ -1,15 +1,51 @@
+export type SmsProviderType = "fast2sms" | "msg91" | "twilio" | "textlocal" | "custom";
+
 export interface SmsGatewayStatus {
-  provider: string;
+  provider: SmsProviderType | string;
+  activeProvider?: SmsProviderType | string;
   isConfigured: boolean;
-  senderId: string;
-  templateId: string;
-  route: string;
+  senderId?: string;
+  templateId?: string;
+  route?: string;
   activeMode: "live" | "simulation";
   totalDispatched: number;
   lastDispatchedAt: string | null;
   serverIp?: string;
   error418Detected?: boolean;
   healthStatus?: string;
+  fast2sms?: {
+    apiKey: string;
+    route: string;
+    isConfigured: boolean;
+  };
+  msg91?: {
+    authKey: string;
+    senderId: string;
+    templateId: string;
+    route: string;
+    dltTeId: string;
+    isConfigured: boolean;
+  };
+  twilio?: {
+    accountSid: string;
+    authToken: string;
+    fromNumber: string;
+    isConfigured: boolean;
+  };
+  textlocal?: {
+    apiKey: string;
+    sender: string;
+    isConfigured: boolean;
+  };
+  custom?: {
+    url: string;
+    method: "POST" | "GET";
+    headers: string;
+    bodyTemplate: string;
+    apiKey: string;
+    senderId: string;
+    isConfigured: boolean;
+  };
 }
 
 export interface SmsRecipientPayload {
@@ -51,24 +87,31 @@ export async function getSmsGatewayStatus(): Promise<SmsGatewayStatus> {
   } catch (err) {
     console.warn("Could not reach /api/sms/status, defaulting to simulation status:", err);
     return {
-      provider: "MSG91",
+      provider: "fast2sms",
       isConfigured: false,
       senderId: "EDUTRK",
       templateId: "",
-      route: "4",
+      route: "q",
       activeMode: "simulation",
       totalDispatched: 0,
       lastDispatchedAt: null,
+      fast2sms: { apiKey: "", route: "q", isConfigured: false },
+      msg91: { authKey: "", senderId: "EDUTRK", templateId: "", route: "4", dltTeId: "", isConfigured: false },
     };
   }
 }
 
 /**
- * Dispatch SMS alerts to parents via the MSG91 proxy backend
+ * Dispatch SMS alerts to parents via the backend proxy
  */
 export async function dispatchSmsViaGateway(
   recipients: SmsRecipientPayload[],
-  options?: { senderId?: string; templateId?: string; dltTeId?: string }
+  options?: {
+    provider?: string;
+    senderId?: string;
+    templateId?: string;
+    dltTeId?: string;
+  }
 ): Promise<SmsDispatchResponse> {
   if (!recipients || recipients.length === 0) {
     return {
@@ -76,7 +119,7 @@ export async function dispatchSmsViaGateway(
       dispatchedCount: 0,
       failedCount: 0,
       simulated: true,
-      provider: "MSG91",
+      provider: "SMS Gateway",
       results: [],
       message: "No recipients provided.",
     };
@@ -88,6 +131,7 @@ export async function dispatchSmsViaGateway(
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         recipients,
+        provider: options?.provider,
         senderId: options?.senderId,
         templateId: options?.templateId,
         dltTeId: options?.dltTeId,
@@ -102,14 +146,14 @@ export async function dispatchSmsViaGateway(
     const errData = await res.json().catch(() => ({}));
     throw new Error(errData.message || `Server responded with ${res.status}`);
   } catch (err: any) {
-    console.warn("MSG91 API error, falling back to local simulation logging:", err);
+    console.warn("SMS API error, falling back to local simulation logging:", err);
     // Graceful fallback so local operation is never blocked
     return {
       success: true,
       dispatchedCount: recipients.filter((r) => r.mobile && r.mobile.length >= 10).length,
       failedCount: recipients.filter((r) => !r.mobile || r.mobile.length < 10).length,
       simulated: true,
-      provider: "MSG91 (Simulation Fallback)",
+      provider: "Simulation Fallback",
       results: recipients.map((r) => ({
         mobile: r.mobile,
         status: r.mobile && r.mobile.length >= 10 ? "sent" : "failed",
@@ -121,11 +165,15 @@ export async function dispatchSmsViaGateway(
 }
 
 /**
- * Send a live or diagnostic test message to verify MSG91 setup
+ * Send a live or diagnostic test message to verify SMS setup
  */
 export async function sendTestSmsViaGateway(
   mobile: string,
-  message?: string
+  message?: string,
+  options?: {
+    provider?: string;
+    testConfig?: any;
+  }
 ): Promise<{
   success: boolean;
   message: string;
@@ -135,12 +183,18 @@ export async function sendTestSmsViaGateway(
   carrierBlocked?: boolean;
   error418?: boolean;
   serverIp?: string;
+  messageId?: string;
 }> {
   try {
     const res = await fetch("/api/sms/test", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ mobile, message }),
+      body: JSON.stringify({
+        mobile,
+        message,
+        provider: options?.provider,
+        testConfig: options?.testConfig,
+      }),
     });
 
     const data = await res.json();
@@ -158,12 +212,44 @@ export async function sendTestSmsViaGateway(
  * Update SMS Gateway credentials and options dynamically
  */
 export async function updateSmsGatewayConfig(config: {
+  activeProvider?: SmsProviderType | string;
+  provider?: SmsProviderType | string;
+  fast2sms?: {
+    apiKey?: string;
+    route?: string;
+  };
+  msg91?: {
+    authKey?: string;
+    senderId?: string;
+    templateId?: string;
+    route?: string;
+    dltTeId?: string;
+  };
+  twilio?: {
+    accountSid?: string;
+    authToken?: string;
+    fromNumber?: string;
+  };
+  textlocal?: {
+    apiKey?: string;
+    sender?: string;
+  };
+  custom?: {
+    url?: string;
+    method?: "POST" | "GET";
+    headers?: string;
+    bodyTemplate?: string;
+    apiKey?: string;
+    senderId?: string;
+  };
+  // Backward compatibility fields
   authKey?: string;
+  apiKey?: string;
   senderId?: string;
   templateId?: string;
   route?: string;
   dltTeId?: string;
-}): Promise<{ success: boolean; message: string; isConfigured: boolean; senderId?: string }> {
+}): Promise<{ success: boolean; message: string; isConfigured: boolean; provider?: string }> {
   try {
     const res = await fetch("/api/sms/config", {
       method: "POST",
