@@ -136,7 +136,7 @@ npm start
 Configure the deployed frontend with:
 
 ```env
-VITE_API_URL=https://your-backend-domain.com
+VITE_API_URL=https://edutrack-q07f.onrender.com
 ```
 
 Configure the backend with the deployed frontend origin:

@@ -8,9 +8,10 @@ const isLocalhost =
   rawApiUrl.includes("0.0.0.0");
 
 const apiBaseUrl =
-  typeof window !== "undefined" && (isLocalhost || !rawApiUrl)
+  typeof window !== "undefined" && isLocalhost
     ? ""
-    : rawApiUrl;
+    : rawApiUrl ||
+      (import.meta.env.PROD ? "https://edutrack-q07f.onrender.com" : "");
 
 export function apiUrl(path: string): string {
   const cleanPath = path.startsWith("/") ? path : `/${path}`;
@@ -23,4 +24,3 @@ export function apiFetch(
 ): Promise<Response> {
   return fetch(apiUrl(path), init);
 }
-
