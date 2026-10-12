@@ -23,7 +23,7 @@ import {
 } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import { useTheme } from "../context/ThemeContext";
-import { college } from "../lib/college";
+import { college, CURRENT_ACADEMIC_YEAR } from "../lib/college";
 import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
 import { Badge } from "../components/ui/badge";
@@ -276,7 +276,7 @@ export const AccessHub: React.FC = () => {
           <div className="flex items-center gap-3">
             <span className="hidden md:inline-flex items-center gap-1.5 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-3.5 py-1 text-xs font-semibold text-emerald-400">
               <CheckCircle2 className="h-3.5 w-3.5 text-emerald-400" />
-              <span>Session 2025–26</span>
+              <span>Session {CURRENT_ACADEMIC_YEAR}</span>
             </span>
 
             <button

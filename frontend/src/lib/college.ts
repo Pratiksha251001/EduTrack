@@ -11,8 +11,8 @@ export const college = {
   semesters: [1, 2, 3, 4, 5, 6, 7, 8],
 };
 
-export const ACADEMIC_YEARS = ["2025-26", "2026-27", "2027-28"];
-export const CURRENT_ACADEMIC_YEAR = "2025-26";
+export const ACADEMIC_YEARS = ["2026-27", "2025-26", "2027-28", "2028-29"];
+export const CURRENT_ACADEMIC_YEAR = "2026-27";
 
 export interface SmsLanguageOption {
   id: SmsLanguage;

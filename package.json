@@ -4,16 +4,13 @@
   "version": "1.0.0",
   "type": "module",
   "scripts": {
-    "dev": "npm run dev:backend",
-    "dev:frontend": "npm --prefix frontend run dev",
-    "dev:backend": "npm --prefix backend run dev",
-    "build": "npm run build:frontend && npm run build:backend",
+    "dev": "tsx server.ts",
+    "build": "npm run build:frontend",
     "build:frontend": "npm --prefix frontend run build",
     "build:backend": "npm --prefix backend run build",
-    "start": "npm --prefix backend run start",
-    "lint": "npm run lint:frontend && npm run lint:backend",
+    "start": "node server.ts",
+    "lint": "npm run lint:frontend",
     "lint:frontend": "npm --prefix frontend run lint",
-    "lint:backend": "npm --prefix backend run lint",
     "preview": "npm --prefix frontend run preview"
   },
   "dependencies": {
