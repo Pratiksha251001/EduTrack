@@ -1,5 +1,6 @@
-export type SmsProviderType = "fast2sms" | "msg91" | "twilio" | "textlocal" | "custom";
+import { apiFetch } from "./api";
 
+export type SmsProviderType = "fast2sms" | "msg91" | "twilio" | "textlocal" | "custom";
 export interface SmsGatewayStatus {
   provider: SmsProviderType | string;
   activeProvider?: SmsProviderType | string;
@@ -78,7 +79,7 @@ export interface SmsDispatchResponse {
  */
 export async function getSmsGatewayStatus(): Promise<SmsGatewayStatus> {
   try {
-    const res = await fetch("/api/sms/status", { credentials: "same-origin" });
+    const res = await apiFetch("/api/sms/status");
     if (!res.ok) {
       throw new Error(`Gateway returned HTTP ${res.status}`);
     }
@@ -126,7 +127,7 @@ export async function dispatchSmsViaGateway(
   }
 
   try {
-    const res = await fetch("/api/sms/send", {
+    const res = await apiFetch("/api/sms/send", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -186,7 +187,7 @@ export async function sendTestSmsViaGateway(
   messageId?: string;
 }> {
   try {
-    const res = await fetch("/api/sms/test", {
+    const res = await apiFetch("/api/sms/test", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -251,7 +252,7 @@ export async function updateSmsGatewayConfig(config: {
   dltTeId?: string;
 }): Promise<{ success: boolean; message: string; isConfigured: boolean; provider?: string }> {
   try {
-    const res = await fetch("/api/sms/config", {
+    const res = await apiFetch("/api/sms/config", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(config),
@@ -268,4 +269,3 @@ export async function updateSmsGatewayConfig(config: {
     };
   }
 }
-

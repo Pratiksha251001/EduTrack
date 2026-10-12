@@ -9,7 +9,6 @@ import ws from "ws";
 import express from "express";
 import cors from "cors";
 import path from "path";
-import { createServer as createViteServer } from "vite";
 import { createClient } from "@supabase/supabase-js";
 
 interface TerminalLog {
@@ -141,7 +140,7 @@ function printAsciiTerminalBanner() {
     "\x1b[36m======================================================================\x1b[0m",
   );
   console.log(`\x1b[34m• Service:\x1b[0m      Node.js Express + TypeScript`);
-  console.log(`\x1b[34m• Host/Port:\x1b[0m    0.0.0.0:3000`);
+  console.log(`\x1b[34m• Host/Port:\x1b[0m    0.0.0.0:${process.env.PORT || 4000}`);
   console.log(`\x1b[34m• Supabase URL:\x1b[0m ${supabaseUrl}`);
   console.log(
     `\x1b[34m• Target DB:\x1b[0m    PostgreSQL (Cloud Supabase Engine)`,
@@ -153,13 +152,19 @@ function printAsciiTerminalBanner() {
 
 async function startServer() {
   const app = express();
-  const PORT = 3000;
+  const PORT = Number(process.env.PORT || 4000);
 
-  app.use(cors());
+  app.use(
+    cors({
+      origin: process.env.FRONTEND_URL
+        ? process.env.FRONTEND_URL.split(",").map((origin) => origin.trim())
+        : true,
+    }),
+  );
   app.use(express.json());
 
   printAsciiTerminalBanner();
-  addLog("info", "Starting EduTrack backend server on port 3000...");
+  addLog("info", `Starting EduTrack backend server on port ${PORT}...`);
 
   // API 1: Health check
   app.get("/api/health", (req, res) => {
@@ -335,10 +340,10 @@ async function startServer() {
         signal: AbortSignal.timeout(3000),
       });
       const data: any = await res.json();
-      if (data?.ip) {
+      if (typeof data?.ip === "string" && data.ip.length > 0) {
         cachedPublicIp = data.ip;
         lastIpFetchTime = now;
-        return cachedPublicIp;
+        return data.ip;
       }
     } catch {
       // Fallback
@@ -1035,29 +1040,14 @@ async function startServer() {
     `\x1b[32m│  ✔ LATENCY:         ${(lastLatencyMs + "ms").padEnd(46)} │\x1b[0m`,
   );
   console.log(
-    `\x1b[32m│  ✔ OPEN APP:        http://localhost:3000                         │\x1b[0m`,
+    `\x1b[32m│  ✔ API ENDPOINT:    http://localhost:${PORT}                         │\x1b[0m`,
   );
   console.log(
     "\x1b[32m└────────────────────────────────────────────────────────────────────┘\x1b[0m\n",
   );
 
-  // Vite middleware setup
-  if (process.env.NODE_ENV !== "production") {
-    const vite = await createViteServer({
-      server: { middlewareMode: true },
-      appType: "spa",
-    });
-    app.use(vite.middlewares);
-  } else {
-    const distPath = path.join(process.cwd(), "dist");
-    app.use(express.static(distPath));
-    app.get("*all", (req, res) => {
-      res.sendFile(path.join(distPath, "index.html"));
-    });
-  }
-
   app.listen(PORT, "0.0.0.0", () => {
-    addLog("info", `EduTrack app available at http://localhost:${PORT}`);
+    addLog("info", `EduTrack backend API available at http://localhost:${PORT}`);
   });
 }
 

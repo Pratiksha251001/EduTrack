@@ -55,6 +55,15 @@ export const AppShell: React.FC = () => {
     };
   }, []);
 
+  React.useEffect(() => {
+    if (location.pathname !== "/") {
+      localStorage.setItem(
+        "edutrack_last_authenticated_path",
+        `${location.pathname}${location.search}`,
+      );
+    }
+  }, [location.pathname, location.search]);
+
   const userKey = user?.id || user?.email || role || "anon";
   const userNotifications = React.useMemo(() => {
     if (!role) return [];

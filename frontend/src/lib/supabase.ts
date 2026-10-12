@@ -269,14 +269,46 @@ class LocalDatabase {
   academic_classes = this.load("academic_classes", mockClasses);
 
   constructor() {
-    if (this.teachers.length === 0 && localStorage.getItem(`${this.storageKey}_demo_cleared`) !== "true") {
+    if (typeof window !== "undefined") {
+      window.addEventListener("storage", (event) => {
+        const prefix = `${this.storageKey}_`;
+        if (!event.key?.startsWith(prefix) || !event.newValue) return;
+
+        const table = event.key.slice(prefix.length);
+        if (!(this as any)[table]) return;
+
+        try {
+          const data = JSON.parse(event.newValue);
+          if (!Array.isArray(data)) return;
+          (this as any)[table] = data;
+          window.dispatchEvent(
+            new CustomEvent("edutrack_data_updated", {
+              detail: { table, data },
+            }),
+          );
+        } catch {
+          return;
+        }
+      });
+    }
+
+    if (
+      this.teachers.length === 0 &&
+      localStorage.getItem(`${this.storageKey}_demo_cleared`) !== "true"
+    ) {
       this.restoreDemoData();
     } else {
-      if (this.teacher_subjects.length === 0 && localStorage.getItem(`${this.storageKey}_demo_cleared`) !== "true") {
+      if (
+        this.teacher_subjects.length === 0 &&
+        localStorage.getItem(`${this.storageKey}_demo_cleared`) !== "true"
+      ) {
         this.teacher_subjects = [...mockTeacherSubjects];
         this.persist("teacher_subjects");
       }
-      if (this.academic_classes.length === 0 && localStorage.getItem(`${this.storageKey}_demo_cleared`) !== "true") {
+      if (
+        this.academic_classes.length === 0 &&
+        localStorage.getItem(`${this.storageKey}_demo_cleared`) !== "true"
+      ) {
         this.academic_classes = [...mockClasses];
         this.persist("academic_classes");
       }

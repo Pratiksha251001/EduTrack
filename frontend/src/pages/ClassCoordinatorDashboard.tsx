@@ -129,6 +129,16 @@ export const ClassCoordinatorDashboard: React.FC = () => {
     password: "",
   });
 
+  React.useEffect(() => {
+    const refreshData = () => setVersion((value) => value + 1);
+    window.addEventListener("edutrack_data_updated", refreshData);
+    window.addEventListener("storage", refreshData);
+    return () => {
+      window.removeEventListener("edutrack_data_updated", refreshData);
+      window.removeEventListener("storage", refreshData);
+    };
+  }, []);
+
   const departments = localDb.departments;
   const students = localDb.students;
   const teachers = localDb.teachers;
@@ -913,7 +923,11 @@ export const ClassCoordinatorDashboard: React.FC = () => {
           </div>
 
           <Link to="/reports">
-            <Button variant="outline" size="sm" className="h-9 gap-1.5 text-xs font-semibold shadow-xs">
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-9 gap-1.5 text-xs font-semibold shadow-xs"
+            >
               <FileText className="h-3.5 w-3.5 text-primary" />
               Class Reports & Defaulters
             </Button>

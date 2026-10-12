@@ -44,33 +44,109 @@ cd EduTrack
 npm install
 ```
 
-### 4. Configure Environment Variables (Optional)
-The application is pre-configured to run with high-fidelity local data out of the box. 
+### 4. Run Frontend and Backend Separately
 
-If you want to connect your own Supabase project or SMS gateway, copy `.env.example` to `.env`:
+The repository is split into two deployable applications:
+
+- `frontend/`: React/Vite web application on port `3000`
+- `backend/`: Express API and SMS gateway proxy on port `4000`
+
+Install each application independently:
+
 ```bash
-cp .env.example .env
+cd frontend
+npm install
+
+cd ../backend
+npm install
 ```
-Fill in your details:
+
+Start them in two terminals:
+
+```bash
+# Terminal 1
+cd frontend
+npm run dev
+
+# Terminal 2
+cd backend
+npm run dev
+```
+
+For a deployed frontend, set `VITE_API_URL` to the public backend URL. For local development, the Vite proxy forwards `/api` requests to `http://localhost:4000`.
+
+### 5. Configure Environment Variables (Optional)
+
+Frontend variables belong in `frontend/.env`:
+
+```bash
+cp frontend/.env.example frontend/.env
+```
+
 ```env
 VITE_SUPABASE_URL=https://your-project.supabase.co
 VITE_SUPABASE_ANON_KEY=your-anon-key
-VITE_SMS_API_URL=
-VITE_SMS_API_KEY=
+VITE_API_URL=http://localhost:4000
 ```
 
-*(If these variables are omitted or blank, EduTrack automatically uses its built-in local database with full state persistence).*
+Backend variables belong in `backend/.env`:
 
-### 5. Start the Development Server
 ```bash
-npm run dev
+cp backend/.env.example backend/.env
+```
+
+```env
+PORT=4000
+FRONTEND_URL=http://localhost:3000
+VITE_SUPABASE_URL=https://your-project.supabase.co
+VITE_SUPABASE_ANON_KEY=your-anon-key
+```
+
+SMS provider credentials should only be configured in `backend/.env`; never expose them as `VITE_*` frontend variables.
+
+The application is pre-configured to run with high-fidelity local data out of the box.
+
+For the legacy root command, the following scripts remain available:
+
+```bash
+npm run dev:frontend
+npm run dev:backend
+npm run build
 ```
 
 Open your browser and navigate to:
 ```text
 http://localhost:3000
 ```
-*(If running Vite directly via `npx vite`, the default port is `http://localhost:5173`)*.
+
+### 6. Production Deployment
+
+Build the applications independently:
+
+```bash
+cd frontend
+npm run build
+# Deploy frontend/dist to a static hosting provider
+
+cd ../backend
+npm run build
+npm start
+```
+
+Configure the deployed frontend with:
+
+```env
+VITE_API_URL=https://your-backend-domain.com
+```
+
+Configure the backend with the deployed frontend origin:
+
+```env
+PORT=4000
+FRONTEND_URL=https://your-frontend-domain.com
+```
+
+The frontend uses Supabase directly for configured database access and sends backend-only operations, such as SMS gateway requests, to `VITE_API_URL`.
 
 ---
 

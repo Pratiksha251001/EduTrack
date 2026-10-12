@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import { Dialog, DialogContent } from "./ui/dialog";
 import { Button } from "./ui/button";
+import { apiFetch } from "../lib/api";
 import {
   Terminal as TerminalIcon,
   CheckCircle2,
@@ -126,7 +127,7 @@ export const BackendTerminalModal: React.FC<BackendTerminalModalProps> = ({
   const fetchBackendLogs = async () => {
     setLoading(true);
     try {
-      const res = await fetch("/api/terminal/logs");
+      const res = await apiFetch("/api/terminal/logs");
       if (res.ok) {
         const data = await res.json();
         if (data.latencyMs) setLatency(data.latencyMs);
@@ -182,7 +183,7 @@ export const BackendTerminalModal: React.FC<BackendTerminalModalProps> = ({
 
     try {
       const start = Date.now();
-      const res = await fetch("/api/db/test-connection", { method: "POST" });
+      const res = await apiFetch("/api/db/test-connection", { method: "POST" });
       const elapsed = Date.now() - start;
       setLatency(elapsed);
 
@@ -249,7 +250,7 @@ export const BackendTerminalModal: React.FC<BackendTerminalModalProps> = ({
             </div>
             <TerminalIcon className="h-4 w-4 text-emerald-400" />
             <span className="font-mono text-xs font-semibold text-slate-300">
-              edutrack-backend ~ node server.ts
+              edutrack-backend ~ npm run dev
             </span>
           </div>
 

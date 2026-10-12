@@ -64,7 +64,7 @@ export const Attendance: React.FC = () => {
   // All teaching assignments for this faculty across any class / subject
   const myTeachingAssignments = useMemo(() => {
     return localDb.teacher_subjects.filter(
-      (ts) => ts.teacher_id === teacherId || ts.teacher_id === user?.id
+      (ts) => ts.teacher_id === teacherId || ts.teacher_id === user?.id,
     );
   }, [teacherId, user]);
 
@@ -73,44 +73,75 @@ export const Attendance: React.FC = () => {
       if (role === "admin") return true;
       if (role === "hod") {
         return (
-          !user?.department_id ||
-          subject.department_id === user.department_id
+          !user?.department_id || subject.department_id === user.department_id
         );
       }
       if (role === "class_coordinator") {
         const teacherRec = localDb.teachers.find(
           (t) =>
             t.id === user?.teacher_id ||
-            (user?.email && t.email?.toLowerCase() === user.email.toLowerCase()) ||
+            (user?.email &&
+              t.email?.toLowerCase() === user.email.toLowerCase()) ||
             (user?.employee_id && t.employee_id === user.employee_id) ||
-            (t.is_class_coordinator && t.department_id === user?.department_id)
+            (t.is_class_coordinator && t.department_id === user?.department_id),
         );
-        const coordSem = teacherRec?.assigned_semester || user?.assigned_semester || 5;
+        const coordSem =
+          teacherRec?.assigned_semester || user?.assigned_semester || 5;
         const deptId = user?.department_id || teacherRec?.department_id;
-        const isClassSubject = (!deptId || subject.department_id === deptId) && subject.semester === coordSem;
+        const isClassSubject =
+          (!deptId || subject.department_id === deptId) &&
+          subject.semester === coordSem;
         const isMyTeachingSubject =
           localDb.teacher_subjects.some(
-            (ts) => (ts.teacher_id === user?.teacher_id || ts.teacher_id === user?.id) && ts.subject_id === subject.id
-          ) || (subject as any).teacher_id === user?.teacher_id || (subject as any).teacher_id === user?.id;
+            (ts) =>
+              (ts.teacher_id === user?.teacher_id ||
+                ts.teacher_id === user?.id) &&
+              ts.subject_id === subject.id,
+          ) ||
+          (subject as any).teacher_id === user?.teacher_id ||
+          (subject as any).teacher_id === user?.id;
         return isClassSubject || isMyTeachingSubject;
       }
       if (role === "teacher") {
         const isAssigned =
           localDb.teacher_subjects.some(
-            (ts) => ts.teacher_id === teacherId && ts.subject_id === subject.id
+            (ts) => ts.teacher_id === teacherId && ts.subject_id === subject.id,
           ) || (subject as any).teacher_id === teacherId;
         // If teacher has assigned subjects, restrict strictly to assigned
-        const anyAssigned = localDb.teacher_subjects.some(ts => ts.teacher_id === teacherId) ||
-          localDb.subjects.some(s => (s as any).teacher_id === teacherId);
+        const anyAssigned =
+          localDb.teacher_subjects.some((ts) => ts.teacher_id === teacherId) ||
+          localDb.subjects.some((s) => (s as any).teacher_id === teacherId);
         if (anyAssigned) return isAssigned;
-        return !user?.department_id || subject.department_id === user.department_id;
+        return (
+          !user?.department_id || subject.department_id === user.department_id
+        );
       }
-      return !user?.department_id || subject.department_id === user.department_id;
+      return (
+        !user?.department_id || subject.department_id === user.department_id
+      );
     });
   }, [role, user, teacherId]);
 
-  const students = localDb.students;
+  const [students, setStudents] = useState(() => localDb.students);
   const academicClasses = localDb.academic_classes;
+
+  React.useEffect(() => {
+    const refreshStudents = (event: Event) => {
+      const customEvent = event as CustomEvent<{ table?: string }>;
+      if (
+        !customEvent.detail?.table ||
+        customEvent.detail.table === "students"
+      ) {
+        setStudents([...localDb.students]);
+      }
+    };
+    window.addEventListener("edutrack_data_updated", refreshStudents);
+    window.addEventListener("storage", refreshStudents);
+    return () => {
+      window.removeEventListener("edutrack_data_updated", refreshStudents);
+      window.removeEventListener("storage", refreshStudents);
+    };
+  }, []);
 
   const todayStr = new Date().toISOString().split("T")[0];
 
@@ -121,7 +152,9 @@ export const Attendance: React.FC = () => {
     }
     return subjects[0]?.id || "";
   });
-  const [selectedClassName, setSelectedClassName] = useState<string>(urlClassName || "all");
+  const [selectedClassName, setSelectedClassName] = useState<string>(
+    urlClassName || "all",
+  );
   const [selectedDate, setSelectedDate] = useState<string>(todayStr);
   const [searchQuery, setSearchQuery] = useState("");
   const [smsLanguage, setSmsLanguage] = useState<SmsLanguage>("en");
@@ -165,12 +198,17 @@ export const Attendance: React.FC = () => {
 
   // Keep selectedSubjectId valid if filteredSubjects changes
   React.useEffect(() => {
-    if (filteredSubjects.length > 0 && !filteredSubjects.some((s) => s.id === selectedSubjectId)) {
+    if (
+      filteredSubjects.length > 0 &&
+      !filteredSubjects.some((s) => s.id === selectedSubjectId)
+    ) {
       setSelectedSubjectId(filteredSubjects[0].id);
     }
   }, [filteredSubjects, selectedSubjectId]);
 
   const selectedSubject = subjects.find((s) => s.id === selectedSubjectId);
+  const attendanceDepartmentId =
+    selectedSubject?.department_id || user?.department_id || undefined;
 
   // Determine available classes / divisions for the selected subject
   const availableClasses = useMemo(() => {
@@ -180,7 +218,8 @@ export const Attendance: React.FC = () => {
     const deptClasses = academicClasses.filter(
       (c) =>
         c.semester === selectedSubject.semester &&
-        (!selectedSubject.department_id || c.department_id === selectedSubject.department_id)
+        (!selectedSubject.department_id ||
+          c.department_id === selectedSubject.department_id),
     );
 
     // Also classes assigned in teacher_subjects for this subject
@@ -195,13 +234,17 @@ export const Attendance: React.FC = () => {
 
     // Also inspect students enrolled in this semester
     students.forEach((st) => {
-      if (st.semester === selectedSubject.semester && st.class_name) {
+      if (
+        st.semester === selectedSubject.semester &&
+        st.class_name &&
+        (!attendanceDepartmentId || st.department_id === attendanceDepartmentId)
+      ) {
         classNames.add(st.class_name);
       }
     });
 
     return Array.from(classNames).sort();
-  }, [selectedSubject, academicClasses, students]);
+  }, [selectedSubject, academicClasses, students, attendanceDepartmentId]);
 
   // Find classes assigned to this faculty for this subject
   const myAssignedClassesForSubject = useMemo(() => {
@@ -237,26 +280,23 @@ export const Attendance: React.FC = () => {
       (st) =>
         st.status === "active" &&
         st.semester === selectedSubject.semester &&
-        (!selectedSubject.department_id ||
-          st.department_id === selectedSubject.department_id)
+        (!attendanceDepartmentId || st.department_id === attendanceDepartmentId),
     );
 
     if (selectedClassName && selectedClassName !== "all") {
       const filtered = list.filter((st) => {
         if (st.class_name) return st.class_name === selectedClassName;
-        const matchedClass = academicClasses.find((c) => c.name === selectedClassName);
-        if (matchedClass && st.class_id) return st.class_id === matchedClass.id;
-        return false;
+        const matchedClass = academicClasses.find(
+          (c) => c.name === selectedClassName || c.id === selectedClassName,
+        );
+        if (matchedClass && st.class_id === matchedClass.id) return true;
+        return st.section === selectedClassName;
       });
-
-      // If tagged students exist for this class, use them; otherwise return all
-      if (filtered.length > 0) {
-        list = filtered;
-      }
+      list = filtered;
     }
 
     return list;
-  }, [students, selectedSubject, selectedClassName, academicClasses]);
+  }, [students, selectedSubject, selectedClassName, academicClasses, attendanceDepartmentId]);
 
   const displayedStudents = useMemo(() => {
     if (!searchQuery.trim()) return cohortStudents;
@@ -266,14 +306,19 @@ export const Attendance: React.FC = () => {
         st.full_name.toLowerCase().includes(q) ||
         st.roll_number.toLowerCase().includes(q) ||
         (st.class_name && st.class_name.toLowerCase().includes(q)) ||
-        (st.parent_name && st.parent_name.toLowerCase().includes(q))
+        (st.parent_name && st.parent_name.toLowerCase().includes(q)),
     );
   }, [cohortStudents, searchQuery]);
 
   React.useEffect(() => {
     const existing = localDb.attendance.filter((a) => {
-      if (a.subject_id !== selectedSubjectId || a.date !== selectedDate) return false;
-      if (selectedClassName !== "all" && a.class_name && a.class_name !== selectedClassName) {
+      if (a.subject_id !== selectedSubjectId || a.date !== selectedDate)
+        return false;
+      if (
+        selectedClassName !== "all" &&
+        a.class_name &&
+        a.class_name !== selectedClassName
+      ) {
         return false;
       }
       return true;
@@ -298,7 +343,7 @@ export const Attendance: React.FC = () => {
   };
 
   const absentees = cohortStudents.filter(
-    (st) => (attendanceState[st.id] || "present") === "absent"
+    (st) => (attendanceState[st.id] || "present") === "absent",
   );
 
   const handleConfirmSubmission = async (
@@ -323,7 +368,7 @@ export const Attendance: React.FC = () => {
     await localDb.upsertAttendance(records);
 
     const currentAbsentees = cohortStudents.filter(
-      (st) => (attendanceState[st.id] || "present") === "absent"
+      (st) => (attendanceState[st.id] || "present") === "absent",
     );
     const currentPresents = cohortStudents.filter(
       (st) => (attendanceState[st.id] || "present") === "present"
@@ -385,7 +430,9 @@ export const Attendance: React.FC = () => {
         const hasMobile = cleanPhone.length >= 10;
 
         const gResult = gatewayResult?.results?.find(
-          (r: any) => r.mobile === st.parent_mobile || r.mobile?.includes(cleanPhone.slice(-10))
+          (r: any) =>
+            r.mobile === st.parent_mobile ||
+            r.mobile?.includes(cleanPhone.slice(-10)),
         );
         const isDelivered = hasMobile && (!gResult || gResult.status === "sent");
         const deliverStatus = isDelivered ? ("sent" as const) : ("failed" as const);
@@ -472,7 +519,8 @@ export const Attendance: React.FC = () => {
             Mark Subject Attendance
           </h2>
           <p className="text-sm text-muted-foreground">
-            Select your Year, Subject, and Class/Division. Submit to review Absent & Present lists before automated SMS alerts reach parents.
+            Select your Year, Subject, and Class/Division. Submit to review
+            Absent & Present lists before automated SMS alerts reach parents.
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -482,7 +530,10 @@ export const Attendance: React.FC = () => {
               Reports & Audit PDF
             </Button>
           </Link>
-          <Badge variant="outline" className="px-3 py-1 text-xs border-primary/25 bg-primary/5 text-primary">
+          <Badge
+            variant="outline"
+            className="px-3 py-1 text-xs border-primary/25 bg-primary/5 text-primary"
+          >
             <Bell className="h-3.5 w-3.5 mr-1.5" /> Automated Parent SMS Enabled
           </Badge>
         </div>
@@ -496,17 +547,31 @@ export const Attendance: React.FC = () => {
               <Layers className="h-4 w-4" />
             </div>
             <div>
-              <span className="font-semibold text-foreground">Your Multi-Class Teaching Allocation:</span>{" "}
+              <span className="font-semibold text-foreground">
+                Your Multi-Class Teaching Allocation:
+              </span>{" "}
               <span className="text-muted-foreground">
-                Assigned across {new Set(myTeachingAssignments.map((ts) => ts.class_name).filter(Boolean)).size} classes/divisions and{" "}
-                {new Set(myTeachingAssignments.map((ts) => ts.subject_id)).size} subjects.
+                Assigned across{" "}
+                {
+                  new Set(
+                    myTeachingAssignments
+                      .map((ts) => ts.class_name)
+                      .filter(Boolean),
+                  ).size
+                }{" "}
+                classes/divisions and{" "}
+                {new Set(myTeachingAssignments.map((ts) => ts.subject_id)).size}{" "}
+                subjects.
               </span>
             </div>
           </div>
           <div className="flex flex-wrap items-center gap-1.5">
             {myTeachingAssignments.slice(0, 4).map((ts) => {
               const sub = localDb.subjects.find((s) => s.id === ts.subject_id);
-              const isActive = ts.subject_id === selectedSubjectId && (ts.class_name === selectedClassName || selectedClassName === "all");
+              const isActive =
+                ts.subject_id === selectedSubjectId &&
+                (ts.class_name === selectedClassName ||
+                  selectedClassName === "all");
               return (
                 <button
                   key={ts.id}
@@ -521,7 +586,8 @@ export const Attendance: React.FC = () => {
                       : "bg-card hover:bg-muted text-foreground border-border"
                   }`}
                 >
-                  {ts.class_name ? `${ts.class_name} · ` : ""}{sub?.code || "Subject"}
+                  {ts.class_name ? `${ts.class_name} · ` : ""}
+                  {sub?.code || "Subject"}
                 </button>
               );
             })}
@@ -539,13 +605,18 @@ export const Attendance: React.FC = () => {
               <p className="text-sm font-bold text-emerald-900 dark:text-emerald-200">
                 Attendance Saved & Parent SMS Alerts Dispatched!
               </p>
-              <p className="text-xs text-muted-foreground mt-0.5">{successMsg}</p>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                {successMsg}
+              </p>
             </div>
           </div>
 
           <div className="flex items-center gap-2 self-start sm:self-auto shrink-0">
             <Link to="/sms-logs">
-              <Button size="sm" className="bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold shadow-xs">
+              <Button
+                size="sm"
+                className="bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold shadow-xs"
+              >
                 <MessageSquare className="h-3.5 w-3.5 mr-1.5" />
                 View in Log History
                 <ArrowRight className="h-3.5 w-3.5 ml-1.5" />
@@ -612,7 +683,10 @@ export const Attendance: React.FC = () => {
               options={[
                 {
                   value: "all",
-                  label: availableClasses.length > 0 ? "All Divisions (Whole Batch)" : "All Students in Semester",
+                  label:
+                    availableClasses.length > 0
+                      ? "All Divisions (Whole Batch)"
+                      : "All Students in Semester",
                 },
                 ...availableClasses.map((cn) => {
                   const isAssigned = myAssignedClassesForSubject.includes(cn);
@@ -675,7 +749,9 @@ export const Attendance: React.FC = () => {
         {availableClasses.length > 1 && (
           <div className="pt-2 border-t border-border/70 flex flex-wrap items-center justify-between gap-3">
             <div className="flex flex-wrap items-center gap-2">
-              <span className="text-xs font-semibold text-muted-foreground">Quick Switch Division:</span>
+              <span className="text-xs font-semibold text-muted-foreground">
+                Quick Switch Division:
+              </span>
               <button
                 type="button"
                 onClick={() => setSelectedClassName("all")}
@@ -692,7 +768,11 @@ export const Attendance: React.FC = () => {
                   (st) =>
                     st.status === "active" &&
                     st.semester === selectedSubject?.semester &&
-                    (st.class_name === cn || st.class_id === academicClasses.find((c) => c.name === cn)?.id)
+                    (!attendanceDepartmentId || st.department_id === attendanceDepartmentId) &&
+                    (st.class_name === cn ||
+                      st.class_id ===
+                        academicClasses.find((c) => c.name === cn)?.id ||
+                      st.section === cn),
                 ).length;
                 const isSelected = selectedClassName === cn;
                 const isAssigned = myAssignedClassesForSubject.includes(cn);
@@ -708,11 +788,16 @@ export const Attendance: React.FC = () => {
                     }`}
                   >
                     <span>{cn}</span>
-                    <span className={`text-[10px] px-1.5 py-0.2 rounded-full ${isSelected ? "bg-white/20 text-white" : "bg-background text-muted-foreground"}`}>
+                    <span
+                      className={`text-[10px] px-1.5 py-0.2 rounded-full ${isSelected ? "bg-white/20 text-white" : "bg-background text-muted-foreground"}`}
+                    >
                       {count}
                     </span>
                     {isAssigned && !isSelected && (
-                      <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" title="Assigned to you" />
+                      <span
+                        className="h-1.5 w-1.5 rounded-full bg-emerald-500"
+                        title="Assigned to you"
+                      />
                     )}
                   </button>
                 );
@@ -737,20 +822,24 @@ export const Attendance: React.FC = () => {
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between border-b border-border pb-4">
           <div>
             <div className="flex items-center gap-2">
-              <h3 className="font-display text-lg font-bold">
-                Student Roster
-              </h3>
+              <h3 className="font-display text-lg font-bold">Student Roster</h3>
               <Badge variant="outline" className="text-xs font-semibold">
                 {displayedStudents.length} Students
               </Badge>
               {selectedClassName !== "all" && (
-                <Badge variant="default" className="text-xs bg-primary/10 text-primary border-primary/20">
+                <Badge
+                  variant="default"
+                  className="text-xs bg-primary/10 text-primary border-primary/20"
+                >
                   Division: {selectedClassName}
                 </Badge>
               )}
             </div>
             <p className="text-xs text-muted-foreground mt-0.5">
-              {selectedSubject ? `${selectedSubject.code} · ${selectedSubject.name}` : "Select a subject"} · Sem {selectedSubject?.semester} · {selectedDate}
+              {selectedSubject
+                ? `${selectedSubject.code} · ${selectedSubject.name}`
+                : "Select a subject"}{" "}
+              · Sem {selectedSubject?.semester} · {selectedDate}
             </p>
           </div>
 

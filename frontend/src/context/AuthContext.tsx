@@ -104,6 +104,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
   useEffect(() => {
     let mounted = true;
     let listenerSubscription: { unsubscribe: () => void } | null = null;
+    let restoreSupabaseSession: (() => Promise<void>) | null = null;
 
     // 1. If demo mode was saved, load demo dataset so mock records are populated
     const savedIsDemo = getStorageItem("is_demo") === "true";
@@ -142,7 +143,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
 
     // 3. Supabase background session sync (if configured)
     if (isSupabaseConfigured) {
-      const restoreSupabaseSession = async () => {
+      restoreSupabaseSession = async () => {
         try {
           const { data } = await supabase.auth.getSession();
           if (!mounted || !data?.session) return;
@@ -201,7 +202,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
         console.warn("Could not attach Supabase auth listener:", err);
       }
     }
-
     // Finished background check
     setLoading(false);
 
@@ -322,6 +322,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     removeStorageItem("last_active_path");
     localStorage.removeItem("edutrack_last_active_path");
     localStorage.removeItem("smit_last_active_path");
+    localStorage.removeItem("edutrack_last_authenticated_path");
   };
 
   const confirmLogout = async () => {

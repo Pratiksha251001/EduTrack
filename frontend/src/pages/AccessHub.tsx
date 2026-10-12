@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   Building2,
@@ -44,7 +44,15 @@ interface PortalCard {
 }
 
 export const AccessHub: React.FC = () => {
-  const { user, role, loginAsRandomDemo, loginAsDemo, registerAdmin, loginWithCredentials } = useAuth();
+  const {
+    user,
+    role,
+    loading: authLoading,
+    loginAsRandomDemo,
+    loginAsDemo,
+    registerAdmin,
+    loginWithCredentials,
+  } = useAuth();
   const navigate = useNavigate();
   const { theme, toggleTheme } = useTheme();
 
@@ -60,6 +68,15 @@ export const AccessHub: React.FC = () => {
     "all" | "admin" | "faculty" | "student"
   >("all");
   const [searchQuery, setSearchQuery] = useState("");
+
+  useEffect(() => {
+    if (authLoading || !user) return;
+
+    const savedPath = localStorage.getItem("edutrack_last_authenticated_path");
+    if (savedPath && savedPath.startsWith("/") && savedPath !== "/") {
+      navigate(savedPath, { replace: true });
+    }
+  }, [authLoading, navigate, user]);
 
   const defaultAdminEmail =
     import.meta.env.VITE_DEFAULT_ADMIN_EMAIL?.trim() || "admin@edutrack.edu";
@@ -402,7 +419,8 @@ export const AccessHub: React.FC = () => {
               </span>
             </div>
             <p className="text-xs text-muted-foreground">
-              Instantly view the actual post-login dashboard for any institutional role:
+              Instantly view the actual post-login dashboard for any
+              institutional role:
             </p>
           </div>
 

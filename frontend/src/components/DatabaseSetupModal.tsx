@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import { Dialog, DialogContent } from "./ui/dialog";
 import { Button } from "./ui/button";
+import { apiFetch } from "../lib/api";
 import { isSupabaseConfigured, localDb, supabaseUrl } from "../lib/supabase";
 import { SUPABASE_SCHEMA_SQL } from "../lib/schemaSql";
 import { BackendTerminalModal } from "./BackendTerminalModal";
@@ -84,7 +85,7 @@ export const DatabaseSetupModal: React.FC<DatabaseSetupModalProps> = ({
     setPinging(true);
     const start = Date.now();
     try {
-      const res = await fetch("/api/db/test-connection", { method: "POST" });
+      const res = await apiFetch("/api/db/test-connection", { method: "POST" });
       const elapsed = Date.now() - start;
       setPingLatency(elapsed);
       setStatusMessage(`Database ping verified: ${elapsed}ms. PostgreSQL connection active.`);
