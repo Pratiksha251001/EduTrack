@@ -629,7 +629,11 @@ export const StudentImportModal: React.FC<StudentImportModalProps> = ({
                     variant={activeTab === "all" ? "default" : "outline"}
                     size="sm"
                     onClick={() => setActiveTab("all")}
-                    className="h-7 text-xs"
+                    className={`h-7 text-xs ${
+                      activeTab === "all"
+                        ? "border-primary/30 bg-primary/10 text-primary hover:bg-primary/15"
+                        : ""
+                    }`}
                   >
                     All Students ({rows.length})
                   </Button>
@@ -637,7 +641,11 @@ export const StudentImportModal: React.FC<StudentImportModalProps> = ({
                     variant={activeTab === "valid" ? "default" : "outline"}
                     size="sm"
                     onClick={() => setActiveTab("valid")}
-                    className="h-7 text-xs text-emerald-600 dark:text-emerald-400"
+                    className={`h-7 text-xs text-emerald-600 dark:text-emerald-400 ${
+                      activeTab === "valid"
+                        ? "border-emerald-500/30 bg-emerald-500/10 hover:bg-emerald-500/15"
+                        : ""
+                    }`}
                   >
                     <Check className="h-3 w-3 mr-1" />
                     Ready to Import ({validCount})
@@ -649,7 +657,11 @@ export const StudentImportModal: React.FC<StudentImportModalProps> = ({
                       }
                       size="sm"
                       onClick={() => setActiveTab("invalid")}
-                      className="h-7 text-xs"
+                      className={`h-7 text-xs ${
+                        activeTab === "invalid"
+                          ? "border-destructive/30 bg-destructive/10 hover:bg-destructive/15"
+                          : ""
+                      }`}
                     >
                       <AlertCircle className="h-3 w-3 mr-1" />
                       Has Issues ({invalidCount})

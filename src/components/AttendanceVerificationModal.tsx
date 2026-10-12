@@ -294,7 +294,7 @@ export const AttendanceVerificationModal: React.FC<
                   onClick={() => setActiveTab("all")}
                   className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-semibold transition-all ${
                     activeTab === "all"
-                      ? "bg-card text-foreground shadow-xs border border-border"
+                      ? "bg-primary/10 text-primary shadow-xs border border-primary/25"
                       : "text-muted-foreground hover:text-foreground"
                   }`}
                 >

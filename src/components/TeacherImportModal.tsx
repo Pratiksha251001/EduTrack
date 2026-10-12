@@ -536,7 +536,7 @@ export const TeacherImportModal: React.FC<TeacherImportModalProps> = ({
                     onClick={() => setActiveTab("all")}
                     className={`px-3 py-1 rounded-lg font-medium transition-all ${
                       activeTab === "all"
-                        ? "bg-card text-foreground shadow-xs"
+                        ? "bg-primary/10 text-primary shadow-xs border border-primary/25"
                         : "text-muted-foreground hover:text-foreground"
                     }`}
                   >
@@ -547,7 +547,7 @@ export const TeacherImportModal: React.FC<TeacherImportModalProps> = ({
                     onClick={() => setActiveTab("valid")}
                     className={`px-3 py-1 rounded-lg font-medium transition-all flex items-center gap-1 ${
                       activeTab === "valid"
-                        ? "bg-card text-foreground shadow-xs"
+                        ? "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 shadow-xs border border-emerald-500/25"
                         : "text-muted-foreground hover:text-foreground"
                     }`}
                   >
@@ -560,7 +560,7 @@ export const TeacherImportModal: React.FC<TeacherImportModalProps> = ({
                       onClick={() => setActiveTab("errors")}
                       className={`px-3 py-1 rounded-lg font-medium transition-all flex items-center gap-1 ${
                         activeTab === "errors"
-                          ? "bg-card text-destructive shadow-xs"
+                          ? "bg-destructive/10 text-destructive shadow-xs border border-destructive/25"
                           : "text-destructive/80 hover:text-destructive"
                       }`}
                     >
