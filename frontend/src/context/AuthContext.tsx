@@ -463,6 +463,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
       const { error: profileError } = await supabase.from("profiles").upsert({
         id: data.user.id,
         full_name: fullName.trim(),
+        email: normalizedEmail,
         must_change_password: false,
       });
       if (profileError) {

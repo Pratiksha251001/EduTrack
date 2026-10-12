@@ -451,6 +451,64 @@ class LocalDatabase {
         console.warn(`Supabase sync failed for ${table}:`, err);
       }
     }
+
+    try {
+      const [{ data: roles, error: rolesError }, { data: profiles, error: profilesError }] =
+        await Promise.all([
+          supabase.from("user_roles").select("user_id, role, department_id"),
+          supabase.from("profiles").select("id, full_name, email"),
+        ]);
+
+      if (!rolesError && !profilesError && Array.isArray(roles) && Array.isArray(profiles)) {
+        const existingUsers = new Map(
+          this.users.map((user: any) => [user.id, user]),
+        );
+        const users = roles.map((roleRecord: any) => {
+          const profile = profiles.find((item: any) => item.id === roleRecord.user_id);
+          const existing = existingUsers.get(roleRecord.user_id) || {};
+          const teacher = this.teachers.find(
+            (item: any) => item.user_id === roleRecord.user_id,
+          );
+          const student = this.students.find(
+            (item: any) => item.user_id === roleRecord.user_id,
+          );
+          return {
+            ...existing,
+            id: roleRecord.user_id,
+            full_name:
+              profile?.full_name ||
+              teacher?.full_name ||
+              student?.full_name ||
+              "Portal User",
+            email:
+              profile?.email ||
+              teacher?.email ||
+              student?.email ||
+              existing.email ||
+              "",
+            role: roleRecord.role,
+            department_id:
+              roleRecord.department_id ||
+              teacher?.department_id ||
+              student?.department_id ||
+              null,
+            teacher_id: teacher?.id || existing.teacher_id,
+            student_id: student?.id || existing.student_id,
+            status: existing.status || "active",
+          };
+        });
+
+        this.users = users;
+        this.persist("users");
+        window.dispatchEvent(
+          new CustomEvent("edutrack_data_updated", {
+            detail: { table: "users", data: users },
+          }),
+        );
+      }
+    } catch (err) {
+      console.warn("Supabase sync failed for users:", err);
+    }
   }
 
   private load<T>(table: string, fallback: T[]): T[] {

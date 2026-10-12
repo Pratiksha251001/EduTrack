@@ -85,16 +85,18 @@ begin
     where id = student_id;
   end if;
 
-  insert into public.profiles (id, full_name, must_change_password)
-  values (admin_id, 'System Administrator', false)
+  insert into public.profiles (id, full_name, email, must_change_password)
+  values (admin_id, 'System Administrator', 'admin@edutrack.com', false)
   on conflict (id) do update set
     full_name = excluded.full_name,
+    email = excluded.email,
     must_change_password = excluded.must_change_password;
 
-  insert into public.profiles (id, full_name, must_change_password)
-  values (student_id, 'Default Student', true)
+  insert into public.profiles (id, full_name, email, must_change_password)
+  values (student_id, 'Default Student', 'student@gmail.com', true)
   on conflict (id) do update set
     full_name = excluded.full_name,
+    email = excluded.email,
     must_change_password = excluded.must_change_password;
 
   if not exists (

@@ -44,6 +44,7 @@ create table if not exists public.teachers (
 create table if not exists public.profiles (
   id uuid references auth.users on delete cascade primary key,
   full_name text not null,
+  email text,
   avatar_url text,
   mobile text,
   created_at timestamp with time zone default timezone('utc'::text, now()) not null
