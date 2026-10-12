@@ -26,6 +26,14 @@ import { Button } from "./ui/button";
 import { Badge } from "./ui/badge";
 import { Input } from "./ui/input";
 import {
+  Table,
+  TableHeader,
+  TableBody,
+  TableRow,
+  TableHead,
+  TableCell,
+} from "./ui/table";
+import {
   college,
   SMS_LANGUAGES,
   generateSmsMessage,
@@ -383,8 +391,8 @@ export const AttendanceVerificationModal: React.FC<
               </div>
             )}
 
-            {/* List Container */}
-            <div className="rounded-xl border border-border/70 divide-y divide-border/60 max-h-56 overflow-y-auto bg-card">
+            {/* Table Container */}
+            <div className="rounded-xl border border-border/70 overflow-hidden bg-card max-h-64 overflow-y-auto">
               {displayedStudents.length === 0 ? (
                 <div className="py-8 text-center text-xs text-muted-foreground">
                   {activeTab === "absent" ? (
@@ -403,79 +411,90 @@ export const AttendanceVerificationModal: React.FC<
                   )}
                 </div>
               ) : (
-                displayedStudents.map((st) => {
-                  const status = attendanceState[st.id] || "present";
-                  const isAbsent = status === "absent";
+                <Table className="w-full text-xs">
+                  <TableHeader className="bg-muted/70 sticky top-0 z-10">
+                    <TableRow>
+                      <TableHead className="w-20 font-bold">Roll No</TableHead>
+                      <TableHead className="min-w-[150px] font-bold">Student Name</TableHead>
+                      <TableHead className="min-w-[150px] font-bold">Guardian Contact</TableHead>
+                      <TableHead className="w-24 text-center font-bold">Status</TableHead>
+                      <TableHead className="w-32 text-right font-bold pr-3">Correction</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody className="divide-y divide-border/60">
+                    {displayedStudents.map((st) => {
+                      const status = attendanceState[st.id] || "present";
+                      const isAbsent = status === "absent";
 
-                  return (
-                    <div
-                      key={st.id}
-                      className={`flex items-center justify-between p-2.5 px-3 text-xs transition-colors ${
-                        isAbsent
-                          ? "bg-rose-500/[0.04] hover:bg-rose-500/[0.08]"
-                          : "hover:bg-muted/40"
-                      }`}
-                    >
-                      {/* Student & Parent Info */}
-                      <div className="min-w-0 pr-2">
-                        <div className="flex items-center gap-2">
-                          <span className="font-mono text-[11px] font-bold px-1.5 py-0.5 rounded bg-muted text-foreground shrink-0 border border-border/50">
+                      return (
+                        <TableRow
+                          key={st.id}
+                          className={`transition-colors ${
+                            isAbsent
+                              ? "bg-rose-500/[0.04] hover:bg-rose-500/[0.08]"
+                              : "hover:bg-muted/40"
+                          }`}
+                        >
+                          <TableCell className="font-mono text-xs font-bold text-foreground">
                             {st.roll_number}
-                          </span>
-                          <span className="font-semibold text-foreground truncate">
-                            {st.full_name}
-                          </span>
-                          <Badge
-                            variant={isAbsent ? "destructive" : "success"}
-                            className="text-[9px] uppercase px-1.5 py-0 shrink-0"
-                          >
-                            {isAbsent ? "Absent" : "Present"}
-                          </Badge>
-                        </div>
-                        <div className="text-[11px] text-muted-foreground flex items-center gap-2 mt-0.5">
-                          <span>Parent: {st.parent_name || "Guardian"}</span>
-                          <span>•</span>
-                          {st.parent_mobile ? (
-                            <span className="font-mono text-emerald-600 dark:text-emerald-400 font-medium">
-                              📱 {st.parent_mobile}
+                          </TableCell>
+                          <TableCell>
+                            <span className="font-semibold text-foreground">
+                              {st.full_name}
                             </span>
-                          ) : (
-                            <span className="text-amber-600 dark:text-amber-400 font-medium">
-                              ⚠️ No Mobile Registered
-                            </span>
-                          )}
-                        </div>
-                      </div>
-
-                      {/* Quick Correction Toggle */}
-                      <div className="flex items-center gap-2 shrink-0">
-                        {isAbsent ? (
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => onToggleStudent(st.id, "present")}
-                            className="h-7 text-[11px] border-emerald-500/30 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-500/10 hover:border-emerald-500/50"
-                            title="Mistake? Click to mark this student as Present"
-                          >
-                            <Check className="h-3 w-3 mr-1 text-emerald-600" />
-                            Mark Present
-                          </Button>
-                        ) : (
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => onToggleStudent(st.id, "absent")}
-                            className="h-7 text-[11px] border-rose-500/30 text-rose-700 dark:text-rose-300 hover:bg-rose-500/10 hover:border-rose-500/50"
-                            title="Mistake? Click to mark this student as Absent"
-                          >
-                            <X className="h-3 w-3 mr-1 text-rose-600" />
-                            Mark Absent
-                          </Button>
-                        )}
-                      </div>
-                    </div>
-                  );
-                })
+                          </TableCell>
+                          <TableCell>
+                            <div className="text-[11px]">
+                              <span className="text-muted-foreground">{st.parent_name || "Guardian"}: </span>
+                              {st.parent_mobile ? (
+                                <span className="font-mono text-emerald-600 dark:text-emerald-400 font-medium">
+                                  {st.parent_mobile}
+                                </span>
+                              ) : (
+                                <span className="text-amber-600 dark:text-amber-400 font-medium">
+                                  No Mobile
+                                </span>
+                              )}
+                            </div>
+                          </TableCell>
+                          <TableCell className="text-center">
+                            <Badge
+                              variant={isAbsent ? "destructive" : "success"}
+                              className="text-[9px] uppercase px-1.5 py-0 font-bold"
+                            >
+                              {isAbsent ? "Absent" : "Present"}
+                            </Badge>
+                          </TableCell>
+                          <TableCell className="text-right pr-3">
+                            {isAbsent ? (
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => onToggleStudent(st.id, "present")}
+                                className="h-6 text-[10px] px-2 border-emerald-500/30 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-500/10"
+                                title="Change to Present"
+                              >
+                                <Check className="h-3 w-3 mr-1 text-emerald-600" />
+                                To Present
+                              </Button>
+                            ) : (
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => onToggleStudent(st.id, "absent")}
+                                className="h-6 text-[10px] px-2 border-rose-500/30 text-rose-700 dark:text-rose-300 hover:bg-rose-500/10"
+                                title="Change to Absent"
+                              >
+                                <X className="h-3 w-3 mr-1 text-rose-600" />
+                                To Absent
+                              </Button>
+                            )}
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })}
+                  </TableBody>
+                </Table>
               )}
             </div>
           </div>

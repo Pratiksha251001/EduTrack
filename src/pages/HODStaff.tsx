@@ -22,7 +22,6 @@ import {
   Filter,
   BookOpen,
   Table as TableIcon,
-  LayoutGrid,
   Download,
   Mail,
   ArrowUpDown,
@@ -135,7 +134,6 @@ export const HODStaff: React.FC<HODStaffProps> = ({ mode }) => {
 
   const [search, setSearch] = useState("");
   const [selectedYearFilter, setSelectedYearFilter] = useState<string>("all");
-  const [viewMode, setViewMode] = useState<"table" | "grid">("table");
   const [sortBy, setSortBy] = useState<"name" | "empid" | "role" | "exp">("name");
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("asc");
   const [editing, setEditing] = useState<Teacher | null>(null);
@@ -1655,38 +1653,8 @@ export const HODStaff: React.FC<HODStaffProps> = ({ mode }) => {
               )}
             </div>
 
-            {/* View Mode Toggle, Sort, and Export Actions */}
+            {/* Sort and Export Actions */}
             <div className="flex flex-wrap items-center gap-2">
-              {/* Tabular vs Card View Toggle */}
-              <div className="flex items-center gap-1 border border-border rounded-lg p-0.5 bg-muted/40">
-                <button
-                  type="button"
-                  onClick={() => setViewMode("table")}
-                  className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-md transition-all ${
-                    viewMode === "table"
-                      ? "bg-background text-foreground shadow-xs border border-border/80"
-                      : "text-muted-foreground hover:text-foreground"
-                  }`}
-                  title="Tabular Form (Spreadsheet View)"
-                >
-                  <TableIcon className="h-3.5 w-3.5 text-primary" />
-                  <span>Tabular View</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setViewMode("grid")}
-                  className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-md transition-all ${
-                    viewMode === "grid"
-                      ? "bg-background text-foreground shadow-xs border border-border/80"
-                      : "text-muted-foreground hover:text-foreground"
-                  }`}
-                  title="Card Grid View"
-                >
-                  <LayoutGrid className="h-3.5 w-3.5" />
-                  <span>Card View</span>
-                </button>
-              </div>
-
               {/* Sort By Dropdown */}
               <div className="flex items-center gap-1">
                 <Select
@@ -1818,10 +1786,9 @@ export const HODStaff: React.FC<HODStaffProps> = ({ mode }) => {
         </div>
 
         {/* ========================================================================= */}
-        {/* VIEW MODE 1: TABULAR FORM (DEFAULT) */}
+        {/* TABULAR FORM VIEW (PERMANENT) */}
         {/* ========================================================================= */}
-        {viewMode === "table" ? (
-          <div className="rounded-xl border border-border bg-card overflow-hidden shadow-xs">
+        <div className="rounded-xl border border-border bg-card overflow-hidden shadow-xs">
             <div className="overflow-x-auto">
               <Table className="w-full text-xs">
                 <TableHeader className="bg-muted/70 border-b border-border">
@@ -2152,286 +2119,7 @@ export const HODStaff: React.FC<HODStaffProps> = ({ mode }) => {
               </Table>
             </div>
           </div>
-        ) : (
-          /* ========================================================================= */
-          /* VIEW MODE 2: CARD GRID VIEW */
-          /* ========================================================================= */
-          <div className="grid gap-3.5 md:grid-cols-2">
-            {sortedTeachers.length === 0 ? (
-              <div className="py-14 text-center md:col-span-2 space-y-3">
-                <div className="h-12 w-12 rounded-full bg-muted flex items-center justify-center mx-auto text-muted-foreground">
-                  <Users className="h-6 w-6" />
-                </div>
-                <p className="text-sm font-semibold text-foreground">
-                  No {mode} found matching query
-                </p>
-                <p className="text-xs text-muted-foreground max-w-sm mx-auto">
-                  Add staff manually or use the Excel / CSV import to load
-                  multiple faculty teachers at once.
-                </p>
-                <div className="flex items-center justify-center gap-2 pt-2">
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => setImportModalOpen(true)}
-                  >
-                    <FileSpreadsheet className="h-4 w-4 mr-1 text-emerald-600" />
-                    Import Excel / CSV
-                  </Button>
-                  <Button size="sm" onClick={openAdd}>
-                    <Plus className="h-4 w-4 mr-1" />
-                    Add Teacher Manually
-                  </Button>
-                </div>
-              </div>
-            ) : (
-              sortedTeachers.map((teacher) => (
-                <div
-                  key={teacher.id}
-                  className="flex flex-col sm:flex-row sm:items-center justify-between rounded-xl border border-border p-4 bg-card hover:border-primary/40 transition-all gap-3 shadow-xs"
-                >
-                  <div className="flex items-start gap-3.5 min-w-0">
-                    {/* Photo or Initials Avatar */}
-                    <div className="relative shrink-0">
-                      <div className="h-12 w-12 rounded-xl border border-border bg-primary/10 text-primary flex items-center justify-center overflow-hidden font-bold font-display shadow-xs">
-                        {teacher.photo_url ? (
-                          <img
-                            src={teacher.photo_url}
-                            alt={teacher.full_name}
-                            className="h-full w-full object-cover"
-                          />
-                        ) : (
-                          <User className="h-6 w-6 text-primary/70" />
-                        )}
-                      </div>
-                    </div>
-
-                    <div className="min-w-0 flex-1">
-                      <div className="flex flex-wrap items-center gap-1.5">
-                        <p className="truncate text-sm font-bold text-foreground">
-                          {teacher.full_name}
-                        </p>
-                        <Badge
-                          variant="outline"
-                          className="text-[10px] px-1.5 py-0 font-medium bg-primary/5 text-primary border-primary/20"
-                        >
-                          {teacher.designation || "Assistant Professor"}
-                        </Badge>
-                      </div>
-
-                      <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-muted-foreground mt-1">
-                        <span className="font-mono font-semibold text-foreground bg-muted px-1.5 py-0.2 rounded text-[11px]">
-                          ID: {teacher.employee_id}
-                        </span>
-
-                        {teacher.qualification && (
-                          <span className="truncate text-[11px]">
-                            • {teacher.qualification}
-                          </span>
-                        )}
-
-                        {teacher.experience_years && (
-                          <span className="text-[11px]">
-                            •{" "}
-                            {String(teacher.experience_years).includes("Year")
-                              ? teacher.experience_years
-                              : `${teacher.experience_years} Yrs`}
-                          </span>
-                        )}
-                      </div>
-
-                      <div className="flex flex-wrap items-center gap-2 mt-1.5 text-[11px] text-muted-foreground">
-                        {teacher.mobile ? (
-                          <span className="flex items-center gap-1">
-                            <Phone className="h-3 w-3 text-primary" />
-                            {teacher.mobile}
-                          </span>
-                        ) : (
-                          <span className="italic text-muted-foreground/80">
-                            Phone: Not set
-                          </span>
-                        )}
-                      </div>
-
-                      {/* Engineering 4-Year Academic Assignment Badges */}
-                      <div className="mt-2.5 pt-2 border-t border-border/50 flex flex-wrap items-center gap-1.5">
-                        {(() => {
-                          const teacherCcas = assignments.filter(
-                            (a) => a.teacher_id === teacher.id,
-                          );
-                          const teacherCoordinatedClasses =
-                            departmentClasses.filter(
-                              (c) =>
-                                c.coordinator_teacher_id === teacher.id ||
-                                teacherCcas.some(
-                                  (a) =>
-                                    a.class_id === c.id ||
-                                    a.class_name === c.name,
-                                ) ||
-                                (teacher.assigned_classes || []).includes(c.name),
-                            );
-                          const isCC =
-                            teacher.role === "class_coordinator" ||
-                            teacher.is_class_coordinator ||
-                            teacherCoordinatedClasses.length > 0 ||
-                            teacherCcas.length > 0;
-
-                          const teacherTs = teacherSubjects.filter(
-                            (ts) => ts.teacher_id === teacher.id,
-                          );
-
-                          return (
-                            <div className="space-y-1.5 w-full">
-                              {isCC && (
-                                <div className="flex flex-wrap items-center gap-1.5">
-                                  <Badge className="bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border border-emerald-500/30 text-[10px] font-semibold">
-                                    CC (
-                                    {teacherCoordinatedClasses.length ||
-                                      teacherCcas.length ||
-                                      1}
-                                    ):{" "}
-                                    {teacherCoordinatedClasses.length > 0
-                                      ? teacherCoordinatedClasses
-                                          .map(
-                                            (c) =>
-                                              `${c.name} (Sem ${c.semester})`,
-                                          )
-                                          .join(", ")
-                                      : teacherCcas.length > 0
-                                        ? teacherCcas
-                                            .map(
-                                              (a) =>
-                                                `${a.class_name || `Sem ${a.semester}`}`,
-                                            )
-                                            .join(", ")
-                                        : `${teacher.assigned_year ? `${teacher.assigned_year === 1 ? "1st" : teacher.assigned_year === 2 ? "2nd" : teacher.assigned_year === 3 ? "3rd" : "4th"} Year` : "2nd Year"} · Sem ${teacher.assigned_semester || 3}`}
-                                  </Badge>
-                                  <span className="text-[10px] text-muted-foreground font-medium">
-                                    Class Coordinator
-                                  </span>
-                                </div>
-                              )}
-
-                              {teacherTs.length > 0 ? (
-                                <div className="flex flex-wrap items-center gap-1">
-                                  <span className="text-[10px] text-muted-foreground font-semibold mr-0.5">
-                                    Teaching:
-                                  </span>
-                                  {(() => {
-                                    const groupedTs: Record<string, string[]> =
-                                      {};
-                                    for (const ts of teacherTs) {
-                                      if (!groupedTs[ts.subject_id])
-                                        groupedTs[ts.subject_id] = [];
-                                      if (
-                                        ts.class_name &&
-                                        !groupedTs[ts.subject_id].includes(
-                                          ts.class_name,
-                                        )
-                                      ) {
-                                        groupedTs[ts.subject_id].push(
-                                          ts.class_name,
-                                        );
-                                      }
-                                    }
-                                    return Object.entries(groupedTs).map(
-                                      ([sId, cNames]) => {
-                                        const sub = departmentSubjects.find(
-                                          (s) => s.id === sId,
-                                        );
-                                        return (
-                                          <Badge
-                                            key={sId}
-                                            variant="outline"
-                                            className="text-[10px] font-mono bg-muted/40 text-foreground"
-                                          >
-                                            {sub?.code || "SUB"}
-                                            {cNames.length > 0
-                                              ? ` (${cNames.join(", ")})`
-                                              : ""}
-                                          </Badge>
-                                        );
-                                      },
-                                    );
-                                  })()}
-                                </div>
-                              ) : (
-                                !isCC && (
-                                  <div className="flex flex-wrap items-center gap-1.5">
-                                    <Badge
-                                      variant="outline"
-                                      className="text-[10px] font-mono text-muted-foreground bg-muted/40"
-                                    >
-                                      Teaching:{" "}
-                                      {teacher.assigned_year
-                                        ? `${teacher.assigned_year === 1 ? "1st" : teacher.assigned_year === 2 ? "2nd" : teacher.assigned_year === 3 ? "3rd" : "4th"} Year`
-                                        : "2nd Year"}
-                                      ,{" "}
-                                      {getSemesterEngineeringLabel(
-                                        teacher.assigned_semester || 3,
-                                      )}{" "}
-                                      (Sem {teacher.assigned_semester || 3})
-                                    </Badge>
-                                  </div>
-                                )
-                              )}
-                            </div>
-                          );
-                        })()}
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Card Actions */}
-                  <div className="flex items-center justify-end sm:justify-start gap-1 pt-2 sm:pt-0 border-t sm:border-t-0 border-border/50">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setPasswordModalTeacher(teacher)}
-                      className="h-8 text-xs font-medium text-foreground hover:text-primary px-2"
-                      title="Set or reset portal login password"
-                    >
-                      <KeyRound className="h-3.5 w-3.5 mr-1 text-primary" />
-                      Password
-                    </Button>
-
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setProfileModalTeacher(teacher)}
-                      className="h-8 text-xs font-medium text-foreground hover:text-primary px-2.5"
-                      title="View faculty dossier"
-                    >
-                      <Eye className="h-3.5 w-3.5 mr-1 text-primary" />
-                      Dossier
-                    </Button>
-
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => openEdit(teacher)}
-                      className="h-8 w-8 text-muted-foreground hover:text-foreground"
-                      title="Edit profile"
-                    >
-                      <Edit3 className="h-3.5 w-3.5" />
-                    </Button>
-
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => remove(teacher)}
-                      className="h-8 w-8 text-destructive hover:bg-destructive/10"
-                      title="Delete teacher"
-                    >
-                      <Trash2 className="h-3.5 w-3.5" />
-                    </Button>
-                  </div>
-                </div>
-              ))
-            )}
-          </div>
-        )}
-      </Card>
-    </div>
-  );
-};
+        </Card>
+      </div>
+    );
+  };

@@ -1,14 +1,39 @@
-import React, { useMemo, useState } from "react";
-import { Building2, Check, Edit3, Plus, Search, Trash2, Layers, Filter } from "lucide-react";
+import React, { useMemo, useState, useEffect } from "react";
+import {
+  Building2,
+  Check,
+  Edit3,
+  Plus,
+  Search,
+  Trash2,
+  Layers,
+  Filter,
+  Users,
+  Sparkles,
+  GraduationCap,
+} from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import { localDb } from "../lib/supabase";
 import { AcademicClass } from "../lib/types";
-import { college, ENGINEERING_YEARS, getEngineeringYearFromSemester, getSemesterEngineeringLabel } from "../lib/college";
+import {
+  college,
+  ENGINEERING_YEARS,
+  getEngineeringYearFromSemester,
+  getSemesterEngineeringLabel,
+} from "../lib/college";
 import { Button } from "../components/ui/button";
 import { Card } from "../components/ui/card";
 import { Input } from "../components/ui/input";
 import { Select } from "../components/ui/select";
 import { Badge } from "../components/ui/badge";
+import {
+  Table,
+  TableHeader,
+  TableBody,
+  TableRow,
+  TableHead,
+  TableCell,
+} from "../components/ui/table";
 
 export const HODClasses: React.FC = () => {
   const { user } = useAuth();
@@ -19,7 +44,8 @@ export const HODClasses: React.FC = () => {
   );
   const departmentId = user?.department_id || linkedTeacher?.department_id;
   const department = departments.find((item) => item.id === departmentId);
-  const [classes, setClasses] = useState<AcademicClass[]>(
+
+  const [classes, setClasses] = useState<AcademicClass[]>(() =>
     localDb.academic_classes.filter(
       (item) => item.department_id === departmentId,
     ),
@@ -28,12 +54,29 @@ export const HODClasses: React.FC = () => {
   const [selectedYearFilter, setSelectedYearFilter] = useState<string>("all");
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<AcademicClass | null>(null);
+  const [divisionNotice, setDivisionNotice] = useState<string | null>(null);
+
   const [form, setForm] = useState({
     name: "",
-    year: "1",
-    semester: "1",
+    year: "2",
+    division: "A",
+    semester: "3",
     coordinator_teacher_id: "",
   });
+
+  const refreshClasses = () => {
+    setClasses(
+      localDb.academic_classes.filter(
+        (item) => item.department_id === departmentId,
+      ),
+    );
+  };
+
+  useEffect(() => {
+    const handleUpdate = () => refreshClasses();
+    window.addEventListener("edutrack_data_updated", handleUpdate);
+    return () => window.removeEventListener("edutrack_data_updated", handleUpdate);
+  }, [departmentId]);
 
   const coordinators = teachers.filter(
     (teacher) =>
@@ -45,8 +88,8 @@ export const HODClasses: React.FC = () => {
   const filtered = useMemo(() => {
     return classes.filter((item) => {
       const itemYear = item.year || getEngineeringYearFromSemester(item.semester);
-      
-      // Year / Parallel filter
+
+      // Year / Track filter
       if (selectedYearFilter === "odd") {
         if (item.semester % 2 === 0) return false;
       } else if (selectedYearFilter === "even") {
@@ -67,16 +110,28 @@ export const HODClasses: React.FC = () => {
 
   const openAdd = () => {
     setEditing(null);
-    setForm({ name: "", year: "1", semester: "1", coordinator_teacher_id: "" });
+    const deptCode = department?.code || "CSE";
+    setForm({
+      name: `SE ${deptCode}-A`,
+      year: "2",
+      division: "A",
+      semester: "3",
+      coordinator_teacher_id: "",
+    });
     setOpen(true);
   };
 
   const openEdit = (item: AcademicClass) => {
     setEditing(item);
     const yr = item.year || getEngineeringYearFromSemester(item.semester);
+    let div = "A";
+    if (item.name.includes("-B") || item.name.endsWith(" B")) div = "B";
+    else if (item.name.includes("-C") || item.name.endsWith(" C")) div = "C";
+
     setForm({
       name: item.name,
       year: String(yr),
+      division: div,
       semester: String(item.semester),
       coordinator_teacher_id: item.coordinator_teacher_id || "",
     });
@@ -86,14 +141,34 @@ export const HODClasses: React.FC = () => {
   const handleYearChange = (yearVal: string) => {
     const yr = Number(yearVal) || 1;
     const semDefault = yr === 1 ? "1" : yr === 2 ? "3" : yr === 3 ? "5" : "7";
+    const code = yr === 1 ? "FE" : yr === 2 ? "SE" : yr === 3 ? "TE" : "BE";
+    const deptCode = department?.code || "CSE";
+    const divPart = yr === 1 ? "" : `-${form.division}`;
+    const autoName = `${code} ${deptCode}${divPart}`;
+
     setForm((prev) => ({
       ...prev,
       year: yearVal,
       semester: semDefault,
+      name: autoName,
     }));
   };
 
-  // Get semesters for chosen year in form
+  const handleDivisionChange = (divVal: string) => {
+    const yr = Number(form.year) || 2;
+    const code = yr === 1 ? "FE" : yr === 2 ? "SE" : yr === 3 ? "TE" : "BE";
+    const deptCode = department?.code || "CSE";
+    const divPart = yr === 1 ? "" : `-${divVal}`;
+    const autoName = `${code} ${deptCode}${divPart}`;
+
+    setForm((prev) => ({
+      ...prev,
+      division: divVal,
+      name: autoName,
+    }));
+  };
+
+  // Available semesters for chosen year
   const availableSemesters = useMemo(() => {
     const yr = Number(form.year) || 1;
     const yearConfig = ENGINEERING_YEARS.find((y) => y.year === yr);
@@ -120,75 +195,102 @@ export const HODClasses: React.FC = () => {
     if (editing) await localDb.update("academic_classes", editing.id, data);
     else await localDb.insert("academic_classes", [data]);
 
-    setClasses(
-      localDb.academic_classes.filter(
-        (item) => item.department_id === departmentId,
-      ),
-    );
+    refreshClasses();
     setOpen(false);
   };
 
   const remove = async (item: AcademicClass) => {
     if (!confirm(`Delete ${item.name}?`)) return;
     await localDb.delete("academic_classes", item.id);
-    setClasses(
-      localDb.academic_classes.filter(
-        (entry) => entry.department_id === departmentId,
-      ),
+    refreshClasses();
+  };
+
+  const handleSetupStandardDivisions = () => {
+    if (!departmentId) return;
+    localDb.ensureStandardEngineeringDivisions(departmentId);
+    refreshClasses();
+    setDivisionNotice(
+      "Standard Divisions (A & B) for 2nd Year (SE), 3rd Year (TE), and 4th Year (BE) verified and configured successfully!",
     );
+    setTimeout(() => setDivisionNotice(null), 5000);
   };
 
   return (
     <div className="space-y-6">
+      {/* Header */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <p className="text-xs font-bold uppercase tracking-[0.18em] text-primary">
-            HOD Portal · {department?.code || "Engineering"}
-          </p>
-          <h1 className="mt-1 font-display text-3xl font-bold">
-            Engineering Classes
+          <div className="flex items-center gap-2">
+            <Badge className="bg-primary/15 text-primary border-primary/20 text-xs">
+              HOD PORTAL · {department?.code || "ENGINEERING"}
+            </Badge>
+            <span className="text-xs text-muted-foreground font-medium">
+              Academic Hierarchy & Divisions
+            </span>
+          </div>
+          <h1 className="mt-1 font-display text-2xl sm:text-3xl font-bold tracking-tight">
+            Engineering Classes & Divisions
           </h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            Configure 4-year cohorts (FE, SE, TE, BE), semester sections, and Class Coordinators.
+            Manage 4-year cohorts: 1st Year (FE) single cohort, and 2nd Year (SE),
+            3rd Year (TE), &amp; 4th Year (BE) with dual Divisions A &amp; B.
           </p>
         </div>
-        <Button onClick={openAdd}>
-          <Plus className="mr-2 h-4 w-4" /> Add Class
-        </Button>
+
+        <div className="flex flex-wrap items-center gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleSetupStandardDivisions}
+            className="gap-1.5 border-border hover:border-primary/50 text-xs h-9"
+            title="Automatically ensure Division A and Division B for 2nd, 3rd, and 4th years"
+          >
+            <Layers className="h-4 w-4 text-emerald-600" />
+            <span>Setup Standard Divisions (A &amp; B)</span>
+          </Button>
+
+          <Button size="sm" onClick={openAdd} className="gap-1.5 text-xs h-9">
+            <Plus className="h-4 w-4" /> Add Class
+          </Button>
+        </div>
       </div>
 
+      {divisionNotice && (
+        <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-3.5 text-xs font-semibold text-emerald-800 dark:text-emerald-300 flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Sparkles className="h-4 w-4 text-emerald-600" />
+            <span>{divisionNotice}</span>
+          </div>
+          <button
+            onClick={() => setDivisionNotice(null)}
+            className="text-muted-foreground hover:text-foreground font-bold"
+          >
+            ✕
+          </button>
+        </div>
+      )}
+
+      {/* Add / Edit Class Dialog */}
       {open && (
-        <Card className="border-primary/30 bg-primary/[0.03] p-5 shadow-sm">
+        <Card className="border-primary/30 bg-primary/[0.03] p-5 shadow-xs">
           <div className="mb-4 flex items-center justify-between">
             <div>
               <h2 className="font-display text-lg font-bold">
-                {editing ? "Edit Engineering Class" : "Add Engineering Class"}
+                {editing ? "Edit Engineering Class" : "Add Engineering Class & Division"}
               </h2>
               <p className="text-xs text-muted-foreground">
-                Select the engineering academic year (FE–BE), corresponding semester, and designated coordinator.
+                Set Year (1-4), Division (A or B for 2nd, 3rd, 4th), Semester, and Class Coordinator.
               </p>
             </div>
             <Button variant="ghost" size="sm" onClick={() => setOpen(false)}>
-              Cancel
+              ✕
             </Button>
           </div>
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            <div>
-              <label className="text-xs font-semibold text-foreground mb-1 block">
-                Class / Section Name *
-              </label>
-              <Input
-                placeholder="e.g. SE-CSE-A or FE-Comp-B"
-                value={form.name}
-                onChange={(event) =>
-                  setForm({ ...form, name: event.target.value })
-                }
-              />
-            </div>
 
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
             <div>
               <label className="text-xs font-semibold text-foreground mb-1 block">
-                Engineering Year (1–4)
+                Engineering Year
               </label>
               <Select
                 value={form.year}
@@ -197,6 +299,40 @@ export const HODClasses: React.FC = () => {
                   value: String(y.year),
                   label: `${y.shortName} · ${y.name}`,
                 }))}
+              />
+            </div>
+
+            <div>
+              <label className="text-xs font-semibold text-foreground mb-1 block">
+                Division
+              </label>
+              <Select
+                value={form.division}
+                onChange={(event) => handleDivisionChange(event.target.value)}
+                options={
+                  form.year === "1"
+                    ? [
+                        { value: "A", label: "Single Division (A)" },
+                        { value: "common", label: "Common Cohort" },
+                      ]
+                    : [
+                        { value: "A", label: "Division A" },
+                        { value: "B", label: "Division B" },
+                      ]
+                }
+              />
+            </div>
+
+            <div>
+              <label className="text-xs font-semibold text-foreground mb-1 block">
+                Class / Section Name *
+              </label>
+              <Input
+                placeholder="e.g. SE CSE-A or BE CSE-B"
+                value={form.name}
+                onChange={(event) =>
+                  setForm({ ...form, name: event.target.value })
+                }
               />
             </div>
 
@@ -242,7 +378,11 @@ export const HODClasses: React.FC = () => {
               />
             </div>
           </div>
-          <div className="mt-4 flex justify-end">
+
+          <div className="mt-4 flex justify-end gap-2 border-t border-border/60 pt-3">
+            <Button variant="outline" onClick={() => setOpen(false)}>
+              Cancel
+            </Button>
             <Button onClick={save}>
               <Check className="mr-2 h-4 w-4" />{" "}
               {editing ? "Update Class" : "Create Class"}
@@ -252,13 +392,13 @@ export const HODClasses: React.FC = () => {
       )}
 
       {/* Filter Tabs & Search */}
-      <Card className="p-5">
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 mb-4">
+      <div className="surface-panel p-4 space-y-3">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
           <div className="relative max-w-md w-full">
             <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
             <Input
-              className="pl-9"
-              placeholder="Search classes (e.g. SE, CSE-A, Sem 3)..."
+              className="pl-9 h-9 text-xs"
+              placeholder="Search classes (e.g. SE-A, BE-B, CSE, Sem 7)..."
               value={search}
               onChange={(event) => setSearch(event.target.value)}
             />
@@ -287,7 +427,7 @@ export const HODClasses: React.FC = () => {
                   : "bg-muted text-muted-foreground hover:text-foreground"
               }`}
             >
-              Parallel Odd (1, 3, 5, 7)
+              Odd Track (1, 3, 5, 7)
             </button>
             <button
               onClick={() => setSelectedYearFilter("even")}
@@ -297,7 +437,7 @@ export const HODClasses: React.FC = () => {
                   : "bg-muted text-muted-foreground hover:text-foreground"
               }`}
             >
-              Parallel Even (2, 4, 6, 8)
+              Even Track (2, 4, 6, 8)
             </button>
             {ENGINEERING_YEARS.map((y) => (
               <button
@@ -315,95 +455,219 @@ export const HODClasses: React.FC = () => {
           </div>
         </div>
 
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-          {filtered.length === 0 ? (
-            <p className="py-10 text-center text-sm text-muted-foreground sm:col-span-2 lg:col-span-3">
-              No classes found for the selected filter.
-            </p>
-          ) : (
-            filtered.map((item) => {
-              const coordinator = teachers.find(
-                (teacher) => teacher.id === item.coordinator_teacher_id,
-              );
-              const yearNum = item.year || getEngineeringYearFromSemester(item.semester);
-              const yearObj = ENGINEERING_YEARS.find((y) => y.year === yearNum);
-              const isOdd = item.semester % 2 !== 0;
+        <div className="flex items-center justify-between text-xs text-muted-foreground pt-1 border-t border-border/60">
+          <span>
+            Total Classes: <strong className="text-foreground">{filtered.length}</strong>
+          </span>
+          <span className="text-[11px] text-muted-foreground">
+            Structure: 1st Year (Single) · 2nd, 3rd, 4th Year (Div A &amp; B)
+          </span>
+        </div>
+      </div>
 
-              return (
-                <div
-                  key={item.id}
-                  className="flex items-start justify-between rounded-xl border border-border p-4 bg-card hover:border-primary/40 transition-all shadow-xs"
-                >
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <div className="h-8 w-8 rounded-lg bg-primary/10 text-primary flex items-center justify-center font-bold text-xs">
-                        {yearObj?.shortName || `Y${yearNum}`}
+      {/* ========================================================================= */}
+      {/* TABULAR VIEW FOR CLASSES */}
+      {/* ========================================================================= */}
+      <div className="rounded-xl border border-border bg-card overflow-hidden shadow-xs">
+        <div className="overflow-x-auto">
+          <Table className="w-full text-xs">
+            <TableHeader className="bg-muted/70 border-b border-border">
+              <TableRow>
+                <TableHead className="w-12 text-center font-bold">#</TableHead>
+                <TableHead className="min-w-[150px] font-bold">Class / Section</TableHead>
+                <TableHead className="min-w-[130px] font-bold">Engineering Year</TableHead>
+                <TableHead className="min-w-[110px] text-center font-bold">Division</TableHead>
+                <TableHead className="min-w-[160px] font-bold">Semester &amp; Track</TableHead>
+                <TableHead className="min-w-[180px] font-bold">Class Coordinator (CC)</TableHead>
+                <TableHead className="min-w-[100px] text-center font-bold">Enrolled Students</TableHead>
+                <TableHead className="min-w-[100px] text-right font-bold pr-4">Actions</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody className="divide-y divide-border">
+              {filtered.length === 0 ? (
+                <TableRow>
+                  <TableCell
+                    colSpan={8}
+                    className="py-14 text-center text-muted-foreground"
+                  >
+                    <div className="max-w-md mx-auto space-y-3">
+                      <div className="h-12 w-12 rounded-full bg-muted flex items-center justify-center mx-auto text-muted-foreground">
+                        <Building2 className="h-6 w-6" />
                       </div>
-                      <div>
-                        <p className="font-display font-bold text-base">{item.name}</p>
-                        <p className="text-[11px] text-muted-foreground">
-                          {yearObj?.name || `${yearNum}th Year`}
-                        </p>
+                      <p className="text-sm font-semibold text-foreground">
+                        No classes found for the selected filter
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        Click &quot;Setup Standard Divisions (A &amp; B)&quot; to automatically
+                        create divisions for 2nd, 3rd, and 4th years, or add classes manually.
+                      </p>
+                      <div className="flex items-center justify-center gap-2 pt-2">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={handleSetupStandardDivisions}
+                          className="gap-1.5"
+                        >
+                          <Layers className="h-4 w-4 text-emerald-600" />
+                          Setup Standard Divisions
+                        </Button>
+                        <Button size="sm" onClick={openAdd} className="gap-1.5">
+                          <Plus className="h-4 w-4" />
+                          Add Class Manually
+                        </Button>
                       </div>
                     </div>
+                  </TableCell>
+                </TableRow>
+              ) : (
+                filtered.map((item, idx) => {
+                  const coordinator = teachers.find(
+                    (teacher) => teacher.id === item.coordinator_teacher_id,
+                  );
+                  const yearNum = item.year || getEngineeringYearFromSemester(item.semester);
+                  const yearObj = ENGINEERING_YEARS.find((y) => y.year === yearNum);
+                  const isOdd = item.semester % 2 !== 0;
 
-                    <div className="mt-3 flex flex-wrap items-center gap-1.5">
-                      <Badge variant="outline" className="text-[10px] font-mono">
-                        Semester {item.semester} ({getSemesterEngineeringLabel(item.semester)})
-                      </Badge>
-                      <Badge
-                        variant="secondary"
-                        className={`text-[10px] ${
-                          isOdd ? "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-500/20" : "bg-sky-500/10 text-sky-700 dark:text-sky-400 border-sky-500/20"
-                        }`}
-                      >
-                        {isOdd ? "Odd Track" : "Even Track"}
-                      </Badge>
-                    </div>
+                  // Detect division
+                  let divLabel = "Single";
+                  let divBadgeVariant: "default" | "secondary" | "outline" = "outline";
+                  if (item.name.includes("-A") || item.name.endsWith(" A") || item.name.includes("Div A")) {
+                    divLabel = "Div A";
+                    divBadgeVariant = "default";
+                  } else if (item.name.includes("-B") || item.name.endsWith(" B") || item.name.includes("Div B")) {
+                    divLabel = "Div B";
+                    divBadgeVariant = "secondary";
+                  }
 
-                    <div className="mt-2.5 pt-2 border-t border-border/50">
-                      <span className="text-[11px] text-muted-foreground block">
-                        Class Coordinator:
-                      </span>
-                      <span className="text-xs font-semibold text-foreground">
-                        {coordinator ? (
-                          <span className="text-emerald-600 dark:text-emerald-400">
-                            {coordinator.full_name} ({coordinator.employee_id})
+                  const enrolledStudentsCount = localDb.students.filter(
+                    (st) =>
+                      st.class_id === item.id ||
+                      st.class_name === item.name ||
+                      (st.semester === item.semester && st.class_name === item.name),
+                  ).length;
+
+                  return (
+                    <TableRow key={item.id} className="hover:bg-muted/40 transition-colors">
+                      <TableCell className="text-center font-mono text-muted-foreground">
+                        {idx + 1}
+                      </TableCell>
+
+                      <TableCell>
+                        <div className="flex items-center gap-2">
+                          <span className="font-bold text-foreground text-sm">
+                            {item.name}
                           </span>
+                        </div>
+                      </TableCell>
+
+                      <TableCell>
+                        <div className="flex items-center gap-1.5">
+                          <Badge
+                            className={`text-[10px] font-bold ${
+                              yearNum === 1
+                                ? "bg-amber-500/15 text-amber-700 dark:text-amber-400 border-amber-500/25"
+                                : yearNum === 2
+                                  ? "bg-blue-500/15 text-blue-700 dark:text-blue-400 border-blue-500/25"
+                                  : yearNum === 3
+                                    ? "bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border-emerald-500/25"
+                                    : "bg-purple-500/15 text-purple-700 dark:text-purple-400 border-purple-500/25"
+                            }`}
+                          >
+                            {yearObj?.shortName || `Y${yearNum}`}
+                          </Badge>
+                          <span className="text-muted-foreground text-[11px]">
+                            {yearObj?.name || `${yearNum}th Year`}
+                          </span>
+                        </div>
+                      </TableCell>
+
+                      <TableCell className="text-center">
+                        <Badge
+                          variant={divBadgeVariant}
+                          className={`text-[10px] font-bold px-2 py-0.5 ${
+                            divLabel === "Div A"
+                              ? "bg-primary/10 text-primary border-primary/25"
+                              : divLabel === "Div B"
+                                ? "bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border-emerald-500/25"
+                                : ""
+                          }`}
+                        >
+                          {divLabel}
+                        </Badge>
+                      </TableCell>
+
+                      <TableCell>
+                        <div className="flex items-center gap-1.5">
+                          <Badge variant="outline" className="text-[10px] font-mono">
+                            Sem {item.semester}
+                          </Badge>
+                          <Badge
+                            variant="secondary"
+                            className={`text-[9px] ${
+                              isOdd
+                                ? "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400"
+                                : "bg-sky-500/10 text-sky-700 dark:text-sky-400"
+                            }`}
+                          >
+                            {isOdd ? "Odd Track" : "Even Track"}
+                          </Badge>
+                        </div>
+                      </TableCell>
+
+                      <TableCell>
+                        {coordinator ? (
+                          <div className="text-xs">
+                            <span className="font-semibold text-emerald-600 dark:text-emerald-400 block">
+                              {coordinator.full_name}
+                            </span>
+                            <span className="font-mono text-[10px] text-muted-foreground">
+                              {coordinator.employee_id}
+                            </span>
+                          </div>
                         ) : (
-                          <span className="italic text-muted-foreground font-normal">
+                          <span className="italic text-muted-foreground text-xs">
                             Not assigned
                           </span>
                         )}
-                      </span>
-                    </div>
-                  </div>
+                      </TableCell>
 
-                  <div className="flex gap-1">
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => openEdit(item)}
-                      title="Edit class"
-                    >
-                      <Edit3 className="h-4 w-4" />
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => remove(item)}
-                      className="text-destructive hover:bg-destructive/10"
-                      title="Delete class"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
-                  </div>
-                </div>
-              );
-            })
-          )}
+                      <TableCell className="text-center">
+                        <span className="inline-flex items-center gap-1 font-mono font-bold text-xs px-2 py-0.5 rounded bg-muted text-foreground">
+                          <Users className="h-3 w-3 text-muted-foreground" />
+                          {enrolledStudentsCount}
+                        </span>
+                      </TableCell>
+
+                      <TableCell className="text-right pr-4">
+                        <div className="flex items-center justify-end gap-1">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8 text-muted-foreground hover:text-foreground"
+                            onClick={() => openEdit(item)}
+                            title="Edit class"
+                          >
+                            <Edit3 className="h-3.5 w-3.5" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8 text-muted-foreground hover:text-destructive"
+                            onClick={() => remove(item)}
+                            title="Delete class"
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </Button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })
+              )}
+            </TableBody>
+          </Table>
         </div>
-      </Card>
+      </div>
     </div>
   );
 };

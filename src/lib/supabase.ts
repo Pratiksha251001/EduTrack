@@ -282,8 +282,112 @@ class LocalDatabase {
       }
     }
 
+    // Ensure 2nd, 3rd, and 4th years have two divisions (A and B), excluding 1st year
+    this.ensureStandardEngineeringDivisions();
+
     if (isSupabaseConfigured) {
       this.syncFromSupabase();
+    }
+  }
+
+  /**
+   * Ensures that for 2nd Year (SE), 3rd Year (TE), and 4th Year (BE),
+   * two divisions (A and B) exist. First year (FE) is left as a single cohort.
+   */
+  public ensureStandardEngineeringDivisions(targetDeptId?: string) {
+    const depts = targetDeptId
+      ? this.departments.filter((d) => d.id === targetDeptId)
+      : this.departments;
+
+    let classesChanged = false;
+
+    for (const dept of depts) {
+      const deptCode = dept.code || "ENGG";
+      const deptClasses = this.academic_classes.filter((c) => c.department_id === dept.id);
+
+      const yearsConfig = [
+        { year: 2, sem: 3, code: "SE" },
+        { year: 3, sem: 5, code: "TE" },
+        { year: 4, sem: 7, code: "BE" },
+      ];
+
+      for (const yc of yearsConfig) {
+        const divAExists = deptClasses.some(
+          (c) =>
+            (c.year === yc.year || c.semester === yc.sem || c.semester === yc.sem + 1) &&
+            (c.name.includes("-A") || c.name.endsWith(" A") || c.name.includes("Div A") || c.name.includes("Division A")),
+        );
+        const divBExists = deptClasses.some(
+          (c) =>
+            (c.year === yc.year || c.semester === yc.sem || c.semester === yc.sem + 1) &&
+            (c.name.includes("-B") || c.name.endsWith(" B") || c.name.includes("Div B") || c.name.includes("Division B")),
+        );
+
+        if (!divAExists) {
+          const newClassA: AcademicClass = {
+            id: `class-${deptCode.toLowerCase()}-${yc.code.toLowerCase()}-a`,
+            name: `${yc.code} ${deptCode}-A`,
+            department_id: dept.id,
+            year: yc.year,
+            semester: yc.sem,
+            coordinator_teacher_id: null,
+            status: "active",
+          };
+          this.academic_classes.push(newClassA);
+          classesChanged = true;
+        }
+
+        if (!divBExists) {
+          const newClassB: AcademicClass = {
+            id: `class-${deptCode.toLowerCase()}-${yc.code.toLowerCase()}-b`,
+            name: `${yc.code} ${deptCode}-B`,
+            department_id: dept.id,
+            year: yc.year,
+            semester: yc.sem,
+            coordinator_teacher_id: null,
+            status: "active",
+          };
+          this.academic_classes.push(newClassB);
+          classesChanged = true;
+        }
+      }
+    }
+
+    // Also check if BE CSE-B has student st-be-2, if not add it
+    const beClassB = this.academic_classes.find((c) => c.name === "BE CSE-B" || c.id === "class-cse-be-b");
+    if (beClassB && !this.students.some((s) => s.id === "st-be-2" || s.roll_number === "21CS002")) {
+      const studentBeB = {
+        id: "st-be-2",
+        roll_number: "21CS002",
+        reg_number: "REG-2021-002",
+        full_name: "Meera Nair",
+        department_id: beClassB.department_id || "dept-1",
+        year: 4,
+        semester: 7,
+        class_id: beClassB.id,
+        class_name: beClassB.name,
+        parent_name: "Gopal Nair",
+        parent_mobile: "9876543242",
+        student_mobile: "9876543243",
+        email: "meera.n@student.college.edu",
+        address: "Campus View Hostel D, Room 210",
+        date_of_birth: "2003-05-18",
+        gender: "female",
+        status: "active" as const,
+      };
+      this.students.push(studentBeB);
+      this.persist("students");
+    }
+
+    if (classesChanged) {
+      this.persist("academic_classes");
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(
+          new CustomEvent("edutrack_data_updated", {
+            detail: { table: "academic_classes", data: this.academic_classes },
+          }),
+        );
+      }
     }
   }
 

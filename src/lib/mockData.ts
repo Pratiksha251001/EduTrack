@@ -96,6 +96,15 @@ export const mockClasses: AcademicClass[] = [
     coordinator_teacher_id: null,
     status: "active",
   },
+  {
+    id: "class-cse-be-b",
+    name: "BE CSE-B",
+    department_id: "dept-1",
+    year: 4,
+    semester: 7,
+    coordinator_teacher_id: null,
+    status: "active",
+  },
 ];
 
 export const mockDepartments: Department[] = [
@@ -543,7 +552,7 @@ export const mockStudents: Student[] = [
     status: "active",
   },
 
-  // 4th Year (BE) Students - Sem 7 (BE CSE-A)
+  // 4th Year (BE) Students - Sem 7 (BE CSE-A and BE CSE-B)
   {
     id: "st-be-1",
     roll_number: "21CS001",
@@ -561,6 +570,25 @@ export const mockStudents: Student[] = [
     address: "Senior Hostel Block D, Room 304",
     date_of_birth: "2003-01-14",
     gender: "male",
+    status: "active",
+  },
+  {
+    id: "st-be-2",
+    roll_number: "21CS002",
+    reg_number: "REG-2021-002",
+    full_name: "Meera Nair",
+    department_id: "dept-1",
+    year: 4,
+    semester: 7,
+    class_id: "class-cse-be-b",
+    class_name: "BE CSE-B",
+    parent_name: "Gopal Nair",
+    parent_mobile: "9876543242",
+    student_mobile: "9876543243",
+    email: "meera.n@student.college.edu",
+    address: "Campus View Hostel D, Room 210",
+    date_of_birth: "2003-05-18",
+    gender: "female",
     status: "active",
   },
 ];

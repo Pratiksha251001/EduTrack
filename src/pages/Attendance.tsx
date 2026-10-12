@@ -39,6 +39,14 @@ import { Select } from "../components/ui/select";
 import { Input } from "../components/ui/input";
 import { Badge } from "../components/ui/badge";
 import { DatePicker } from "../components/ui/date-picker";
+import {
+  Table,
+  TableHeader,
+  TableBody,
+  TableRow,
+  TableHead,
+  TableCell,
+} from "../components/ui/table";
 import { AttendanceVerificationModal } from "../components/AttendanceVerificationModal";
 import { AttendanceDispatchReceiptModal } from "../components/AttendanceDispatchReceiptModal";
 import { recordAttendanceSubmittedNotification } from "../lib/notificationService";
@@ -789,64 +797,114 @@ export const Attendance: React.FC = () => {
               : "No students matching search filter."}
           </div>
         ) : (
-          <div className="space-y-2">
-            {displayedStudents.map((st) => {
-              const status = attendanceState[st.id] || "present";
-              return (
-                <div
-                  key={st.id}
-                  className={`flex flex-col sm:flex-row sm:items-center sm:justify-between rounded-xl border p-3.5 transition-colors ${
-                    status === "absent"
-                      ? "border-destructive/40 bg-destructive/5"
-                      : "border-border bg-card"
-                  }`}
-                >
-                  <div className="min-w-0">
-                    <div className="flex items-center gap-2">
-                      <p className="font-semibold text-sm">{st.full_name}</p>
-                      {st.class_name && (
-                        <span className="px-2 py-0.2 rounded text-[10px] font-mono font-bold bg-muted text-muted-foreground border border-border">
-                          {st.class_name}
-                        </span>
-                      )}
-                    </div>
-                    <p className="text-xs text-muted-foreground mt-0.5">
-                      Roll No:{" "}
-                      <span className="font-medium text-foreground">
-                        {st.roll_number}
-                      </span>{" "}
-                      · Parent: {st.parent_name || "Guardian"} · Mobile:{" "}
-                      <span className="font-mono text-foreground font-medium">
-                        {st.parent_mobile || "None"}
-                      </span>
-                    </p>
-                  </div>
-
-                  <div className="flex items-center gap-2 mt-2 sm:mt-0">
-                    <Badge
-                      variant={status === "present" ? "success" : "destructive"}
-                      className="uppercase text-[10px]"
-                    >
-                      {status}
-                    </Badge>
-                    <Button
-                      size="sm"
-                      variant={status === "present" ? "default" : "outline"}
-                      onClick={() => toggleStudent(st.id, "present")}
-                    >
-                      <Check className="h-3.5 w-3.5 mr-1" /> Present
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant={status === "absent" ? "destructive" : "outline"}
-                      onClick={() => toggleStudent(st.id, "absent")}
-                    >
-                      <X className="h-3.5 w-3.5 mr-1" /> Absent
-                    </Button>
-                  </div>
-                </div>
-              );
-            })}
+          <div className="rounded-xl border border-border bg-card overflow-hidden shadow-xs">
+            <div className="overflow-x-auto">
+              <Table className="w-full text-xs">
+                <TableHeader className="bg-muted/70 border-b border-border">
+                  <TableRow>
+                    <TableHead className="w-12 text-center font-bold">#</TableHead>
+                    <TableHead className="min-w-[110px] font-bold">Roll No</TableHead>
+                    <TableHead className="min-w-[210px] font-bold">Student Name & PRN</TableHead>
+                    <TableHead className="min-w-[100px] font-bold">Class / Div</TableHead>
+                    <TableHead className="min-w-[190px] font-bold">Guardian Contact</TableHead>
+                    <TableHead className="min-w-[100px] text-center font-bold">Status</TableHead>
+                    <TableHead className="min-w-[220px] text-right font-bold pr-4">Attendance Action</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody className="divide-y divide-border">
+                  {displayedStudents.map((st, idx) => {
+                    const status = attendanceState[st.id] || "present";
+                    const isAbsent = status === "absent";
+                    return (
+                      <TableRow
+                        key={st.id}
+                        className={`transition-colors ${
+                          isAbsent
+                            ? "bg-rose-500/[0.05] hover:bg-rose-500/[0.09]"
+                            : "hover:bg-muted/40"
+                        }`}
+                      >
+                        <TableCell className="text-center font-mono text-muted-foreground">
+                          {idx + 1}
+                        </TableCell>
+                        <TableCell className="font-mono font-bold text-foreground">
+                          {st.roll_number}
+                        </TableCell>
+                        <TableCell>
+                          <div>
+                            <p className="font-semibold text-foreground text-sm">
+                              {st.full_name}
+                            </p>
+                            <p className="text-[11px] text-muted-foreground font-mono">
+                              PRN: {st.prn_number || "—"}
+                            </p>
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          {st.class_name ? (
+                            <Badge variant="outline" className="font-mono text-[10px] font-bold">
+                              {st.class_name}
+                            </Badge>
+                          ) : (
+                            <span className="text-muted-foreground text-[11px]">Sem {st.semester}</span>
+                          )}
+                        </TableCell>
+                        <TableCell>
+                          <div className="space-y-0.5">
+                            <p className="font-medium text-foreground truncate max-w-[160px]">
+                              {st.parent_name || "Guardian"}
+                            </p>
+                            <p className="font-mono text-[11px] text-muted-foreground">
+                              {st.parent_mobile ? (
+                                <span>📱 {st.parent_mobile}</span>
+                              ) : (
+                                <span className="text-destructive font-semibold">No Mobile</span>
+                              )}
+                            </p>
+                          </div>
+                        </TableCell>
+                        <TableCell className="text-center">
+                          <Badge
+                            variant={isAbsent ? "destructive" : "success"}
+                            className="uppercase text-[10px] font-bold px-2 py-0.5 tracking-wider"
+                          >
+                            {status}
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="text-right pr-4">
+                          <div className="inline-flex items-center gap-1.5">
+                            <Button
+                              size="sm"
+                              variant={!isAbsent ? "default" : "outline"}
+                              className={`h-8 text-xs font-semibold ${
+                                !isAbsent
+                                  ? "bg-emerald-600 hover:bg-emerald-700 text-white shadow-xs"
+                                  : "border-border hover:border-emerald-500/50"
+                              }`}
+                              onClick={() => toggleStudent(st.id, "present")}
+                            >
+                              <Check className="h-3.5 w-3.5 mr-1" /> Present
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant={isAbsent ? "destructive" : "outline"}
+                              className={`h-8 text-xs font-semibold ${
+                                isAbsent
+                                  ? "bg-rose-600 hover:bg-rose-700 text-white shadow-xs"
+                                  : "border-border hover:border-rose-500/50"
+                              }`}
+                              onClick={() => toggleStudent(st.id, "absent")}
+                            >
+                              <X className="h-3.5 w-3.5 mr-1" /> Absent
+                            </Button>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
+                </TableBody>
+              </Table>
+            </div>
           </div>
         )}
       </div>

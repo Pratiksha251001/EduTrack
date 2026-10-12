@@ -16,6 +16,14 @@ import {
   CardTitle,
 } from "../components/ui/card";
 import { Badge } from "../components/ui/badge";
+import {
+  Table,
+  TableHeader,
+  TableBody,
+  TableRow,
+  TableHead,
+  TableCell,
+} from "../components/ui/table";
 
 export const StudentDashboard: React.FC = () => {
   const { user } = useAuth();
@@ -141,36 +149,42 @@ export const StudentDashboard: React.FC = () => {
                 No attendance records yet.
               </p>
             ) : (
-              <div className="divide-y divide-border">
-                {recentAttendance.map((record) => {
-                  const subject = localDb.subjects.find(
-                    (item) => item.id === record.subject_id,
-                  );
-                  return (
-                    <div
-                      key={record.id}
-                      className="flex items-center justify-between py-3"
-                    >
-                      <div>
-                        <p className="text-sm font-semibold">
-                          {subject?.name || "Subject"}
-                        </p>
-                        <p className="text-xs text-muted-foreground">
-                          {record.date}
-                        </p>
-                      </div>
-                      <Badge
-                        variant={
-                          record.status === "present"
-                            ? "success"
-                            : "destructive"
-                        }
-                      >
-                        {record.status}
-                      </Badge>
-                    </div>
-                  );
-                })}
+              <div className="rounded-lg border border-border overflow-hidden">
+                <Table className="text-xs">
+                  <TableHeader className="bg-muted/60">
+                    <TableRow>
+                      <TableHead className="font-bold">Subject</TableHead>
+                      <TableHead className="font-bold">Date</TableHead>
+                      <TableHead className="text-right font-bold pr-3">Status</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody className="divide-y divide-border">
+                    {recentAttendance.map((record) => {
+                      const subject = localDb.subjects.find(
+                        (item) => item.id === record.subject_id,
+                      );
+                      const isPresent = record.status === "present";
+                      return (
+                        <TableRow key={record.id} className="hover:bg-muted/40">
+                          <TableCell className="font-semibold text-foreground py-2.5">
+                            {subject?.name || "Subject"}
+                          </TableCell>
+                          <TableCell className="text-muted-foreground font-mono text-[11px] py-2.5">
+                            {record.date}
+                          </TableCell>
+                          <TableCell className="text-right pr-3 py-2.5">
+                            <Badge
+                              variant={isPresent ? "success" : "destructive"}
+                              className="uppercase text-[9px] font-bold px-2 py-0.5"
+                            >
+                              {record.status}
+                            </Badge>
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })}
+                  </TableBody>
+                </Table>
               </div>
             )}
           </CardContent>
