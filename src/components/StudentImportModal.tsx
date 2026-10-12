@@ -27,10 +27,8 @@ import {
 } from "../lib/studentExcelUtils";
 import {
   sanitizeMobileInput,
-  getMobileValidationError,
-  cleanMobile,
-  isValidEmail,
   isValid10DigitMobile,
+  getStudentValidationErrors,
 } from "../lib/validation";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "./ui/dialog";
 import { Button } from "./ui/button";
@@ -133,60 +131,12 @@ export const StudentImportModal: React.FC<StudentImportModalProps> = ({
       const errors: string[] = [];
       const warnings: string[] = [];
 
-      if (!String(row.roll_number || "").trim()) {
-        errors.push("Unique Enrollment / Roll Number is required.");
-      } else {
-        const normRoll = String(row.roll_number).trim().toLowerCase();
-        const existingRoll = localDb.students.find(
-          (s) => s.roll_number.trim().toLowerCase() === normRoll,
-        );
-        if (existingRoll) {
-          errors.push(
-            `Enrollment '${row.roll_number}' already exists in institutional records.`,
-          );
-        }
-      }
-
-      if (!String(row.full_name || "").trim()) {
-        errors.push("Student Full Name is required.");
-      }
-
-      if (!String(row.prn_number || "").trim()) {
-        errors.push("PRN Number is required.");
-      }
-
-      // 10-Digit Parent Mobile Validation
-      const parentErr = getMobileValidationError(
-        row.parent_mobile,
-        "Parent Mobile",
-        true,
+      errors.push(
+        ...getStudentValidationErrors(row, [
+          ...localDb.students,
+          ...next.slice(0, index),
+        ]),
       );
-      if (parentErr) {
-        errors.push(parentErr);
-      }
-
-      // 10-Digit Student Mobile Validation
-      if (row.student_mobile) {
-        const studentErr = getMobileValidationError(
-          row.student_mobile,
-          "Student Mobile",
-          false,
-        );
-        if (studentErr) {
-          warnings.push(studentErr);
-        }
-      }
-
-      // Duplicate check between parent and student mobile
-      const clParent = cleanMobile(row.parent_mobile);
-      const clStudent = cleanMobile(row.student_mobile);
-      if (clParent && clStudent && clParent === clStudent) {
-        errors.push("Parent Mobile and Student Mobile cannot be identical.");
-      }
-
-      if (row.email && !isValidEmail(row.email)) {
-        warnings.push(`Invalid email format '${row.email}'.`);
-      }
 
       row.errors = errors;
       row.warnings = warnings;
@@ -244,7 +194,7 @@ export const StudentImportModal: React.FC<StudentImportModalProps> = ({
           department_id: selectedDepartmentId,
           semester: item.semester || defaultSemester || 1,
           parent_name: item.parent_name?.trim() || null,
-          parent_mobile: item.parent_mobile.trim(),
+          parent_mobile: item.parent_mobile?.trim() || null,
           student_mobile: item.student_mobile?.trim() || null,
           email: item.email?.trim().toLowerCase() || null,
           date_of_birth: item.date_of_birth || null,

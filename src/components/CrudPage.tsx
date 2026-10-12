@@ -16,6 +16,7 @@ import {
   isValid10DigitMobile,
   getMobileValidationError,
   sanitizeMobileInput,
+  getStudentValidationErrors,
 } from "../lib/validation";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
@@ -160,6 +161,28 @@ export function CrudPage<T extends { id: string }>({
 
   const handleSave = async () => {
     setSaving(true);
+
+    if (table === "students" && !String(formData.department_id || "").trim()) {
+      alert("Department assignment is required for every student.");
+      setSaving(false);
+      return;
+    }
+
+    if (table === "students") {
+      const studentErrors = getStudentValidationErrors(
+        formData,
+        (localDb.students || []).map((student) => ({
+          ...student,
+          parent_mobile: cleanMobile(student.parent_mobile),
+          student_mobile: cleanMobile(student.student_mobile),
+        })),
+      );
+      if (studentErrors.length > 0) {
+        alert(studentErrors[0]);
+        setSaving(false);
+        return;
+      }
+    }
 
     // Validate 10-digit mobile number fields strictly
     for (const f of fields) {

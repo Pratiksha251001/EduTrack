@@ -110,6 +110,7 @@ const TABLE_COLUMNS: Record<string, string[]> = {
   students: [
     "id",
     "roll_number",
+    "prn_number",
     "reg_number",
     "full_name",
     "department_id",

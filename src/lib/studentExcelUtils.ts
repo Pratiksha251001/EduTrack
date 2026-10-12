@@ -2,9 +2,7 @@ import * as XLSX from "xlsx";
 import { localDb } from "./supabase";
 import {
   cleanMobile,
-  isValid10DigitMobile,
-  getMobileValidationError,
-  isValidEmail,
+  getStudentValidationErrors,
   validateDateOfBirth,
 } from "./validation";
 
@@ -102,11 +100,6 @@ export async function parseStudentSpreadsheet(
   }
 
   const existingStudents = localDb.students;
-  const existingRolls = new Set(
-    existingStudents.map((s) => s.roll_number.trim().toLowerCase()),
-  );
-  const seenRollsInFile = new Set<string>();
-
   const parsedRows: ParsedStudentRow[] = rawRows.map((rawRow, index) => {
     const rowNumber = index + 2; // Row 1 is header
     const errors: string[] = [];
@@ -253,83 +246,20 @@ export async function parseStudentSpreadsheet(
     const cleanedParentMobile = cleanMobile(parentMobile);
     const cleanedStudentMobile = cleanMobile(studentMobile);
 
-    // ==========================================
-    // VALIDATION RULES
-    // ==========================================
-    if (!rollNumber) {
-      errors.push("Unique Enrollment / Roll Number is required.");
-    } else {
-      const normRoll = rollNumber.toLowerCase();
-      if (existingRolls.has(normRoll)) {
-        errors.push(
-          `Enrollment '${rollNumber}' already exists in institutional records.`,
-        );
-      }
-      if (seenRollsInFile.has(normRoll)) {
-        errors.push(
-          `Duplicate Enrollment '${rollNumber}' in uploaded spreadsheet.`,
-        );
-      }
-      seenRollsInFile.add(normRoll);
-    }
-
-    if (!fullName) {
-      errors.push("Student Full Name is required.");
-    }
-
-    if (!prnNumber) {
-      errors.push("PRN Number is required.");
-    }
-
-    // Parent mobile validation (Mandatory 10 digits)
-    if (!parentMobile) {
-      errors.push(
-        "Parent Mobile is required (10-digit mobile number needed for SMS alerts).",
-      );
-    } else {
-      const parentErr = getMobileValidationError(
-        parentMobile,
-        "Parent Mobile",
-        true,
-      );
-      if (parentErr) {
-        errors.push(parentErr);
-      }
-    }
-
-    // Student mobile validation (Optional, but if provided must be valid 10 digits)
-    if (studentMobile) {
-      const studentErr = getMobileValidationError(
-        studentMobile,
-        "Student Mobile",
-        false,
-      );
-      if (studentErr) {
-        warnings.push(studentErr);
-      }
-    }
-
-    // Duplicate check between parent and student mobile
-    if (
-      cleanedParentMobile &&
-      cleanedStudentMobile &&
-      cleanedParentMobile === cleanedStudentMobile
-    ) {
-      errors.push(
-        "Parent Mobile and Student Mobile cannot be identical (distinct numbers required).",
-      );
-    }
-
-    // Email validation
-    if (email) {
-      if (!isValidEmail(email)) {
-        warnings.push(`Student Email '${email}' has an invalid format.`);
-      }
-    } else {
-      warnings.push(
-        "Email missing (institutional @student.college.edu will be auto-generated).",
-      );
-    }
+    errors.push(
+      ...getStudentValidationErrors(
+        {
+          roll_number: rollNumber,
+          prn_number: prnNumber,
+          full_name: fullName,
+          parent_name: parentName,
+          parent_mobile: cleanedParentMobile || parentMobile,
+          student_mobile: cleanedStudentMobile || studentMobile,
+          email,
+        },
+        existingStudents,
+      ),
+    );
 
     // Date of Birth validation
     if (dob) {
@@ -359,6 +289,15 @@ export async function parseStudentSpreadsheet(
     };
   });
 
+  parsedRows.forEach((row, index) => {
+    const duplicateErrors = getStudentValidationErrors(row, [
+      ...existingStudents,
+      ...parsedRows.slice(0, index),
+    ]);
+    row.errors = Array.from(new Set([...row.errors, ...duplicateErrors]));
+    row.isValid = row.errors.length === 0;
+  });
+
   return parsedRows;
 }
 
@@ -371,10 +310,10 @@ export function downloadStudentExcelTemplate(semester: number = 1) {
     "PRN Number*",
     "Student Full Name*",
     "Semester",
-    "Parent / Guardian Name",
+    "Parent / Guardian Name*",
     "Parent Mobile (10 Digits)*",
     "Student Mobile (10 Digits)",
-    "Student Email",
+    "Student Email*",
     "Date of Birth (YYYY-MM-DD)",
     "Gender (male/female)",
     "Residential Address",

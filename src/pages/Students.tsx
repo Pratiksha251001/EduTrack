@@ -90,6 +90,7 @@ export const Students: React.FC = () => {
             key: "department_id",
             label: "Department",
             type: "select",
+            required: true,
             options: [
               { value: "", label: "Unassigned" },
               ...departments.map((d) => ({ value: d.id, label: d.name })),
@@ -105,21 +106,23 @@ export const Students: React.FC = () => {
               label: `Semester ${s}`,
             })),
           },
-          { key: "parent_name", label: "Parent / Guardian Name" },
+          { key: "class_name", label: "Class / Division" },
+          { key: "parent_name", label: "Parent / Guardian Name", required: true },
           {
             key: "parent_mobile",
             label: "Parent Mobile (For SMS Alerts)",
             required: true,
             helperText:
-              "Strictly 10 digits required for parent SMS & WhatsApp alerts.",
+              "Required for parent attendance SMS alerts. Must be unique.",
           },
           {
             key: "student_mobile",
             label: "Student Mobile",
-            helperText: "Optional 10-digit mobile number for student.",
+            helperText:
+              "Enter this or Parent Mobile. If both are entered, they must be different and unique.",
           },
           { key: "date_of_birth", label: "Date of Birth", type: "date" },
-          { key: "email", label: "Student Email", type: "email" },
+          { key: "email", label: "Student Email", type: "email", required: true },
           {
             key: "status",
             label: "Enrollment Status",
@@ -172,6 +175,10 @@ export const Students: React.FC = () => {
             render: (s) => (
               <Badge variant="outline">Semester {s.semester}</Badge>
             ),
+          },
+          {
+            header: "Class / Division",
+            render: (s) => s.class_name || s.section || "—",
           },
           {
             header: "Parent / Guardian",

@@ -112,6 +112,7 @@ create table if not exists public.teacher_subjects (
 create table if not exists public.students (
   id uuid default uuid_generate_v4() primary key,
   roll_number text not null unique,
+  prn_number text,
   reg_number text,
   full_name text not null,
   department_id uuid references public.departments(id) on delete cascade,

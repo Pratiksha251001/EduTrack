@@ -108,6 +108,97 @@ export function getEmailValidationError(
   return null;
 }
 
+export interface StudentValidationCandidate {
+  id?: string | null;
+  roll_number?: string | null;
+  prn_number?: string | null;
+  full_name?: string | null;
+  parent_name?: string | null;
+  parent_mobile?: string | null;
+  student_mobile?: string | null;
+  email?: string | null;
+}
+
+export function getStudentValidationErrors(
+  student: StudentValidationCandidate,
+  existingStudents: StudentValidationCandidate[] = [],
+): string[] {
+  const errors: string[] = [];
+  const value = (field: keyof StudentValidationCandidate) =>
+    String(student[field] || "").trim();
+  const normalized = (field: keyof StudentValidationCandidate) =>
+    value(field).toLowerCase();
+  const comparableStudents = existingStudents.filter(
+    (existing) => existing.id !== student.id,
+  );
+
+  if (!value("roll_number")) errors.push("Enrollment / Roll Number is required.");
+  if (!value("full_name")) errors.push("Student Full Name is required.");
+  if (!value("parent_name")) errors.push("Parent / Guardian Name is required.");
+  if (!value("prn_number")) errors.push("PRN Number is required.");
+
+  const emailError = getEmailValidationError(
+    value("email"),
+    "Student Email",
+    true,
+  );
+  if (emailError) errors.push(emailError);
+
+  const parentMobile = cleanMobile(value("parent_mobile"));
+  const studentMobile = cleanMobile(value("student_mobile"));
+  const parentMobileError = getMobileValidationError(
+    value("parent_mobile"),
+    "Parent Mobile",
+    true,
+  );
+  if (parentMobileError) errors.push(parentMobileError);
+  const studentMobileError = getMobileValidationError(
+    value("student_mobile"),
+    "Student Mobile",
+    false,
+  );
+  if (studentMobileError) errors.push(studentMobileError);
+  if (parentMobile && studentMobile && parentMobile === studentMobile) {
+    errors.push("Parent Mobile and Student Mobile must be different.");
+  }
+
+  const uniqueFields: Array<{
+    field: keyof StudentValidationCandidate;
+    label: string;
+  }> = [
+    { field: "roll_number", label: "Roll Number" },
+    { field: "prn_number", label: "PRN Number" },
+    { field: "email", label: "Student Email" },
+    { field: "parent_mobile", label: "Parent Mobile" },
+    { field: "student_mobile", label: "Student Mobile" },
+  ];
+
+  for (const { field, label } of uniqueFields) {
+    const currentValue =
+      field === "parent_mobile" || field === "student_mobile"
+        ? cleanMobile(value(field))
+        : normalized(field);
+    if (
+      currentValue &&
+      comparableStudents.some((existing) => {
+        if (field === "parent_mobile" || field === "student_mobile") {
+          return (
+            cleanMobile(existing.parent_mobile) === currentValue ||
+            cleanMobile(existing.student_mobile) === currentValue
+          );
+        }
+        return (
+          String(existing[field] || "").trim().toLowerCase() === currentValue
+        );
+      })
+    ) {
+      errors.push(`${label} '${value(field)}' already exists.`);
+    }
+  }
+
+  return errors;
+}
+
 /**
  * Validates full name: letters, spaces, dots, apostrophes, hyphens, min 2 chars.
  */
