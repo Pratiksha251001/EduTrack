@@ -17,6 +17,7 @@ import { college } from '../lib/college';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { EduTrackLogo } from '../components/EduTrackLogo';
+import { PasswordInput } from '../components/PasswordInput';
 
 export const LandingAuth: React.FC = () => {
   const { loginAsDemo } = useAuth();
@@ -119,7 +120,7 @@ export const LandingAuth: React.FC = () => {
               </div>
               <div className="space-y-1.5">
                 <label className="text-xs font-semibold text-muted-foreground">Password</label>
-                <Input required type="password" placeholder="••••••••" value={password} onChange={(e) => setPassword(e.target.value)} />
+                <PasswordInput required placeholder="••••••••" value={password} onChange={(e) => setPassword(e.target.value)} />
               </div>
               <Button type="submit" className="w-full" disabled={loading}>
                 {loading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <ArrowRight className="mr-2 h-4 w-4" />}

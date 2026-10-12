@@ -30,6 +30,7 @@ import { Badge } from "../components/ui/badge";
 import { UserRoleType } from "../lib/types";
 import { localDb } from "../lib/supabase";
 import { EduTrackLogo } from "../components/EduTrackLogo";
+import { PasswordInput } from "../components/PasswordInput";
 
 interface PortalCard {
   title: string;
@@ -765,17 +766,13 @@ export const AccessHub: React.FC = () => {
                 <label className="text-xs font-semibold text-foreground">
                   Password
                 </label>
-                <div className="relative">
-                  <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                  <Input
-                    required
-                    type="password"
-                    placeholder="••••••••"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    className="pl-10"
-                  />
-                </div>
+                <PasswordInput
+                  required
+                  placeholder="••••••••"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  className="pl-10"
+                />
                 {selectedRole === "student" && (
                   <p className="mt-1 text-[11px] text-muted-foreground">
                     Default student password is your{" "}

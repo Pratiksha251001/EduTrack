@@ -6,6 +6,7 @@ import { Input } from "../components/ui/input";
 import { Card } from "../components/ui/card";
 import { Loader2, ArrowRight } from "lucide-react";
 import { EduTrackLogo } from "../components/EduTrackLogo";
+import { PasswordInput } from "../components/PasswordInput";
 
 export const ClassTeacherLogin: React.FC = () => {
   const { loginWithCredentials } = useAuth();
@@ -53,9 +54,8 @@ export const ClassTeacherLogin: React.FC = () => {
           </div>
           <div>
             <label className="text-xs font-semibold text-muted-foreground">Password</label>
-            <Input
+            <PasswordInput
               required
-              type="password"
               placeholder="••••••••"
               value={password}
               onChange={(e) => setPassword(e.target.value)}

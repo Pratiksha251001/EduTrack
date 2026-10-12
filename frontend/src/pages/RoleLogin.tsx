@@ -16,6 +16,7 @@ import { Button } from "../components/ui/button";
 import { Card } from "../components/ui/card";
 import { Input } from "../components/ui/input";
 import { EduTrackLogo } from "../components/EduTrackLogo";
+import { PasswordInput } from "../components/PasswordInput";
 
 const roleDetails: Record<
   Exclude<UserRoleType, "admin">,
@@ -159,9 +160,8 @@ export const RoleLogin: React.FC = () => {
 
           <div className="space-y-1.5">
             <label className="text-xs font-semibold text-muted-foreground">Password</label>
-            <Input
+            <PasswordInput
               required
-              type="password"
               placeholder="••••••••"
               value={password}
               onChange={(event) => setPassword(event.target.value)}
