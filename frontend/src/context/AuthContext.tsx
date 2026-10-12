@@ -527,6 +527,37 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
       return { ok: true };
     }
 
+    if (targetRole === "admin") {
+      const saved = getStorageItem("admin_account");
+      if (saved) {
+        try {
+          const account = JSON.parse(saved) as {
+            id: string;
+            full_name: string;
+            email: string;
+            password: string;
+          };
+          if (
+            normalizeId(account.email) === cleanId &&
+            account.password === password
+          ) {
+            const adminUser = {
+              id: account.id,
+              email: account.email,
+              full_name: account.full_name,
+            };
+            setUser(adminUser);
+            setRole("admin");
+            setStorageItem("user", JSON.stringify(adminUser));
+            setStorageItem("role", "admin");
+            return { ok: true };
+          }
+        } catch {
+          removeStorageItem("admin_account");
+        }
+      }
+    }
+
     // Admin and student accounts are provisioned in Supabase Auth.
     // HOD, coordinator, and teacher emails continue through the institutional
     // record and credential checks below until those roles are provisioned.
