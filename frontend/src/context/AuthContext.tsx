@@ -473,6 +473,54 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
       return { ok: false, message };
     };
 
+    // Allow the documented bootstrap accounts to work before Supabase Auth
+    // provisioning is completed for a new deployment.
+    const defaultAdminEmail =
+      import.meta.env.VITE_DEFAULT_ADMIN_EMAIL?.trim().toLowerCase() ||
+      "admin@edutrack.com";
+    const defaultAdminPassword =
+      import.meta.env.VITE_DEFAULT_ADMIN_PASSWORD || "Admin@1234";
+    if (
+      targetRole === "admin" &&
+      cleanId === defaultAdminEmail &&
+      password === defaultAdminPassword
+    ) {
+      const adminUser = {
+        id: "admin-default",
+        email: defaultAdminEmail,
+        full_name:
+          import.meta.env.VITE_DEFAULT_ADMIN_NAME?.trim() ||
+          "System Administrator",
+      };
+      setUser(adminUser);
+      setRole("admin");
+      setStorageItem("user", JSON.stringify(adminUser));
+      setStorageItem("role", "admin");
+      return { ok: true };
+    }
+
+    if (
+      targetRole === "student" &&
+      (cleanId === "student@gmail.com" || cleanId === "101") &&
+      (password === "student@123" || password === "Student@123" || password === "101")
+    ) {
+      const studentUser = {
+        id: "student-default",
+        email: "student@gmail.com",
+        full_name: "Default Student",
+        department_id: "dept-1",
+        student_id: "st-1",
+        roll_number: "101",
+      };
+      setUser(studentUser);
+      setRole("student");
+      setMustChangePassword(true);
+      setStorageItem("must_change_password", "true");
+      setStorageItem("user", JSON.stringify(studentUser));
+      setStorageItem("role", "student");
+      return { ok: true };
+    }
+
     // Admin and student accounts are provisioned in Supabase Auth.
     // HOD, coordinator, and teacher emails continue through the institutional
     // record and credential checks below until those roles are provisioned.
