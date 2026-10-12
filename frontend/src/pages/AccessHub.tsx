@@ -147,6 +147,11 @@ export const AccessHub: React.FC = () => {
   ];
 
   const handleCardClick = (card: PortalCard) => {
+    if (card.role !== "admin") {
+      navigate(`/login/${card.role}`);
+      return;
+    }
+
     setSelectedRole(card.role);
     const hasAdminAccount =
       Boolean(defaultAdminEmail) ||

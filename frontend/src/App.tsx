@@ -25,6 +25,7 @@ import { HODStaff } from "./pages/HODStaff";
 import { HODClasses } from "./pages/HODClasses";
 import { HODStudents } from "./pages/HODStudents";
 import { ClassTeacherLogin } from "./pages/ClassTeacherLogin";
+import { RoleLogin } from "./pages/RoleLogin";
 import { ClassTeacherDashboard } from "./pages/ClassTeacherDashboard";
 import { Notifications } from "./pages/Notifications";
 import { ForcePasswordChangeModal } from "./components/ForcePasswordChangeModal";
@@ -169,6 +170,7 @@ export const App: React.FC = () => {
           <Routes>
             <Route path="/" element={<RootRouteHandler />} />
             <Route path="/teacher/login" element={<ClassTeacherLogin />} />
+            <Route path="/login/:role" element={<RoleLogin />} />
 
             <Route
               element={
