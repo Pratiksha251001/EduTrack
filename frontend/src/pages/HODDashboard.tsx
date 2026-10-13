@@ -83,6 +83,7 @@ export const HODDashboard: React.FC = () => {
   const { user } = useAuth();
   const [search, setSearch] = useState("");
   const [teacherDialogOpen, setTeacherDialogOpen] = useState(false);
+  const [teacherModalError, setTeacherModalError] = useState<string | null>(null);
   const [assignDialogOpen, setAssignDialogOpen] = useState(false);
   const [editingTeacher, setEditingTeacher] = useState<Teacher | null>(null);
   const [expandedSemester, setExpandedSemester] = useState<number | null>(null);
@@ -237,17 +238,30 @@ export const HODDashboard: React.FC = () => {
 
   const handleAddTeacher = () => {
     setEditingTeacher(null);
+    setTeacherModalError(null);
+    const deptPrefix = myDepartment?.code || "CSE";
+    const existingNums = teachers
+      .map((t) => {
+        const m = t.employee_id?.match(/\d+/g);
+        return m ? parseInt(m[m.length - 1], 10) : 0;
+      })
+      .filter((n) => !isNaN(n) && n > 0);
+    const nextNum =
+      existingNums.length > 0 ? Math.max(...existingNums) + 1 : 101;
     setTeacherForm({
-      employee_id: "",
+      employee_id: `EMP-${deptPrefix}-${nextNum}`,
       full_name: "",
       email: "",
       mobile: "",
       password: "",
       role: "lecturer",
     });
+    setTeacherDialogOpen(true);
   };
+
   const handleEditTeacher = (t: Teacher) => {
     setEditingTeacher(t);
+    setTeacherModalError(null);
     setTeacherForm({
       employee_id: t.employee_id,
       full_name: t.full_name,
@@ -260,15 +274,38 @@ export const HODDashboard: React.FC = () => {
   };
 
   const handleTeacherSubmit = async () => {
-    const errs: string[] = [];
-    const empErr = getEmployeeIdValidationError(teacherForm.employee_id);
-    if (empErr) errs.push(empErr);
+    setTeacherModalError(null);
+    const trimmedName = teacherForm.full_name.trim();
+    if (!trimmedName) {
+      setTeacherModalError("Teacher Full Name is required.");
+      return;
+    }
 
-    const nameErr = getNameValidationError(
-      teacherForm.full_name,
-      "Teacher Full Name",
-    );
-    if (nameErr) errs.push(nameErr);
+    const deptPrefix = myDepartment?.code || "CSE";
+    let finalEmpId = teacherForm.employee_id.trim();
+    if (!finalEmpId) {
+      const existingNums = teachers
+        .map((t) => {
+          const m = t.employee_id?.match(/\d+/g);
+          return m ? parseInt(m[m.length - 1], 10) : 0;
+        })
+        .filter((n) => !isNaN(n) && n > 0);
+      const nextNum =
+        existingNums.length > 0 ? Math.max(...existingNums) + 1 : 101;
+      finalEmpId = `EMP-${deptPrefix}-${nextNum}`;
+    }
+
+    let finalEmail = teacherForm.email?.trim() || "";
+    if (!finalEmail) {
+      const safeName = trimmedName
+        .toLowerCase()
+        .replace(/[^a-z0-9]/g, ".")
+        .replace(/\.+/g, ".");
+      finalEmail = `${safeName || finalEmpId.toLowerCase()}@college.edu`;
+    } else if (!isValidEmail(finalEmail)) {
+      setTeacherModalError("Please provide a valid email format (e.g. teacher@college.edu).");
+      return;
+    }
 
     if (teacherForm.mobile) {
       const mobileErr = getMobileValidationError(
@@ -276,140 +313,138 @@ export const HODDashboard: React.FC = () => {
         "Faculty Mobile",
         false,
       );
-      if (mobileErr) errs.push(mobileErr);
+      if (mobileErr) {
+        setTeacherModalError(mobileErr);
+        return;
+      }
     }
 
-    if (!teacherForm.email || !teacherForm.email.trim()) {
-      errs.push("Faculty email address is strictly required (*)");
-    } else if (!isValidEmail(teacherForm.email.trim())) {
-      errs.push("Please provide a valid email address for faculty (*).");
-    }
+    try {
+      const isCoordinator = teacherForm.role === "class_coordinator";
+      const userRole = isCoordinator ? "class_coordinator" : "teacher";
+      const defaultPwd = isCoordinator ? "CC@123" : "Teacher@123";
+      const effectivePwd =
+        teacherForm.password?.trim() ||
+        finalEmpId ||
+        defaultPwd;
+      const deptId = assignedDepartmentId || user?.department_id || "dept-1";
 
-    if (errs.length > 0) {
-      alert(errs.join("\n"));
-      return;
-    }
-
-    const isCoordinator = teacherForm.role === "class_coordinator";
-    const userRole = isCoordinator ? "class_coordinator" : "teacher";
-    const defaultPwd = isCoordinator ? "CC@123" : "Teacher@123";
-    const effectivePwd =
-      teacherForm.password?.trim() ||
-      teacherForm.employee_id.trim() ||
-      defaultPwd;
-
-    if (editingTeacher) {
-      await localDb.update("teachers", editingTeacher.id, {
-        employee_id: teacherForm.employee_id.trim(),
-        full_name: teacherForm.full_name.trim(),
-        email: teacherForm.email?.trim() || null,
-        mobile: cleanMobile(teacherForm.mobile) || null,
-        role: teacherForm.role,
-        is_class_coordinator: isCoordinator,
-        academic_year: teacherForm.academic_year,
-        assigned_year: Number(teacherForm.assigned_year) || null,
-        assigned_semester: Number(teacherForm.assigned_semester) || null,
-        ...(teacherForm.password?.trim()
-          ? { password: effectivePwd }
-          : {}),
-      });
-
-      let account = localDb.users.find(
-        (u: any) => u.teacher_id === editingTeacher.id,
-      );
-      if (account) {
-        await localDb.update("users", account.id, {
-          full_name: teacherForm.full_name.trim(),
-          email: teacherForm.email?.trim() || account.email,
-          role: userRole,
-          department_id: user?.department_id,
-        });
-      } else if (teacherForm.email || teacherForm.employee_id) {
-        const accountId = `teacher-user-${editingTeacher.id}`;
-        await localDb.insert("users", [
-          {
-            id: accountId,
-            full_name: teacherForm.full_name.trim(),
-            email:
-              teacherForm.email?.trim() ||
-              `${teacherForm.employee_id.toLowerCase()}@edutrack.edu`,
-            role: userRole,
-            department_id: user?.department_id,
-            teacher_id: editingTeacher.id,
-            status: "active",
-          },
-        ]);
+      if (editingTeacher) {
         await localDb.update("teachers", editingTeacher.id, {
-          user_id: accountId,
-        });
-      }
-
-      if (teacherForm.password?.trim() || !account) {
-        saveCredential(
-          [
-            editingTeacher.id,
-            account?.id,
-            `teacher-user-${editingTeacher.id}`,
-            teacherForm.email,
-            teacherForm.employee_id,
-          ],
-          effectivePwd,
-        );
-      }
-    } else {
-      const inserted = await localDb.insert("teachers", [
-        {
-          employee_id: teacherForm.employee_id.trim(),
-          full_name: teacherForm.full_name.trim(),
-          department_id: user?.department_id,
-          email: teacherForm.email?.trim() || null,
+          employee_id: finalEmpId,
+          full_name: trimmedName,
+          email: finalEmail || null,
           mobile: cleanMobile(teacherForm.mobile) || null,
-          is_class_coordinator: isCoordinator,
           role: teacherForm.role,
+          is_class_coordinator: isCoordinator,
           academic_year: teacherForm.academic_year,
           assigned_year: Number(teacherForm.assigned_year) || null,
           assigned_semester: Number(teacherForm.assigned_semester) || null,
-          status: "active",
-        },
-      ]);
-      const teacher = inserted[0];
-      if (teacher) {
-        const accountId = `teacher-user-${teacher.id}`;
-        await localDb.insert("users", [
-          {
-            id: accountId,
-            full_name: teacher.full_name,
-            email:
-              teacher.email ||
-              `${teacher.employee_id.toLowerCase()}@edutrack.edu`,
+          ...(teacherForm.password?.trim()
+            ? { password: effectivePwd }
+            : {}),
+        });
+
+        let account = localDb.users.find(
+          (u: any) => u.teacher_id === editingTeacher.id,
+        );
+        if (account) {
+          await localDb.update("users", account.id, {
+            full_name: trimmedName,
+            email: finalEmail || account.email,
             role: userRole,
-            department_id: user?.department_id,
-            teacher_id: teacher.id,
+            department_id: deptId,
+          });
+        } else if (finalEmail || finalEmpId) {
+          const accountId = `teacher-user-${editingTeacher.id}`;
+          await localDb.insert("users", [
+            {
+              id: accountId,
+              full_name: trimmedName,
+              email: finalEmail,
+              role: userRole,
+              department_id: deptId,
+              teacher_id: editingTeacher.id,
+              status: "active",
+            },
+          ]);
+          await localDb.update("teachers", editingTeacher.id, {
+            user_id: accountId,
+          });
+        }
+
+        if (teacherForm.password?.trim() || !account) {
+          saveCredential(
+            [
+              editingTeacher.id,
+              account?.id,
+              `teacher-user-${editingTeacher.id}`,
+              finalEmail,
+              finalEmpId,
+            ],
+            effectivePwd,
+          );
+        }
+      } else {
+        const inserted = await localDb.insert("teachers", [
+          {
+            employee_id: finalEmpId,
+            full_name: trimmedName,
+            department_id: deptId,
+            email: finalEmail || null,
+            mobile: cleanMobile(teacherForm.mobile) || null,
+            is_class_coordinator: isCoordinator,
+            role: teacherForm.role,
+            academic_year: teacherForm.academic_year,
+            assigned_year: Number(teacherForm.assigned_year) || null,
+            assigned_semester: Number(teacherForm.assigned_semester) || null,
             status: "active",
           },
         ]);
-        await localDb.update("teachers", teacher.id, { user_id: accountId });
-        await localDb.update("teachers", teacher.id, {
-          password: effectivePwd,
-        });
-        saveCredential(
-          [accountId, teacher.id, teacher.email, teacher.employee_id],
-          effectivePwd,
-        );
+        const teacher = inserted[0];
+        if (teacher) {
+          const accountId = `teacher-user-${teacher.id}`;
+          await localDb.insert("users", [
+            {
+              id: accountId,
+              full_name: teacher.full_name,
+              email:
+                teacher.email ||
+                `${finalEmpId.toLowerCase()}@college.edu`,
+              role: userRole,
+              department_id: deptId,
+              teacher_id: teacher.id,
+              status: "active",
+            },
+          ]);
+          await localDb.update("teachers", teacher.id, { user_id: accountId });
+          await localDb.update("teachers", teacher.id, {
+            password: effectivePwd,
+          });
+          saveCredential(
+            [accountId, teacher.id, teacher.email, teacher.employee_id],
+            effectivePwd,
+          );
+        }
       }
-    }
 
-    setTeacherDialogOpen(false);
-    setTeacherForm({
-      employee_id: "",
-      full_name: "",
-      email: "",
-      mobile: "",
-      password: "",
-      role: "lecturer",
-    });
-    setEditingTeacher(null);
-    refresh((value) => value + 1);
+      window.dispatchEvent(new CustomEvent("edutrack_data_updated"));
+      setTeacherDialogOpen(false);
+      setTeacherModalError(null);
+      setTeacherForm({
+        employee_id: "",
+        full_name: "",
+        email: "",
+        mobile: "",
+        password: "",
+        role: "lecturer",
+      });
+      setEditingTeacher(null);
+      refresh((value) => value + 1);
+    } catch (err: any) {
+      console.error("Teacher submit exception:", err);
+      setTeacherModalError(`Failed to save: ${err?.message || "Unexpected error"}`);
+    }
   };
 
   const toggleTeacherStatus = async (teacher: Teacher) => {
@@ -1336,6 +1371,13 @@ export const HODDashboard: React.FC = () => {
                       Faculty can log in using their Employee ID or Email.
                     </p>
                   </div>
+
+                  {teacherModalError && (
+                    <div className="p-3 rounded-lg bg-destructive/10 border border-destructive/20 text-destructive text-xs flex items-start gap-2">
+                      <AlertCircle className="h-4 w-4 shrink-0 mt-0.5" />
+                      <div className="flex-1 font-medium">{teacherModalError}</div>
+                    </div>
+                  )}
                 </div>
                 <DialogFooter>
                   <Button
