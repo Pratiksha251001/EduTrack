@@ -83,16 +83,11 @@ export const Dashboard: React.FC = () => {
   }, [attendance]);
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-6">
       <div>
-        <h2 className="font-display text-3xl font-bold tracking-tight">
+        <h2 className="font-display text-2xl sm:text-3xl font-bold tracking-tight">
           {role === "admin" ? "Institution Overview" : "Academic Overview"}
         </h2>
-        <p className="text-sm text-muted-foreground">
-          {role === "admin"
-            ? `${college.name} · Institution-wide administration and attendance statistics.`
-            : "Live statistics, attendance compliance, and parent communication metrics."}
-        </p>
       </div>
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
@@ -107,16 +102,13 @@ export const Dashboard: React.FC = () => {
             <div className="text-3xl font-display font-extrabold">
               {totalStudents}
             </div>
-            <p className="text-xs text-muted-foreground mt-1">
-              Across all departments & sems
-            </p>
           </CardContent>
         </Card>
 
         <Card className="border-l-4 border-l-emerald-600">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
-              Today's Average Attendance
+              Today's Attendance
             </CardTitle>
             <ClipboardCheck className="h-5 w-5 text-emerald-600" />
           </CardHeader>
@@ -124,9 +116,6 @@ export const Dashboard: React.FC = () => {
             <div className="text-3xl font-display font-extrabold text-emerald-600">
               {todayPercentage}%
             </div>
-            <p className="text-xs text-muted-foreground mt-1">
-              Daily institution-wide average
-            </p>
           </CardContent>
         </Card>
 
@@ -141,9 +130,6 @@ export const Dashboard: React.FC = () => {
             <div className="text-3xl font-display font-extrabold text-amber-600">
               {defaulters.length}
             </div>
-            <p className="text-xs text-muted-foreground mt-1">
-              Students below threshold
-            </p>
           </CardContent>
         </Card>
 
@@ -158,9 +144,6 @@ export const Dashboard: React.FC = () => {
             <div className="text-3xl font-display font-extrabold">
               {smsLogs.length}
             </div>
-            <p className="text-xs text-muted-foreground mt-1">
-              Total absentee SMS delivered
-            </p>
           </CardContent>
         </Card>
       </div>
@@ -175,9 +158,6 @@ export const Dashboard: React.FC = () => {
               <div className="text-3xl font-display font-extrabold">
                 {departments.filter((d) => d.status === "active").length}
               </div>
-              <p className="text-xs text-muted-foreground">
-                {departments.length} total, including inactive
-              </p>
             </CardContent>
           </Card>
           <Card className="border-l-4 border-l-violet-500">
@@ -188,9 +168,6 @@ export const Dashboard: React.FC = () => {
               <div className="text-3xl font-display font-extrabold">
                 {teachers.filter((t) => t.status === "active").length}
               </div>
-              <p className="text-xs text-muted-foreground">
-                {teachers.length} total faculty
-              </p>
             </CardContent>
           </Card>
           <Card className="border-l-4 border-l-emerald-500">
@@ -201,9 +178,6 @@ export const Dashboard: React.FC = () => {
               <div className="text-3xl font-display font-extrabold">
                 {coordinators.length}
               </div>
-              <p className="text-xs text-muted-foreground">
-                Across all departments
-              </p>
             </CardContent>
           </Card>
           <Card className="border-l-4 border-l-amber-500">
@@ -214,9 +188,6 @@ export const Dashboard: React.FC = () => {
               <div className="text-base font-display font-extrabold mt-2">
                 {college.shortName}
               </div>
-              <p className="text-xs text-muted-foreground">
-                Single institution administrator
-              </p>
             </CardContent>
           </Card>
         </div>

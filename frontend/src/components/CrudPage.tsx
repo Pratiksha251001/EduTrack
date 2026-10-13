@@ -49,7 +49,7 @@ export interface CrudColumn<T> {
 
 interface CrudPageProps<T> {
   title: string;
-  description: string;
+  description?: string;
   table: string;
   fields: CrudField[];
   columns: CrudColumn<T>[];
@@ -537,7 +537,9 @@ export function CrudPage<T extends { id: string }>({
       <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <h2 className="font-display text-2xl font-bold">{title}</h2>
-          <p className="text-sm text-muted-foreground">{description}</p>
+          {description && (
+            <p className="text-sm text-muted-foreground">{description}</p>
+          )}
         </div>
         <div className="flex items-center gap-2 flex-wrap">
           {extraHeaderActions}

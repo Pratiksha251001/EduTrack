@@ -715,14 +715,12 @@ export const HODDashboard: React.FC = () => {
     {
       label: "Department",
       value: myDepartment?.code || "—",
-      sub: myDepartment?.name || "",
       icon: Building2,
       color: "from-cyan-500/20 to-cyan-500/5 text-cyan-400 border-cyan-500/20",
     },
     {
       label: "Total Teachers",
       value: String(deptTeachers.length),
-      sub: "Faculty Members",
       icon: Users,
       color:
         "from-violet-500/20 to-violet-500/5 text-violet-400 border-violet-500/20",
@@ -730,7 +728,6 @@ export const HODDashboard: React.FC = () => {
     {
       label: "Class Coordinators",
       value: String(deptAssignments.length),
-      sub: "Across All Semesters",
       icon: UserCog,
       color:
         "from-emerald-500/20 to-emerald-500/5 text-emerald-400 border-emerald-500/20",
@@ -738,7 +735,6 @@ export const HODDashboard: React.FC = () => {
     {
       label: "Total Students",
       value: String(deptStudents.length),
-      sub: "Enrolled Students",
       icon: GraduationCap,
       color:
         "from-amber-500/20 to-amber-500/5 text-amber-400 border-amber-500/20",
@@ -746,7 +742,6 @@ export const HODDashboard: React.FC = () => {
     {
       label: "Attendance Rate",
       value: `${attendanceRate}%`,
-      sub: "Department-wide",
       icon: Check,
       color: "from-rose-500/20 to-rose-500/5 text-rose-400 border-rose-500/20",
     },
@@ -761,29 +756,19 @@ export const HODDashboard: React.FC = () => {
   );
 
   return (
-    <div className="space-y-7">
+    <div className="space-y-6">
       <div className="relative overflow-hidden rounded-2xl border border-primary/20 bg-gradient-to-br from-primary/[0.12] via-card to-card p-6 shadow-sm">
         <div className="absolute -right-12 -top-16 h-48 w-48 rounded-full bg-primary/10 blur-2xl" />
         <div className="relative flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between">
           <div>
-            <div className="mb-3 flex items-center gap-2">
+            <div className="mb-2 flex items-center gap-2">
               <Badge className="bg-primary/15 text-primary border-primary/20">
                 HOD PORTAL
               </Badge>
-              <span className="text-xs text-muted-foreground">
-                Department workspace
-              </span>
             </div>
-            <h1 className="font-display text-3xl font-bold tracking-tight text-foreground">
+            <h1 className="font-display text-2xl sm:text-3xl font-bold tracking-tight text-foreground">
               Department Overview
             </h1>
-            <p className="mt-1.5 max-w-2xl text-sm text-muted-foreground">
-              Manage faculty, class coordinators, subjects, and students for{" "}
-              <span className="font-semibold text-foreground">
-                {myDepartment?.name || "your department"}
-              </span>
-              .
-            </p>
           </div>
           <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
             <Link to="/reports">
@@ -811,9 +796,6 @@ export const HODDashboard: React.FC = () => {
               </p>
               <p className="mt-0.5 font-display text-lg font-bold text-primary">
                 {myDepartment?.code || "—"}
-              </p>
-              <p className="truncate text-xs text-muted-foreground">
-                {myDepartment?.name || "Department unavailable"}
               </p>
             </div>
           </div>
@@ -854,9 +836,6 @@ export const HODDashboard: React.FC = () => {
                 <div className="text-sm font-semibold text-foreground">
                   {s.label}
                 </div>
-                <div className="text-xs text-muted-foreground mt-0.5">
-                  {s.sub}
-                </div>
               </div>
             </Card>
           );
@@ -864,70 +843,60 @@ export const HODDashboard: React.FC = () => {
       </div>
 
       {/* 4-Year Engineering Structure & Parallel Semester Operations */}
-      <Card className="border-emerald-500/25 bg-gradient-to-br from-emerald-500/5 via-card to-card p-5 space-y-5">
-        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 border-b border-border/70 pb-4">
-          <div>
-            <div className="flex items-center gap-2">
-              <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-emerald-500/15 text-emerald-600 dark:text-emerald-400">
-                <Layers className="h-4 w-4" />
-              </span>
-              <h2 className="font-display text-lg font-bold text-foreground">
-                4-Year Engineering Structure & Parallel Academic Operations
-              </h2>
-              <Badge className="bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border border-emerald-500/20 text-[10px] font-bold">
-                FE · SE · TE · BE
-              </Badge>
-            </div>
-            <p className="text-xs text-muted-foreground mt-1">
-              Engineering runs concurrent parallel tracks: Odd Semesters (1st,
-              3rd, 5th, 7th) and Even Semesters (2nd, 4th, 6th, 8th). Class
-              Coordinators are fixed per academic year & semester.
-            </p>
+      <Card className="border-border/80 bg-card p-5 space-y-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-border/60 pb-3">
+          <div className="flex items-center gap-2">
+            <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-emerald-500/15 text-emerald-600 dark:text-emerald-400">
+              <Layers className="h-4 w-4" />
+            </span>
+            <h2 className="font-display text-base sm:text-lg font-bold text-foreground">
+              Engineering Academic Years
+            </h2>
+            <Badge className="bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border border-emerald-500/20 text-[10px] font-bold">
+              FY · SY · TY · BE
+            </Badge>
           </div>
 
-          {/* Parallel Track Filter Buttons */}
+          {/* Track Filter Buttons */}
           <div className="flex flex-wrap items-center gap-1.5 text-xs">
-            <span className="text-muted-foreground font-medium mr-1 flex items-center gap-1">
-              <Filter className="h-3 w-3" /> Track View:
-            </span>
             <button
               type="button"
               onClick={() => setSelectedTrackFilter("all")}
-              className={`px-2.5 py-1 rounded-md font-medium transition-colors ${
+              className={`px-2.5 py-1 rounded-md font-medium text-xs transition-colors ${
                 selectedTrackFilter === "all"
                   ? "bg-primary text-primary-foreground shadow-xs"
                   : "bg-muted text-muted-foreground hover:text-foreground"
               }`}
             >
-              All 4 Years
+              All Years
             </button>
             <button
               type="button"
               onClick={() => setSelectedTrackFilter("odd")}
-              className={`px-2.5 py-1 rounded-md font-medium transition-colors ${
+              className={`px-2.5 py-1 rounded-md font-medium text-xs transition-colors ${
                 selectedTrackFilter === "odd"
                   ? "bg-emerald-600 text-white shadow-xs"
                   : "bg-muted text-muted-foreground hover:text-foreground"
               }`}
             >
-              Odd Track (Sem 1, 3, 5, 7)
+              Odd Semesters
             </button>
             <button
               type="button"
               onClick={() => setSelectedTrackFilter("even")}
-              className={`px-2.5 py-1 rounded-md font-medium transition-colors ${
+              className={`px-2.5 py-1 rounded-md font-medium text-xs transition-colors ${
                 selectedTrackFilter === "even"
                   ? "bg-emerald-600 text-white shadow-xs"
                   : "bg-muted text-muted-foreground hover:text-foreground"
               }`}
             >
-              Even Track (Sem 2, 4, 6, 8)
+              Even Semesters
             </button>
           </div>
         </div>
 
-        {/* 4 Engineering Year Cards (FE, SE, TE, BE) */}
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
+        {/* 4 Engineering Year Cards (FY, SY, TY, BE) */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3.5">
           {ENGINEERING_YEARS.map((engYear) => {
             const yearStudents = deptStudents.filter((s) =>
               s.year
@@ -956,27 +925,25 @@ export const HODDashboard: React.FC = () => {
             return (
               <div
                 key={engYear.year}
-                className="rounded-xl border border-border/80 bg-card p-4 space-y-3 shadow-xs hover:border-emerald-500/40 transition-colors"
+                className="rounded-xl border border-border/80 bg-card/60 p-3.5 space-y-3 shadow-xs hover:border-emerald-500/40 hover:bg-card transition-all"
               >
+                {/* Year Header */}
                 <div className="flex items-center justify-between">
-                  <div>
-                    <span className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">
-                      Year {engYear.year}
+                  <div className="flex items-center gap-2">
+                    <span className="inline-flex items-center justify-center h-6 px-2 rounded-md bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 font-bold font-mono text-xs">
+                      {engYear.shortName}
                     </span>
-                    <h3 className="font-display font-bold text-base text-foreground">
-                      {engYear.name} ({engYear.shortName})
-                    </h3>
+                    <span className="font-display font-bold text-sm text-foreground">
+                      {engYear.name}
+                    </span>
                   </div>
-                  <Badge
-                    variant="outline"
-                    className="text-xs font-mono font-bold bg-muted"
-                  >
-                    Sem {engYear.semesters.join(" & ")}
-                  </Badge>
+                  <span className="text-[11px] font-mono font-medium text-muted-foreground">
+                    Sem {engYear.semesters[0]} &amp; {engYear.semesters[1]}
+                  </span>
                 </div>
 
-                {/* Semesters Pill Breakdown */}
-                <div className="grid grid-cols-2 gap-2 text-xs">
+                {/* Semesters Pills */}
+                <div className="grid grid-cols-2 gap-1.5 text-xs">
                   {engYear.semesters.map((sem) => {
                     const isOddSem = sem % 2 !== 0;
                     const isHighlighted =
@@ -987,64 +954,47 @@ export const HODDashboard: React.FC = () => {
                     return (
                       <div
                         key={sem}
-                        className={`p-2 rounded-lg border text-center transition-all ${
+                        className={`py-1.5 px-2 rounded-md border text-center transition-all ${
                           isHighlighted
                             ? isOddSem
                               ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-800 dark:text-emerald-300 font-semibold"
                               : "border-teal-500/40 bg-teal-500/10 text-teal-800 dark:text-teal-300 font-semibold"
-                            : "border-border/40 bg-muted/30 text-muted-foreground opacity-60"
+                            : "border-border/40 bg-muted/20 text-muted-foreground opacity-40"
                         }`}
                       >
-                        <div className="text-[11px] font-bold">
-                          Semester {sem}
-                        </div>
-                        <div className="text-[9px] truncate">
-                          {getSemesterEngineeringLabel(sem)}
-                        </div>
+                        <span className="text-xs font-semibold">Sem {sem}</span>
                       </div>
                     );
                   })}
                 </div>
 
-                {/* Coordinator & Stats */}
-                <div className="pt-2 border-t border-border/60 space-y-2 text-xs">
-                  <div className="flex items-center justify-between text-muted-foreground">
-                    <span>Enrolled Students</span>
-                    <span className="font-bold text-foreground">
-                      {yearStudents.length}
+                {/* Compact Stats */}
+                <div className="flex items-center justify-between text-xs py-1.5 px-2.5 bg-muted/30 rounded-md">
+                  <span className="text-muted-foreground">
+                    Students: <strong className="text-foreground ml-1">{yearStudents.length}</strong>
+                  </span>
+                  <span className="text-muted-foreground">
+                    Classes: <strong className="text-foreground ml-1">{yearClasses.length}</strong>
+                  </span>
+                </div>
+
+                {/* Coordinator */}
+                <div className="pt-1.5 border-t border-border/50 text-[11px] flex items-center justify-between gap-1">
+                  <span className="text-muted-foreground flex items-center gap-1 shrink-0">
+                    <UserCog className="h-3.5 w-3.5 text-muted-foreground" /> Coordinator
+                  </span>
+                  {yearCoordinators.length > 0 ? (
+                    <span
+                      className="font-medium text-foreground truncate max-w-[130px] text-right"
+                      title={yearCoordinators.map((c) => c.full_name).join(", ")}
+                    >
+                      {yearCoordinators[0].full_name}
                     </span>
-                  </div>
-                  <div className="flex items-center justify-between text-muted-foreground">
-                    <span>Active Classes</span>
-                    <span className="font-bold text-foreground">
-                      {yearClasses.length}
+                  ) : (
+                    <span className="text-muted-foreground italic">
+                      Not assigned
                     </span>
-                  </div>
-                  <div>
-                    <span className="text-[11px] font-semibold text-muted-foreground block mb-1">
-                      Fixed Class Coordinator (CC):
-                    </span>
-                    {yearCoordinators.length > 0 ? (
-                      <div className="space-y-1">
-                        {yearCoordinators.map((cc) => (
-                          <div
-                            key={cc.id}
-                            className="flex items-center gap-1.5 p-1.5 rounded-md bg-emerald-500/10 border border-emerald-500/20 text-emerald-800 dark:text-emerald-300 font-medium text-[11px]"
-                          >
-                            <UserCog className="h-3.5 w-3.5 shrink-0" />
-                            <span className="truncate">{cc.full_name}</span>
-                            <span className="ml-auto font-mono text-[9px] opacity-80 shrink-0">
-                              Sem {cc.assigned_semester || engYear.semesters[0]}
-                            </span>
-                          </div>
-                        ))}
-                      </div>
-                    ) : (
-                      <p className="text-[11px] italic text-muted-foreground">
-                        Not assigned yet
-                      </p>
-                    )}
-                  </div>
+                  )}
                 </div>
               </div>
             );
@@ -1070,10 +1020,6 @@ export const HODDashboard: React.FC = () => {
                 Dual Role: HOD & Lecturer
               </Badge>
             </div>
-            <p className="text-xs text-muted-foreground">
-              As Head of Department, you can conduct academic lectures, mark
-              subject attendance, and supervise department faculty.
-            </p>
           </div>
 
           <div className="flex items-center gap-2">
@@ -1107,7 +1053,7 @@ export const HODDashboard: React.FC = () => {
                       {sub.name}
                     </p>
                     <p className="text-[11px] text-muted-foreground mt-0.5">
-                      {sub.credits} Course Credits
+                      {sub.credits} Credits
                     </p>
                   </div>
 
@@ -1131,11 +1077,6 @@ export const HODDashboard: React.FC = () => {
                   Ready to take lectures for{" "}
                   {myDepartment?.code || "your department"}
                 </p>
-                <p>
-                  You can conduct lectures for any course in your department or
-                  map specific subjects to your profile under Subject
-                  Assignments.
-                </p>
               </div>
               <Link to="/attendance" className="shrink-0">
                 <Button
@@ -1144,7 +1085,7 @@ export const HODDashboard: React.FC = () => {
                   className="gap-1.5 text-xs"
                 >
                   <ClipboardCheck className="h-3.5 w-3.5 text-primary" />
-                  Select Subject & Take Attendance
+                  Take Attendance
                 </Button>
               </Link>
             </div>
@@ -1158,10 +1099,6 @@ export const HODDashboard: React.FC = () => {
             <BookOpen className="h-4 w-4 text-primary" /> Department Attendance
             Trend
           </h2>
-          <p className="text-xs text-muted-foreground">
-            Last seven recorded days for{" "}
-            {myDepartment?.code || "your department"}.
-          </p>
         </div>
         <div className="h-72 p-4">
           {attendanceTrend.length === 0 ? (
@@ -1629,7 +1566,7 @@ export const HODDashboard: React.FC = () => {
 
                       <div className="w-full sm:w-52">
                         <Input
-                          placeholder="Class (e.g. SE CSE-A)"
+                          placeholder="Class (e.g. SY CSE-A)"
                           list={`classes-${teacher.id}`}
                           value={assignmentDrafts[teacher.id]?.className || ""}
                           onChange={(e) =>
@@ -1648,12 +1585,12 @@ export const HODDashboard: React.FC = () => {
                               {c.name} (Semester {c.semester})
                             </option>
                           ))}
-                          <option value="SE CSE-A">SE CSE-A</option>
-                          <option value="SE CSE-B">SE CSE-B</option>
-                          <option value="TE CSE-A">TE CSE-A</option>
-                          <option value="TE CSE-B">TE CSE-B</option>
+                          <option value="SY CSE-A">SY CSE-A</option>
+                          <option value="SY CSE-B">SY CSE-B</option>
+                          <option value="TY CSE-A">TY CSE-A</option>
+                          <option value="TY CSE-B">TY CSE-B</option>
                           <option value="BE CSE-A">BE CSE-A</option>
-                          <option value="FE CSE-A">FE CSE-A</option>
+                          <option value="FY CSE-A">FY CSE-A</option>
                         </datalist>
                       </div>
 

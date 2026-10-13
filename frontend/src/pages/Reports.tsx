@@ -613,7 +613,7 @@ export const Reports: React.FC = () => {
       {/* Header and Access Role Scope Banner */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div>
-          <div className="flex flex-wrap items-center gap-2 mb-1.5">
+          <div className="flex flex-wrap items-center gap-2">
             <h1 className="font-display text-2xl font-bold tracking-tight text-foreground">
               Official Attendance Reports & Audit Sign-Off
             </h1>
@@ -630,10 +630,6 @@ export const Reports: React.FC = () => {
               {role === "student" && "Student Record"}
             </Badge>
           </div>
-          <p className="text-sm text-muted-foreground">
-            Generate and export university-compliant attendance registers, defaulter audit
-            sheets (&lt; {college.minAttendance}%), and multi-tier signature sign-offs.
-          </p>
         </div>
 
         {/* Global Export & Alert Actions */}
@@ -697,9 +693,6 @@ export const Reports: React.FC = () => {
           <div className="text-2xl font-black text-foreground">
             {stats.uniqueStudents}
           </div>
-          <span className="text-[11px] text-muted-foreground">
-            {stats.totalRecords} lecture allocations
-          </span>
         </div>
 
         <div className="p-4 rounded-xl border border-rose-500/20 bg-rose-500/5 shadow-xs">
@@ -723,9 +716,6 @@ export const Reports: React.FC = () => {
               </Button>
             )}
           </div>
-          <span className="text-[11px] text-rose-700/80 dark:text-rose-300/80 block mt-1">
-            Exam detention risk / alert needed
-          </span>
         </div>
 
         <div className="p-4 rounded-xl border border-emerald-500/20 bg-emerald-500/5 shadow-xs">
@@ -736,9 +726,6 @@ export const Reports: React.FC = () => {
           <div className="text-2xl font-black text-emerald-600 dark:text-emerald-400">
             {stats.eligibleCount}
           </div>
-          <span className="text-[11px] text-emerald-700/80 dark:text-emerald-300/80">
-            Satisfies university attendance norm
-          </span>
         </div>
 
         <div className="p-4 rounded-xl border border-border/80 bg-card shadow-xs">
@@ -749,9 +736,6 @@ export const Reports: React.FC = () => {
           <div className="text-2xl font-black text-foreground">
             {stats.avgAttendance}%
           </div>
-          <span className="text-[11px] text-muted-foreground">
-            Overall aggregate across records
-          </span>
         </div>
       </div>
 
@@ -917,10 +901,10 @@ export const Reports: React.FC = () => {
                 setSelectedSubject("__all");
               }}
               options={[
-                { value: "__all", label: "All Years (FE · SE · TE · BE)" },
+                { value: "__all", label: "All Years (FY · SY · TY · BE)" },
                 ...ENGINEERING_YEARS.map((y) => ({
                   value: String(y.year),
-                  label: `${["FY", "SY", "TY", "LY"][y.year - 1]} · ${y.code} (${y.name})`,
+                  label: `${["FY", "SY", "TY", "BE"][y.year - 1]} · ${y.name}`,
                 })),
               ]}
             />

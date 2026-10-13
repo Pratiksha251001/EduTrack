@@ -426,9 +426,6 @@ export const UserProfile: React.FC = () => {
             <h1 className="font-display text-2xl font-bold tracking-tight text-foreground">
               My Profile & Credentials
             </h1>
-            <p className="text-xs text-muted-foreground">
-              Manage personal account details, role assignments, and login security credentials.
-            </p>
           </div>
         </div>
         <Badge
@@ -450,15 +447,12 @@ export const UserProfile: React.FC = () => {
               <div>
                 <div className="flex items-center gap-2">
                   <h3 className="text-sm font-bold text-foreground">
-                    Interactive Dummy Profile · Study Mode
+                    Interactive Profile · Study Mode
                   </h3>
                   <Badge variant="secondary" className="text-[10px] uppercase font-bold bg-amber-500/20 text-amber-900 dark:text-amber-200">
                     Preloaded Record
                   </Badge>
                 </div>
-                <p className="text-xs text-muted-foreground mt-0.5">
-                  You are exploring a dummy profile for <strong>{user?.full_name}</strong> ({roleTitle}). You can test photo changes, mobile verification, or safely switch to any other dummy role below.
-                </p>
               </div>
             </div>
 

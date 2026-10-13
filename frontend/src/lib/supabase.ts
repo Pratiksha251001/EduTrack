@@ -319,6 +319,7 @@ class LocalDatabase {
 
     // Ensure 2nd, 3rd, and 4th years have two divisions (A and B), excluding 1st year
     this.ensureStandardEngineeringDivisions();
+    this.migrateLegacyYearCodes();
 
     if (isSupabaseConfigured) {
       this.syncReady = this.syncFromSupabase();
@@ -326,8 +327,86 @@ class LocalDatabase {
   }
 
   /**
-   * Ensures that for 2nd Year (SE), 3rd Year (TE), and 4th Year (BE),
-   * two divisions (A and B) exist. First year (FE) is left as a single cohort.
+   * Migrate legacy FE, SE, TE labels in stored data to FY, SY, TY (retaining BE)
+   */
+  private migrateLegacyYearCodes() {
+    let classesChanged = false;
+    for (const c of this.academic_classes) {
+      const updated = c.name
+        .replace(/\bFE\b/g, "FY")
+        .replace(/\bSE\b/g, "SY")
+        .replace(/\bTE\b/g, "TY");
+      if (updated !== c.name) {
+        c.name = updated;
+        classesChanged = true;
+      }
+    }
+    if (classesChanged) this.persist("academic_classes");
+
+    let studentsChanged = false;
+    for (const s of this.students) {
+      if (s.class_name) {
+        const updated = s.class_name
+          .replace(/\bFE\b/g, "FY")
+          .replace(/\bSE\b/g, "SY")
+          .replace(/\bTE\b/g, "TY");
+        if (updated !== s.class_name) {
+          s.class_name = updated;
+          studentsChanged = true;
+        }
+      }
+    }
+    if (studentsChanged) this.persist("students");
+
+    let tsChanged = false;
+    for (const ts of this.teacher_subjects) {
+      if (ts.class_name) {
+        const updated = ts.class_name
+          .replace(/\bFE\b/g, "FY")
+          .replace(/\bSE\b/g, "SY")
+          .replace(/\bTE\b/g, "TY");
+        if (updated !== ts.class_name) {
+          ts.class_name = updated;
+          tsChanged = true;
+        }
+      }
+    }
+    if (tsChanged) this.persist("teacher_subjects");
+
+    let ccaChanged = false;
+    for (const cca of this.class_coordinator_assignments) {
+      if (cca.class_name) {
+        const updated = cca.class_name
+          .replace(/\bFE\b/g, "FY")
+          .replace(/\bSE\b/g, "SY")
+          .replace(/\bTE\b/g, "TY");
+        if (updated !== cca.class_name) {
+          cca.class_name = updated;
+          ccaChanged = true;
+        }
+      }
+    }
+    if (ccaChanged) this.persist("class_coordinator_assignments");
+
+    let teachersChanged = false;
+    for (const t of this.teachers) {
+      if (t.designation) {
+        const updated = t.designation
+          .replace(/\bFE\b/g, "FY")
+          .replace(/\bSE\b/g, "SY")
+          .replace(/\bTE\b/g, "TY");
+        if (updated !== t.designation) {
+          t.designation = updated;
+          teachersChanged = true;
+        }
+      }
+    }
+    if (teachersChanged) this.persist("teachers");
+  }
+
+  /**
+   * Ensures that for 2nd Year (SY), 3rd Year (TY), and 4th Year (BE),
+   * two divisions (A and B) exist. First year (FY) is left as a single cohort.
    */
   public ensureStandardEngineeringDivisions(targetDeptId?: string) {
     const depts = targetDeptId
@@ -341,8 +420,8 @@ class LocalDatabase {
       const deptClasses = this.academic_classes.filter((c) => c.department_id === dept.id);
 
       const yearsConfig = [
-        { year: 2, sem: 3, code: "SE" },
-        { year: 3, sem: 5, code: "TE" },
+        { year: 2, sem: 3, code: "SY" },
+        { year: 3, sem: 5, code: "TY" },
         { year: 4, sem: 7, code: "BE" },
       ];
 

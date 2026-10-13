@@ -7,7 +7,6 @@ import { localDb } from "../lib/supabase";
 export const Users: React.FC = () => (
   <CrudPage<UserAccount>
     title="Users"
-    description="Manage institution accounts and activate or deactivate access where appropriate."
     table="users"
     searchKeys={["full_name", "email", "role", "status"]}
     fields={[

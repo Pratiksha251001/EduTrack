@@ -1,8 +1,9 @@
 export interface EngineeringYearInfo {
   year: number; // 1, 2, 3, 4
-  code: "FE" | "SE" | "TE" | "BE";
-  name: string; // "1st Year (FE)"
-  fullName: string; // "First Year Engineering (FE)"
+  code: "FY" | "SY" | "TY" | "BE";
+  shortName: "FY" | "SY" | "TY" | "BE";
+  name: string; // "1st Year (FY)"
+  fullName: string; // "First Year Engineering (FY)"
   semesters: [number, number]; // e.g. [1, 2]
   oddSemester: number; // 1, 3, 5, 7
   evenSemester: number; // 2, 4, 6, 8
@@ -11,27 +12,30 @@ export interface EngineeringYearInfo {
 export const ENGINEERING_YEARS: EngineeringYearInfo[] = [
   {
     year: 1,
-    code: "FE",
-    name: "1st Year (FE)",
-    fullName: "First Year Engineering (FE)",
+    code: "FY",
+    shortName: "FY",
+    name: "1st Year",
+    fullName: "First Year Engineering (FY)",
     semesters: [1, 2],
     oddSemester: 1,
     evenSemester: 2,
   },
   {
     year: 2,
-    code: "SE",
-    name: "2nd Year (SE)",
-    fullName: "Second Year Engineering (SE)",
+    code: "SY",
+    shortName: "SY",
+    name: "2nd Year",
+    fullName: "Second Year Engineering (SY)",
     semesters: [3, 4],
     oddSemester: 3,
     evenSemester: 4,
   },
   {
     year: 3,
-    code: "TE",
-    name: "3rd Year (TE)",
-    fullName: "Third Year Engineering (TE)",
+    code: "TY",
+    shortName: "TY",
+    name: "3rd Year",
+    fullName: "Third Year Engineering (TY)",
     semesters: [5, 6],
     oddSemester: 5,
     evenSemester: 6,
@@ -39,7 +43,8 @@ export const ENGINEERING_YEARS: EngineeringYearInfo[] = [
   {
     year: 4,
     code: "BE",
-    name: "4th Year (BE / Final Year)",
+    shortName: "BE",
+    name: "4th Year",
     fullName: "Final Year Engineering (BE)",
     semesters: [7, 8],
     oddSemester: 7,
@@ -66,13 +71,13 @@ export function getSemNumberInYear(sem: number): 1 | 2 {
 }
 
 /**
- * Get engineering year short code: FE, SE, TE, BE
+ * Get engineering year short code: FY, SY, TY, BE
  */
-export function getEngineeringYearCode(yearOrSem: number, isSem = false): "FE" | "SE" | "TE" | "BE" {
+export function getEngineeringYearCode(yearOrSem: number, isSem = false): "FY" | "SY" | "TY" | "BE" {
   const year = isSem ? getEngineeringYearFromSemester(yearOrSem) : yearOrSem;
-  if (year === 1) return "FE";
-  if (year === 2) return "SE";
-  if (year === 3) return "TE";
+  if (year === 1) return "FY";
+  if (year === 2) return "SY";
+  if (year === 3) return "TY";
   return "BE";
 }
 
@@ -86,7 +91,7 @@ export function getEngineeringYearName(year: number): string {
 
 /**
  * Full descriptive label for an engineering semester:
- * e.g. "2nd Year · Sem 3 (2nd Year 1st Sem / SE)"
+ * e.g. "2nd Year · Sem 3 (2nd Year 1st Sem / SY)"
  */
 export function getSemesterEngineeringLabel(sem: number): string {
   const year = getEngineeringYearFromSemester(sem);
@@ -124,7 +129,7 @@ export function getTeacherTeachingSemesterLabel(sem: number, customYear?: number
 
 /**
  * Class coordinator descriptor:
- * e.g. "Year 2 Coordinator (SE) · Semester 3"
+ * e.g. "Year 2 Coordinator (SY) · Semester 3"
  */
 export function getCoordinatorScopeLabel(year?: number | null, sem?: number | null): string {
   if (!year && !sem) return "Class Coordinator";
@@ -157,7 +162,7 @@ export const PARALLEL_SEMESTER_TRACKS: ParallelSemesterTrack[] = [
   {
     id: "all",
     name: "All 4 Years (All 8 Semesters)",
-    description: "Complete department view across FE, SE, TE & BE",
+    description: "Complete department view across FY, SY, TY & BE",
     semesters: [1, 2, 3, 4, 5, 6, 7, 8],
     years: [1, 2, 3, 4],
     badge: "All 4 Years",
@@ -165,7 +170,7 @@ export const PARALLEL_SEMESTER_TRACKS: ParallelSemesterTrack[] = [
   {
     id: "odd_cycle",
     name: "Parallel Odd Semesters (Sem 1, 3, 5, 7)",
-    description: "Ongoing parallel term: FE Sem 1, SE Sem 3, TE Sem 5, BE Sem 7",
+    description: "Ongoing parallel term: FY Sem 1, SY Sem 3, TY Sem 5, BE Sem 7",
     semesters: [1, 3, 5, 7],
     years: [1, 2, 3, 4],
     badge: "Odd Cycle (1, 3, 5, 7)",
@@ -173,7 +178,7 @@ export const PARALLEL_SEMESTER_TRACKS: ParallelSemesterTrack[] = [
   {
     id: "even_cycle",
     name: "Parallel Even Semesters (Sem 2, 4, 6, 8)",
-    description: "Ongoing parallel term: FE Sem 2, SE Sem 4, TE Sem 6, BE Sem 8",
+    description: "Ongoing parallel term: FY Sem 2, SY Sem 4, TY Sem 6, BE Sem 8",
     semesters: [2, 4, 6, 8],
     years: [1, 2, 3, 4],
     badge: "Even Cycle (2, 4, 6, 8)",
@@ -181,7 +186,7 @@ export const PARALLEL_SEMESTER_TRACKS: ParallelSemesterTrack[] = [
   {
     id: "junior_senior_split",
     name: "Parallel 1st & 3rd Sem (Junior Engineering)",
-    description: "Concurrently running 1st Year (FE) & 2nd Year (SE)",
+    description: "Concurrently running 1st Year (FY) & 2nd Year (SY)",
     semesters: [1, 3],
     years: [1, 2],
     badge: "Sem 1 & 3",
@@ -189,7 +194,7 @@ export const PARALLEL_SEMESTER_TRACKS: ParallelSemesterTrack[] = [
   {
     id: "upper_years_split",
     name: "Parallel 6th & 8th Sem (Upper Engineering)",
-    description: "Concurrently running 3rd Year (TE) & 4th Year (BE)",
+    description: "Concurrently running 3rd Year (TY) & 4th Year (BE)",
     semesters: [6, 8],
     years: [3, 4],
     badge: "Sem 6 & 8",
@@ -200,9 +205,9 @@ export const PARALLEL_SEMESTER_TRACKS: ParallelSemesterTrack[] = [
  * Engineering Year selection options for dropdowns
  */
 export const ENGINEERING_YEAR_OPTIONS = [
-  { value: "1", label: "1st Year (FE - First Year Engineering)" },
-  { value: "2", label: "2nd Year (SE - Second Year Engineering)" },
-  { value: "3", label: "3rd Year (TE - Third Year Engineering)" },
+  { value: "1", label: "1st Year (FY - First Year Engineering)" },
+  { value: "2", label: "2nd Year (SY - Second Year Engineering)" },
+  { value: "3", label: "3rd Year (TY - Third Year Engineering)" },
   { value: "4", label: "4th Year (BE - Final Year Engineering)" },
 ];
 

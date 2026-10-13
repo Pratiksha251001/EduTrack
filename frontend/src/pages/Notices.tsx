@@ -6,7 +6,6 @@ import { Badge } from "../components/ui/badge";
 export const Notices: React.FC = () => (
   <CrudPage<Notice>
     title="Notices"
-    description="Publish and manage institution-wide academic notices."
     table="notices"
     searchKeys={["title", "message", "audience", "status"]}
     fields={[

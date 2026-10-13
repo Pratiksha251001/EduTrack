@@ -518,10 +518,6 @@ export const Attendance: React.FC = () => {
           <h2 className="font-display text-2xl font-bold">
             Mark Subject Attendance
           </h2>
-          <p className="text-sm text-muted-foreground">
-            Select your Year, Subject, and Class/Division. Submit to review
-            Absent & Present lists before automated SMS alerts reach parents.
-          </p>
         </div>
         <div className="flex items-center gap-2">
           <Link to="/reports">
@@ -541,29 +537,14 @@ export const Attendance: React.FC = () => {
 
       {/* Multi-Class Faculty Workload Context Bar */}
       {myTeachingAssignments.length > 0 && (
-        <div className="rounded-xl border border-border/80 bg-muted/40 p-3.5 flex flex-col md:flex-row md:items-center justify-between gap-3 text-xs">
+        <div className="rounded-xl border border-border/80 bg-muted/40 p-3 flex flex-col md:flex-row md:items-center justify-between gap-3 text-xs">
           <div className="flex items-center gap-2">
             <div className="h-7 w-7 rounded-lg bg-primary/10 text-primary flex items-center justify-center font-bold">
               <Layers className="h-4 w-4" />
             </div>
-            <div>
-              <span className="font-semibold text-foreground">
-                Your Multi-Class Teaching Allocation:
-              </span>{" "}
-              <span className="text-muted-foreground">
-                Assigned across{" "}
-                {
-                  new Set(
-                    myTeachingAssignments
-                      .map((ts) => ts.class_name)
-                      .filter(Boolean),
-                  ).size
-                }{" "}
-                classes/divisions and{" "}
-                {new Set(myTeachingAssignments.map((ts) => ts.subject_id)).size}{" "}
-                subjects.
-              </span>
-            </div>
+            <span className="font-semibold text-foreground">
+              Assigned Classes & Subjects:
+            </span>
           </div>
           <div className="flex flex-wrap items-center gap-1.5">
             {myTeachingAssignments.slice(0, 4).map((ts) => {

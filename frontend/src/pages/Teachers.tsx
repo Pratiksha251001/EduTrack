@@ -46,7 +46,6 @@ export const Teachers: React.FC = () => {
       )}
       <CrudPage<Teacher>
         title="Teachers & Faculty"
-        description="Faculty staff directory including HODs, Class Coordinators (CC), and Lecturers. Accounts link automatically."
         table="teachers"
         searchKeys={["full_name", "employee_id", "email", "mobile", "role"]}
         sortItems={(a, b) =>
@@ -150,7 +149,7 @@ export const Teachers: React.FC = () => {
             visibleWhen: (data) => data.role === "lecturer",
             options: college.engineeringYears.map((year) => ({
               value: String(year),
-              label: `${["FE", "SE", "TE", "BE"][year - 1]} · Year ${year}`,
+              label: `${["FY", "SY", "TY", "BE"][year - 1]} · Year ${year}`,
             })),
           },
           {

@@ -50,7 +50,6 @@ export const Departments: React.FC = () => {
 
       <CrudPage<Department>
         title="Departments"
-        description="Academic departments utilized across subjects, faculty, and student batches."
         table="departments"
         searchKeys={["name", "code", "status"]}
         extraHeaderActions={

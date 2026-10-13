@@ -439,18 +439,10 @@ export const HODStudents: React.FC = () => {
             <Badge className="bg-primary/15 text-primary border-primary/20 text-xs">
               HOD PORTAL · {department?.code || "DEPARTMENT"}
             </Badge>
-            <span className="text-xs text-muted-foreground font-medium">
-              Student Directory & Attendance
-            </span>
           </div>
-          <h1 className="mt-1.5 font-display text-2xl sm:text-3xl font-bold tracking-tight">
+          <h1 className="mt-1 font-display text-2xl sm:text-3xl font-bold tracking-tight">
             Department Students & Attendance
           </h1>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Official student directory across all semesters in{" "}
-            {department?.name || "your department"}, complete with attendance
-            tracking and guardian contact alerts.
-          </p>
         </div>
 
         {/* Action Buttons: strictly student-related (Import, Export, Add) */}
@@ -497,9 +489,6 @@ export const HODStudents: React.FC = () => {
             <span className="text-2xl font-bold text-foreground">
               {departmentMetrics.totalCount}
             </span>
-            <span className="text-xs text-muted-foreground">
-              across all semesters
-            </span>
           </div>
         </Card>
 
@@ -513,9 +502,6 @@ export const HODStudents: React.FC = () => {
           <div className="mt-2 flex items-baseline gap-2">
             <span className="text-2xl font-bold text-foreground">
               {departmentMetrics.avgRate}%
-            </span>
-            <span className="text-xs text-muted-foreground">
-              department aggregate
             </span>
           </div>
         </Card>
@@ -537,9 +523,6 @@ export const HODStudents: React.FC = () => {
             >
               {departmentMetrics.defaulterCount}
             </span>
-            <span className="text-xs text-muted-foreground">
-              need attendance notice
-            </span>
           </div>
         </Card>
 
@@ -553,9 +536,6 @@ export const HODStudents: React.FC = () => {
           <div className="mt-2 flex items-baseline gap-2">
             <span className="text-2xl font-bold text-foreground">
               {departmentMetrics.deptSmsCount}
-            </span>
-            <span className="text-xs text-muted-foreground">
-              dispatched logs
             </span>
           </div>
         </Card>

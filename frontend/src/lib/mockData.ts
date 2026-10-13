@@ -44,7 +44,7 @@ export const mockNotices: Notice[] = [];
 export const mockClasses: AcademicClass[] = [
   {
     id: "class-cse-fe",
-    name: "FE CSE-A",
+    name: "FY CSE-A",
     department_id: "dept-1",
     year: 1,
     semester: 1,
@@ -53,7 +53,7 @@ export const mockClasses: AcademicClass[] = [
   },
   {
     id: "class-cse-se-a",
-    name: "SE CSE-A",
+    name: "SY CSE-A",
     department_id: "dept-1",
     year: 2,
     semester: 3,
@@ -62,7 +62,7 @@ export const mockClasses: AcademicClass[] = [
   },
   {
     id: "class-cse-se-b",
-    name: "SE CSE-B",
+    name: "SY CSE-B",
     department_id: "dept-1",
     year: 2,
     semester: 3,
@@ -71,7 +71,7 @@ export const mockClasses: AcademicClass[] = [
   },
   {
     id: "class-cse-te-a",
-    name: "TE CSE-A",
+    name: "TY CSE-A",
     department_id: "dept-1",
     year: 3,
     semester: 5,
@@ -80,7 +80,7 @@ export const mockClasses: AcademicClass[] = [
   },
   {
     id: "class-cse-te-b",
-    name: "TE CSE-B",
+    name: "TY CSE-B",
     department_id: "dept-1",
     year: 3,
     semester: 5,
@@ -166,7 +166,7 @@ export const mockTeachers: Teacher[] = [
     assigned_semester: 3,
     role: "class_coordinator",
     status: "active",
-    designation: "Associate Professor & SE Coordinator",
+    designation: "Associate Professor & SY Coordinator",
     qualification: "M.Tech in Software Systems",
     date_of_birth: "1985-09-24",
     experience_years: "11 Years",
@@ -199,7 +199,7 @@ export const mockTeachers: Teacher[] = [
     assigned_semester: 5,
     role: "class_coordinator",
     status: "active",
-    designation: "Assistant Professor & TE Coordinator",
+    designation: "Assistant Professor & TY Coordinator",
     qualification: "M.Tech in Cyber Security",
     date_of_birth: "1990-11-08",
     experience_years: "7 Years",
@@ -230,7 +230,7 @@ export const mockClassCoordinatorAssignments: ClassCoordinatorAssignment[] = [
     year: 2,
     semester: 3,
     class_id: "class-cse-se-a",
-    class_name: "SE CSE-A",
+    class_name: "SY CSE-A",
     assigned_by: "hod-user-id",
   },
   {
@@ -240,7 +240,7 @@ export const mockClassCoordinatorAssignments: ClassCoordinatorAssignment[] = [
     year: 2,
     semester: 3,
     class_id: "class-cse-se-b",
-    class_name: "SE CSE-B",
+    class_name: "SY CSE-B",
     assigned_by: "hod-user-id",
   },
   {
@@ -250,13 +250,13 @@ export const mockClassCoordinatorAssignments: ClassCoordinatorAssignment[] = [
     year: 3,
     semester: 5,
     class_id: "class-cse-te-a",
-    class_name: "TE CSE-A",
+    class_name: "TY CSE-A",
     assigned_by: "hod-user-id",
   },
 ];
 
 export const mockSubjects: Subject[] = [
-  // 1st Year (FE) - Parallel Sem 1
+  // 1st Year (FY) - Parallel Sem 1
   {
     id: "sub-fe-1",
     code: "CS101",
@@ -275,7 +275,7 @@ export const mockSubjects: Subject[] = [
     semester: 1,
     credits: 4,
   },
-  // 2nd Year (SE) - Parallel Sem 3 (2nd Year 1st Sem)
+  // 2nd Year (SY) - Parallel Sem 3 (2nd Year 1st Sem)
   {
     id: "sub-se-1",
     code: "CS301",
@@ -294,7 +294,7 @@ export const mockSubjects: Subject[] = [
     semester: 3,
     credits: 3,
   },
-  // 3rd Year (TE) - Parallel Sem 5 (3rd Year 1st Sem)
+  // 3rd Year (TY) - Parallel Sem 5 (3rd Year 1st Sem)
   {
     id: "sub-te-1",
     code: "CS501",
@@ -353,28 +353,28 @@ export const mockSubjects: Subject[] = [
 ];
 
 export const mockTeacherSubjects: TeacherSubject[] = [
-  // HOD (Dr. Robert Chen - t-1) teaches multiple classes across years (BE and TE Divisions)
+  // HOD (Dr. Robert Chen - t-1) teaches multiple classes across years (BE and TY Divisions)
   { id: "ts-1", teacher_id: "t-1", subject_id: "sub-be-1", class_name: "BE CSE-A", class_id: "class-cse-be-a", year: 4, semester: 7 },
-  { id: "ts-2", teacher_id: "t-1", subject_id: "sub-te-1", class_name: "TE CSE-A", class_id: "class-cse-te-a", year: 3, semester: 5 },
-  { id: "ts-3", teacher_id: "t-1", subject_id: "sub-te-1", class_name: "TE CSE-B", class_id: "class-cse-te-b", year: 3, semester: 5 },
+  { id: "ts-2", teacher_id: "t-1", subject_id: "sub-te-1", class_name: "TY CSE-A", class_id: "class-cse-te-a", year: 3, semester: 5 },
+  { id: "ts-3", teacher_id: "t-1", subject_id: "sub-te-1", class_name: "TY CSE-B", class_id: "class-cse-te-b", year: 3, semester: 5 },
 
-  // Class Coordinator (Prof. Sarah Jenkins - t-2, SE Coordinator) teaches multiple classes (both SE Div A & B, plus FE)
-  { id: "ts-4", teacher_id: "t-2", subject_id: "sub-se-1", class_name: "SE CSE-A", class_id: "class-cse-se-a", year: 2, semester: 3 },
-  { id: "ts-5", teacher_id: "t-2", subject_id: "sub-se-1", class_name: "SE CSE-B", class_id: "class-cse-se-b", year: 2, semester: 3 },
-  { id: "ts-6", teacher_id: "t-2", subject_id: "sub-fe-2", class_name: "FE CSE-A", class_id: "class-cse-fe", year: 1, semester: 1 },
+  // Class Coordinator (Prof. Sarah Jenkins - t-2, SY Coordinator) teaches multiple classes (both SY Div A & B, plus FY)
+  { id: "ts-4", teacher_id: "t-2", subject_id: "sub-se-1", class_name: "SY CSE-A", class_id: "class-cse-se-a", year: 2, semester: 3 },
+  { id: "ts-5", teacher_id: "t-2", subject_id: "sub-se-1", class_name: "SY CSE-B", class_id: "class-cse-se-b", year: 2, semester: 3 },
+  { id: "ts-6", teacher_id: "t-2", subject_id: "sub-fe-2", class_name: "FY CSE-A", class_id: "class-cse-fe", year: 1, semester: 1 },
 
-  // Class Coordinator (Prof. Emily Watson - t-4, TE Coordinator) teaches multiple classes (both TE Div A & B)
-  { id: "ts-7", teacher_id: "t-4", subject_id: "sub-te-2", class_name: "TE CSE-A", class_id: "class-cse-te-a", year: 3, semester: 5 },
-  { id: "ts-8", teacher_id: "t-4", subject_id: "sub-te-2", class_name: "TE CSE-B", class_id: "class-cse-te-b", year: 3, semester: 5 },
+  // Class Coordinator (Prof. Emily Watson - t-4, TY Coordinator) teaches multiple classes (both TY Div A & B)
+  { id: "ts-7", teacher_id: "t-4", subject_id: "sub-te-2", class_name: "TY CSE-A", class_id: "class-cse-te-a", year: 3, semester: 5 },
+  { id: "ts-8", teacher_id: "t-4", subject_id: "sub-te-2", class_name: "TY CSE-B", class_id: "class-cse-te-b", year: 3, semester: 5 },
 
-  // Lecturer (Prof. David Miller - t-5) teaches multiple classes (FE and both SE divisions)
-  { id: "ts-9", teacher_id: "t-5", subject_id: "sub-fe-2", class_name: "FE CSE-A", class_id: "class-cse-fe", year: 1, semester: 1 },
-  { id: "ts-10", teacher_id: "t-5", subject_id: "sub-se-2", class_name: "SE CSE-A", class_id: "class-cse-se-a", year: 2, semester: 3 },
-  { id: "ts-11", teacher_id: "t-5", subject_id: "sub-se-2", class_name: "SE CSE-B", class_id: "class-cse-se-b", year: 2, semester: 3 },
+  // Lecturer (Prof. David Miller - t-5) teaches multiple classes (FY and both SY divisions)
+  { id: "ts-9", teacher_id: "t-5", subject_id: "sub-fe-2", class_name: "FY CSE-A", class_id: "class-cse-fe", year: 1, semester: 1 },
+  { id: "ts-10", teacher_id: "t-5", subject_id: "sub-se-2", class_name: "SY CSE-A", class_id: "class-cse-se-a", year: 2, semester: 3 },
+  { id: "ts-11", teacher_id: "t-5", subject_id: "sub-se-2", class_name: "SY CSE-B", class_id: "class-cse-se-b", year: 2, semester: 3 },
 ];
 
 export const mockStudents: Student[] = [
-  // 1st Year (FE) Students - Sem 1
+  // 1st Year (FY) Students - Sem 1
   {
     id: "st-fe-1",
     roll_number: "24CS001",
@@ -384,7 +384,7 @@ export const mockStudents: Student[] = [
     year: 1,
     semester: 1,
     class_id: "class-cse-fe",
-    class_name: "FE CSE-A",
+    class_name: "FY CSE-A",
     parent_name: "Rajesh Sharma",
     parent_mobile: "9876543220",
     student_mobile: "9876543221",
@@ -403,7 +403,7 @@ export const mockStudents: Student[] = [
     year: 1,
     semester: 1,
     class_id: "class-cse-fe",
-    class_name: "FE CSE-A",
+    class_name: "FY CSE-A",
     parent_name: "Sanjay Deshmukh",
     parent_mobile: "9876543222",
     student_mobile: "9876543223",
@@ -414,7 +414,7 @@ export const mockStudents: Student[] = [
     status: "active",
   },
 
-  // 2nd Year (SE) Students - Sem 3 (SE CSE-A and SE CSE-B)
+  // 2nd Year (SY) Students - Sem 3 (SY CSE-A and SY CSE-B)
   {
     id: "st-se-1",
     roll_number: "23CS001",
@@ -424,7 +424,7 @@ export const mockStudents: Student[] = [
     year: 2,
     semester: 3,
     class_id: "class-cse-se-a",
-    class_name: "SE CSE-A",
+    class_name: "SY CSE-A",
     parent_name: "Mahesh Kulkarni",
     parent_mobile: "9876543230",
     student_mobile: "9876543231",
@@ -443,7 +443,7 @@ export const mockStudents: Student[] = [
     year: 2,
     semester: 3,
     class_id: "class-cse-se-b",
-    class_name: "SE CSE-B",
+    class_name: "SY CSE-B",
     parent_name: "Anand Patil",
     parent_mobile: "9876543232",
     student_mobile: "9876543233",
@@ -454,7 +454,7 @@ export const mockStudents: Student[] = [
     status: "active",
   },
 
-  // 3rd Year (TE) Students - Sem 5 (TE CSE-A and TE CSE-B)
+  // 3rd Year (TY) Students - Sem 5 (TY CSE-A and TY CSE-B)
   {
     id: "st-1",
     roll_number: "22CS001",
@@ -464,7 +464,7 @@ export const mockStudents: Student[] = [
     year: 3,
     semester: 5,
     class_id: "class-cse-te-a",
-    class_name: "TE CSE-A",
+    class_name: "TY CSE-A",
     parent_name: "Marcus Hayes",
     parent_mobile: "9876543210",
     student_mobile: "9876543211",
@@ -484,7 +484,7 @@ export const mockStudents: Student[] = [
     year: 3,
     semester: 5,
     class_id: "class-cse-te-a",
-    class_name: "TE CSE-A",
+    class_name: "TY CSE-A",
     parent_name: "Elena Montgomery",
     parent_mobile: "9876543212",
     student_mobile: "9876543213",
@@ -503,7 +503,7 @@ export const mockStudents: Student[] = [
     year: 3,
     semester: 5,
     class_id: "class-cse-te-b",
-    class_name: "TE CSE-B",
+    class_name: "TY CSE-B",
     parent_name: "David Gallagher",
     parent_mobile: "9876543214",
     student_mobile: "9876543215",
@@ -522,7 +522,7 @@ export const mockStudents: Student[] = [
     year: 3,
     semester: 5,
     class_id: "class-cse-te-b",
-    class_name: "TE CSE-B",
+    class_name: "TY CSE-B",
     parent_name: "Carlos Rodriguez",
     parent_mobile: "9876543216",
     student_mobile: "9876543217",
@@ -541,7 +541,7 @@ export const mockStudents: Student[] = [
     year: 3,
     semester: 5,
     class_id: "class-cse-te-a",
-    class_name: "TE CSE-A",
+    class_name: "TY CSE-A",
     parent_name: "Arthur Bennett",
     parent_mobile: "9876543218",
     student_mobile: "9876543219",

@@ -8,8 +8,8 @@ export interface ParsedSyllabusSubject {
   id?: string;
   code: string;
   name: string;
-  year: number; // 1 (FE), 2 (SE), 3 (TE), 4 (BE)
-  yearCode: "FE" | "SE" | "TE" | "BE";
+  year: number; // 1 (FY), 2 (SY), 3 (TY), 4 (BE)
+  yearCode: "FY" | "SY" | "TY" | "BE";
   semester: number; // 1 to 8
   credits: number;
   category:
@@ -245,14 +245,14 @@ export const SOLAPUR_UNIVERSITY_CSE_FINAL_YEAR: ParsedSyllabusSubject[] = [
   },
 ];
 
-// Preloaded scheme for 1st Year (FE)
+// Preloaded scheme for 1st Year (FY)
 export const FE_ENGINEERING_SYLLABUS: ParsedSyllabusSubject[] = [
   // Sem 1
   {
     code: "FEC-101",
     name: "Engineering Mathematics - I",
     year: 1,
-    yearCode: "FE",
+    yearCode: "FY",
     semester: 1,
     credits: 4,
     category: "Core",
@@ -262,7 +262,7 @@ export const FE_ENGINEERING_SYLLABUS: ParsedSyllabusSubject[] = [
     code: "FEC-102",
     name: "Engineering Physics",
     year: 1,
-    yearCode: "FE",
+    yearCode: "FY",
     semester: 1,
     credits: 3,
     category: "Core",
@@ -272,7 +272,7 @@ export const FE_ENGINEERING_SYLLABUS: ParsedSyllabusSubject[] = [
     code: "FEC-103",
     name: "Basic Electrical Engineering",
     year: 1,
-    yearCode: "FE",
+    yearCode: "FY",
     semester: 1,
     credits: 3,
     category: "Core",
@@ -282,7 +282,7 @@ export const FE_ENGINEERING_SYLLABUS: ParsedSyllabusSubject[] = [
     code: "FEC-104",
     name: "Programming for Problem Solving (C)",
     year: 1,
-    yearCode: "FE",
+    yearCode: "FY",
     semester: 1,
     credits: 3,
     category: "Core",
@@ -292,7 +292,7 @@ export const FE_ENGINEERING_SYLLABUS: ParsedSyllabusSubject[] = [
     code: "FEC-105",
     name: "Engineering Graphics & Design Lab",
     year: 1,
-    yearCode: "FE",
+    yearCode: "FY",
     semester: 1,
     credits: 2,
     category: "Practical",
@@ -303,7 +303,7 @@ export const FE_ENGINEERING_SYLLABUS: ParsedSyllabusSubject[] = [
     code: "FEC-201",
     name: "Engineering Mathematics - II",
     year: 1,
-    yearCode: "FE",
+    yearCode: "FY",
     semester: 2,
     credits: 4,
     category: "Core",
@@ -313,7 +313,7 @@ export const FE_ENGINEERING_SYLLABUS: ParsedSyllabusSubject[] = [
     code: "FEC-202",
     name: "Engineering Chemistry",
     year: 1,
-    yearCode: "FE",
+    yearCode: "FY",
     semester: 2,
     credits: 3,
     category: "Core",
@@ -323,7 +323,7 @@ export const FE_ENGINEERING_SYLLABUS: ParsedSyllabusSubject[] = [
     code: "FEC-203",
     name: "Engineering Mechanics",
     year: 1,
-    yearCode: "FE",
+    yearCode: "FY",
     semester: 2,
     credits: 3,
     category: "Core",
@@ -333,7 +333,7 @@ export const FE_ENGINEERING_SYLLABUS: ParsedSyllabusSubject[] = [
     code: "FEC-204",
     name: "Basic Electronics Engineering",
     year: 1,
-    yearCode: "FE",
+    yearCode: "FY",
     semester: 2,
     credits: 3,
     category: "Core",
@@ -343,7 +343,7 @@ export const FE_ENGINEERING_SYLLABUS: ParsedSyllabusSubject[] = [
     code: "FEC-205",
     name: "Python Programming Laboratory",
     year: 1,
-    yearCode: "FE",
+    yearCode: "FY",
     semester: 2,
     credits: 2,
     category: "Practical",
@@ -351,14 +351,14 @@ export const FE_ENGINEERING_SYLLABUS: ParsedSyllabusSubject[] = [
   },
 ];
 
-// Preloaded scheme for 2nd Year (SE)
+// Preloaded scheme for 2nd Year (SY)
 export const SE_ENGINEERING_SYLLABUS: ParsedSyllabusSubject[] = [
   // Sem 3
   {
     code: "CSEC-301",
     name: "Applied Mathematics - III",
     year: 2,
-    yearCode: "SE",
+    yearCode: "SY",
     semester: 3,
     credits: 4,
     category: "Core",
@@ -368,7 +368,7 @@ export const SE_ENGINEERING_SYLLABUS: ParsedSyllabusSubject[] = [
     code: "CSEC-302",
     name: "Discrete Mathematical Structures",
     year: 2,
-    yearCode: "SE",
+    yearCode: "SY",
     semester: 3,
     credits: 4,
     category: "Core",
@@ -378,7 +378,7 @@ export const SE_ENGINEERING_SYLLABUS: ParsedSyllabusSubject[] = [
     code: "CSEC-303",
     name: "Data Structures and Algorithms",
     year: 2,
-    yearCode: "SE",
+    yearCode: "SY",
     semester: 3,
     credits: 4,
     category: "Core",
@@ -388,7 +388,7 @@ export const SE_ENGINEERING_SYLLABUS: ParsedSyllabusSubject[] = [
     code: "CSEC-304",
     name: "Digital Electronics & Microprocessors",
     year: 2,
-    yearCode: "SE",
+    yearCode: "SY",
     semester: 3,
     credits: 3,
     category: "Core",
@@ -398,7 +398,7 @@ export const SE_ENGINEERING_SYLLABUS: ParsedSyllabusSubject[] = [
     code: "CSEC-305",
     name: "Object Oriented Programming with Java",
     year: 2,
-    yearCode: "SE",
+    yearCode: "SY",
     semester: 3,
     credits: 3,
     category: "Core",
@@ -409,7 +409,7 @@ export const SE_ENGINEERING_SYLLABUS: ParsedSyllabusSubject[] = [
     code: "CSEC-401",
     name: "Design and Analysis of Algorithms",
     year: 2,
-    yearCode: "SE",
+    yearCode: "SY",
     semester: 4,
     credits: 4,
     category: "Core",
@@ -419,7 +419,7 @@ export const SE_ENGINEERING_SYLLABUS: ParsedSyllabusSubject[] = [
     code: "CSEC-402",
     name: "Operating Systems",
     year: 2,
-    yearCode: "SE",
+    yearCode: "SY",
     semester: 4,
     credits: 4,
     category: "Core",
@@ -429,7 +429,7 @@ export const SE_ENGINEERING_SYLLABUS: ParsedSyllabusSubject[] = [
     code: "CSEC-403",
     name: "Database Management Systems",
     year: 2,
-    yearCode: "SE",
+    yearCode: "SY",
     semester: 4,
     credits: 4,
     category: "Core",
@@ -439,7 +439,7 @@ export const SE_ENGINEERING_SYLLABUS: ParsedSyllabusSubject[] = [
     code: "CSEC-404",
     name: "Computer Organization and Architecture",
     year: 2,
-    yearCode: "SE",
+    yearCode: "SY",
     semester: 4,
     credits: 3,
     category: "Core",
@@ -449,7 +449,7 @@ export const SE_ENGINEERING_SYLLABUS: ParsedSyllabusSubject[] = [
     code: "CSEC-405",
     name: "Full Stack Web Development Lab",
     year: 2,
-    yearCode: "SE",
+    yearCode: "SY",
     semester: 4,
     credits: 2,
     category: "Practical",
@@ -457,14 +457,14 @@ export const SE_ENGINEERING_SYLLABUS: ParsedSyllabusSubject[] = [
   },
 ];
 
-// Preloaded scheme for 3rd Year (TE)
+// Preloaded scheme for 3rd Year (TY)
 export const TE_ENGINEERING_SYLLABUS: ParsedSyllabusSubject[] = [
   // Sem 5
   {
     code: "CSEC-501",
     name: "Theory of Computation / Automata",
     year: 3,
-    yearCode: "TE",
+    yearCode: "TY",
     semester: 5,
     credits: 4,
     category: "Core",
@@ -474,7 +474,7 @@ export const TE_ENGINEERING_SYLLABUS: ParsedSyllabusSubject[] = [
     code: "CSEC-502",
     name: "Computer Networks",
     year: 3,
-    yearCode: "TE",
+    yearCode: "TY",
     semester: 5,
     credits: 4,
     category: "Core",
@@ -484,7 +484,7 @@ export const TE_ENGINEERING_SYLLABUS: ParsedSyllabusSubject[] = [
     code: "CSEC-503",
     name: "Software Engineering & Project Management",
     year: 3,
-    yearCode: "TE",
+    yearCode: "TY",
     semester: 5,
     credits: 3,
     category: "Core",
@@ -494,7 +494,7 @@ export const TE_ENGINEERING_SYLLABUS: ParsedSyllabusSubject[] = [
     code: "CSEC-504",
     name: "Advanced Java and Enterprise Frameworks",
     year: 3,
-    yearCode: "TE",
+    yearCode: "TY",
     semester: 5,
     credits: 3,
     category: "Core",
@@ -504,7 +504,7 @@ export const TE_ENGINEERING_SYLLABUS: ParsedSyllabusSubject[] = [
     code: "CSEC-505",
     name: "Mini Project - Phase I",
     year: 3,
-    yearCode: "TE",
+    yearCode: "TY",
     semester: 5,
     credits: 2,
     category: "Project",
@@ -515,7 +515,7 @@ export const TE_ENGINEERING_SYLLABUS: ParsedSyllabusSubject[] = [
     code: "CSEC-601",
     name: "Cloud Computing and Virtualization",
     year: 3,
-    yearCode: "TE",
+    yearCode: "TY",
     semester: 6,
     credits: 4,
     category: "Core",
@@ -525,7 +525,7 @@ export const TE_ENGINEERING_SYLLABUS: ParsedSyllabusSubject[] = [
     code: "CSEC-602",
     name: "Cryptography & Network Security",
     year: 3,
-    yearCode: "TE",
+    yearCode: "TY",
     semester: 6,
     credits: 4,
     category: "Core",
@@ -535,7 +535,7 @@ export const TE_ENGINEERING_SYLLABUS: ParsedSyllabusSubject[] = [
     code: "CSEC-603",
     name: "Machine Learning Foundations",
     year: 3,
-    yearCode: "TE",
+    yearCode: "TY",
     semester: 6,
     credits: 4,
     category: "Core",
@@ -545,7 +545,7 @@ export const TE_ENGINEERING_SYLLABUS: ParsedSyllabusSubject[] = [
     code: "CSEC-604",
     name: "Internet of Things (IoT) Systems",
     year: 3,
-    yearCode: "TE",
+    yearCode: "TY",
     semester: 6,
     credits: 3,
     category: "Elective",
@@ -555,7 +555,7 @@ export const TE_ENGINEERING_SYLLABUS: ParsedSyllabusSubject[] = [
     code: "CSEC-605",
     name: "Mini Project - Phase II",
     year: 3,
-    yearCode: "TE",
+    yearCode: "TY",
     semester: 6,
     credits: 2,
     category: "Project",
@@ -637,11 +637,11 @@ export function parseSyllabusRawText(
   metadata.yearNumber = targetYear;
   metadata.yearName =
     targetYear === 1
-      ? "1st Year (FE)"
+      ? "1st Year (FY)"
       : targetYear === 2
-        ? "2nd Year (SE)"
+        ? "2nd Year (SY)"
         : targetYear === 3
-          ? "3rd Year (TE)"
+          ? "3rd Year (TY)"
           : "4th Year (BE)";
 
   // Determine allowed semesters for target year

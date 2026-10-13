@@ -112,7 +112,7 @@ export const HODClasses: React.FC = () => {
     setEditing(null);
     const deptCode = department?.code || "CSE";
     setForm({
-      name: `SE ${deptCode}-A`,
+      name: `SY ${deptCode}-A`,
       year: "2",
       division: "A",
       semester: "3",
@@ -141,7 +141,7 @@ export const HODClasses: React.FC = () => {
   const handleYearChange = (yearVal: string) => {
     const yr = Number(yearVal) || 1;
     const semDefault = yr === 1 ? "1" : yr === 2 ? "3" : yr === 3 ? "5" : "7";
-    const code = yr === 1 ? "FE" : yr === 2 ? "SE" : yr === 3 ? "TE" : "BE";
+    const code = yr === 1 ? "FY" : yr === 2 ? "SY" : yr === 3 ? "TY" : "BE";
     const deptCode = department?.code || "CSE";
     const divPart = yr === 1 ? "" : `-${form.division}`;
     const autoName = `${code} ${deptCode}${divPart}`;
@@ -156,7 +156,7 @@ export const HODClasses: React.FC = () => {
 
   const handleDivisionChange = (divVal: string) => {
     const yr = Number(form.year) || 2;
-    const code = yr === 1 ? "FE" : yr === 2 ? "SE" : yr === 3 ? "TE" : "BE";
+    const code = yr === 1 ? "FY" : yr === 2 ? "SY" : yr === 3 ? "TY" : "BE";
     const deptCode = department?.code || "CSE";
     const divPart = yr === 1 ? "" : `-${divVal}`;
     const autoName = `${code} ${deptCode}${divPart}`;
@@ -210,7 +210,7 @@ export const HODClasses: React.FC = () => {
     localDb.ensureStandardEngineeringDivisions(departmentId);
     refreshClasses();
     setDivisionNotice(
-      "Standard Divisions (A & B) for 2nd Year (SE), 3rd Year (TE), and 4th Year (BE) verified and configured successfully!",
+      "Standard Divisions (A & B) for 2nd Year (SY), 3rd Year (TY), and 4th Year (BE) verified and configured successfully!",
     );
     setTimeout(() => setDivisionNotice(null), 5000);
   };
@@ -224,17 +224,10 @@ export const HODClasses: React.FC = () => {
             <Badge className="bg-primary/15 text-primary border-primary/20 text-xs">
               HOD PORTAL · {department?.code || "ENGINEERING"}
             </Badge>
-            <span className="text-xs text-muted-foreground font-medium">
-              Academic Hierarchy & Divisions
-            </span>
           </div>
           <h1 className="mt-1 font-display text-2xl sm:text-3xl font-bold tracking-tight">
             Engineering Classes & Divisions
           </h1>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Manage 4-year cohorts: 1st Year (FE) single cohort, and 2nd Year (SE),
-            3rd Year (TE), &amp; 4th Year (BE) with dual Divisions A &amp; B.
-          </p>
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
@@ -328,7 +321,7 @@ export const HODClasses: React.FC = () => {
                 Class / Section Name *
               </label>
               <Input
-                placeholder="e.g. SE CSE-A or BE CSE-B"
+                placeholder="e.g. SY CSE-A or BE CSE-B"
                 value={form.name}
                 onChange={(event) =>
                   setForm({ ...form, name: event.target.value })
@@ -365,7 +358,7 @@ export const HODClasses: React.FC = () => {
                   { value: "", label: "No coordinator assigned" },
                   ...coordinators.map((teacher) => {
                     const yrLabel = teacher.assigned_year
-                      ? `${teacher.assigned_year === 1 ? "FE" : teacher.assigned_year === 2 ? "SE" : teacher.assigned_year === 3 ? "TE" : "BE"}`
+                      ? `${teacher.assigned_year === 1 ? "FY" : teacher.assigned_year === 2 ? "SY" : teacher.assigned_year === 3 ? "TY" : "BE"}`
                       : "";
                     const semLabel = teacher.assigned_semester ? `Sem ${teacher.assigned_semester}` : "";
                     const tag = yrLabel || semLabel ? ` [${[yrLabel, semLabel].filter(Boolean).join(" ")}]` : "";
@@ -398,7 +391,7 @@ export const HODClasses: React.FC = () => {
             <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
             <Input
               className="pl-9 h-9 text-xs"
-              placeholder="Search classes (e.g. SE-A, BE-B, CSE, Sem 7)..."
+              placeholder="Search classes (e.g. SY-A, BE-B, CSE, Sem 7)..."
               value={search}
               onChange={(event) => setSearch(event.target.value)}
             />

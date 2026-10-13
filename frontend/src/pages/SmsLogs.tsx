@@ -244,7 +244,7 @@ export const SmsLogs: React.FC = () => {
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <div>
-          <div className="flex items-center gap-2 mb-1">
+          <div className="flex items-center gap-2">
             <h2 className="font-display text-2xl font-bold">Parent Absentee SMS Logs</h2>
             <Badge variant="outline" className="text-xs border-primary/30 bg-primary/10 text-primary">
               {role === 'admin' && 'College-Wide Audit'}
@@ -253,12 +253,6 @@ export const SmsLogs: React.FC = () => {
               {role === 'teacher' && 'Assigned Classes & Subjects'}
             </Badge>
           </div>
-          <p className="text-sm text-muted-foreground">
-            {role === 'admin' && 'Complete real-time dispatch record of parent absentee alerts across all college departments.'}
-            {role === 'hod' && 'Real-time dispatch record of parent absentee alerts for all classes and students in your department.'}
-            {role === 'class_coordinator' && 'Parent absentee alerts dispatched for your assigned class / semester students.'}
-            {role === 'teacher' && 'Parent absentee alerts dispatched for students in your assigned subjects and classes.'}
-          </p>
         </div>
 
         <div className="flex items-center gap-2 self-start sm:self-auto flex-wrap">

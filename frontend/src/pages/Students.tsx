@@ -55,7 +55,6 @@ export const Students: React.FC = () => {
 
       <CrudPage<Student>
         title="Students"
-        description="Student roster and guardian contact registry for absentee SMS communication."
         table="students"
         searchKeys={["full_name", "roll_number", "reg_number", "parent_mobile"]}
         extraHeaderActions={

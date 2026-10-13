@@ -46,11 +46,6 @@ export const Subjects: React.FC = () => {
     <>
       <CrudPage<Subject>
         title="Subjects & Curriculum"
-        description={
-          role === "class_coordinator"
-            ? "Manage subjects and assign teaching faculty for your class curriculum and lecture attendance."
-            : "Curriculum courses mapped to academic departments, engineering years (FE, SE, TE, BE), semester cohorts, and assigned teachers."
-        }
         table="subjects"
         searchKeys={["code", "name"]}
         extraHeaderActions={

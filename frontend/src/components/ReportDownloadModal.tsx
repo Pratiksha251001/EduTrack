@@ -444,8 +444,8 @@ export const ReportDownloadModal: React.FC<ReportDownloadModalProps> = ({
             <div className="text-xs space-y-0.5">
               <span className="font-semibold text-foreground">Role Scoping Active: {roleBadgeLabel}</span>
               <p className="text-muted-foreground">
-                {role === 'admin' && 'You have full authorization across all departments and all engineering years (FE to BE).'}
-                {role === 'hod' && 'You are viewing all 4 engineering years (FE, SE, TE, BE) and classes in your department.'}
+                {role === 'admin' && 'You have full authorization across all departments and all engineering years (FY to BE).'}
+                {role === 'hod' && 'You are viewing all 4 engineering years (FY, SY, TY, BE) and classes in your department.'}
                 {role === 'class_coordinator' && 'You are locked to your designated coordinator year and assigned class division.'}
                 {role === 'teacher' && 'You are filtered to your assigned subjects and their respective engineering year cohorts.'}
                 {role === 'student' && 'You are viewing your own personal attendance record for your enrolled year and semester.'}
@@ -455,10 +455,10 @@ export const ReportDownloadModal: React.FC<ReportDownloadModalProps> = ({
 
           {/* Form Fields: Year & Class First */}
           <div className="grid gap-3 sm:grid-cols-2">
-            {/* Engineering Year (FE, SE, TE, BE) */}
+            {/* Engineering Year (FY, SY, TY, BE) */}
             <div className="space-y-1">
               <label className="text-xs font-semibold text-muted-foreground flex items-center gap-1.5">
-                <School className="h-3.5 w-3.5 text-primary" /> Engineering Year (FE to BE) *
+                <School className="h-3.5 w-3.5 text-primary" /> Engineering Year (FY to BE) *
               </label>
               <Select
                 value={selectedYear}

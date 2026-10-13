@@ -130,21 +130,14 @@ export const ClassTeacherDashboard: React.FC = () => {
         <div className="absolute -right-12 -top-16 h-48 w-48 rounded-full bg-primary/10 blur-2xl" />
         <div className="relative flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between">
           <div>
-            <div className="mb-2.5 flex items-center gap-2">
+            <div className="mb-2 flex items-center gap-2">
               <Badge className="bg-primary/15 text-primary border-primary/20">
-                FACULTY & CLASS TEACHER PORTAL
+                FACULTY PORTAL
               </Badge>
-              <span className="text-xs text-muted-foreground">
-                Attendance & Parent Communication System
-              </span>
             </div>
             <h1 className="font-display text-2xl sm:text-3xl font-bold tracking-tight text-foreground">
               Welcome back, {user?.full_name || "Faculty Member"}
             </h1>
-            <p className="mt-1.5 max-w-2xl text-sm text-muted-foreground leading-relaxed">
-              Mark student attendance, review verified Absent & Present lists, and dispatch automated
-              multilingual SMS alerts directly to parents.
-            </p>
           </div>
           <div className="rounded-xl border border-border bg-background/80 px-4 py-3 text-left sm:min-w-44">
             <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
@@ -165,20 +158,16 @@ export const ClassTeacherDashboard: React.FC = () => {
       {/* Primary Action Feature Banner */}
       <div className="rounded-2xl border border-emerald-500/25 bg-gradient-to-r from-emerald-500/[0.08] via-emerald-500/[0.03] to-card p-5 sm:p-6 shadow-xs">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-          <div className="space-y-1.5 max-w-xl">
+          <div className="space-y-1 max-w-xl">
             <div className="flex items-center gap-2">
               <span className="flex h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
               <span className="text-xs font-bold uppercase tracking-wider text-emerald-700 dark:text-emerald-300">
-                Attendance Message Alert Flow
+                Quick Action
               </span>
             </div>
             <h2 className="text-lg font-bold text-foreground">
               Mark Attendance & Dispatch Verified Parent SMS Alerts
             </h2>
-            <p className="text-xs text-muted-foreground leading-relaxed">
-              Select your subject cohort, mark attendance, and click Submit. An instant verification alert
-              lets you inspect both Absent and Present lists and confirm before automated SMS messages are sent to every absent student's parent.
-            </p>
           </div>
 
           <div className="flex items-center gap-3 shrink-0">
@@ -211,7 +200,6 @@ export const ClassTeacherDashboard: React.FC = () => {
             <span className="text-2xl font-bold text-foreground">
               {mySubjects.length}
             </span>
-            <span className="text-xs text-muted-foreground">in department</span>
           </div>
         </Card>
 
@@ -226,7 +214,6 @@ export const ClassTeacherDashboard: React.FC = () => {
             <span className="text-2xl font-bold text-foreground">
               {totalStudents}
             </span>
-            <span className="text-xs text-muted-foreground">active learners</span>
           </div>
         </Card>
 
@@ -241,7 +228,6 @@ export const ClassTeacherDashboard: React.FC = () => {
             <span className="text-2xl font-bold text-foreground">
               {todayAttendance.length}
             </span>
-            <span className="text-xs text-muted-foreground">entries recorded</span>
           </div>
         </Card>
 
@@ -256,7 +242,6 @@ export const ClassTeacherDashboard: React.FC = () => {
             <span className="text-2xl font-bold text-foreground">
               {todaySmsLogs.length}
             </span>
-            <span className="text-xs text-muted-foreground">alerts dispatched</span>
           </div>
         </Card>
       </div>
@@ -281,14 +266,9 @@ export const ClassTeacherDashboard: React.FC = () => {
                   <div className="p-2 rounded-lg bg-primary/10 text-primary">
                     <ClipboardCheck className="h-4 w-4" />
                   </div>
-                  <div>
-                    <span className="font-semibold text-foreground block">
-                      Mark Subject Attendance
-                    </span>
-                    <span className="text-[11px] text-muted-foreground">
-                      Verify Absent & Present lists before SMS
-                    </span>
-                  </div>
+                  <span className="font-semibold text-foreground">
+                    Mark Subject Attendance
+                  </span>
                 </div>
                 <ArrowRight className="h-4 w-4 text-muted-foreground" />
               </Link>
@@ -301,14 +281,9 @@ export const ClassTeacherDashboard: React.FC = () => {
                   <div className="p-2 rounded-lg bg-rose-500/10 text-rose-600 dark:text-rose-400">
                     <MessageSquare className="h-4 w-4" />
                   </div>
-                  <div>
-                    <span className="font-semibold text-foreground block">
-                      Parent SMS Logs & History
-                    </span>
-                    <span className="text-[11px] text-muted-foreground">
-                      Track delivery receipts and multilingual alerts
-                    </span>
-                  </div>
+                  <span className="font-semibold text-foreground">
+                    Parent SMS Logs
+                  </span>
                 </div>
                 <ArrowRight className="h-4 w-4 text-muted-foreground" />
               </Link>
@@ -321,14 +296,9 @@ export const ClassTeacherDashboard: React.FC = () => {
                   <div className="p-2 rounded-lg bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
                     <FileChartColumnIncreasing className="h-4 w-4" />
                   </div>
-                  <div>
-                    <span className="font-semibold text-foreground block">
-                      Reports & Defaulter Lists
-                    </span>
-                    <span className="text-[11px] text-muted-foreground">
-                      Download session summaries & PDF sheets
-                    </span>
-                  </div>
+                  <span className="font-semibold text-foreground">
+                    Reports & Defaulter Lists
+                  </span>
                 </div>
                 <ArrowRight className="h-4 w-4 text-muted-foreground" />
               </Link>
@@ -400,9 +370,6 @@ export const ClassTeacherDashboard: React.FC = () => {
               <BookOpen className="h-5 w-5 text-primary" />
               My Assigned Subjects & Class Divisions
             </CardTitle>
-            <p className="text-xs text-muted-foreground mt-0.5">
-              Subjects and class divisions assigned to you by your HOD and Class Coordinator.
-            </p>
           </div>
           <Badge variant="outline" className="text-xs">
             {myAssignmentsWithClasses.length} Teaching Assignment{myAssignmentsWithClasses.length !== 1 ? 's' : ''}

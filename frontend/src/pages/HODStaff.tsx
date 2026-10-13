@@ -838,16 +838,9 @@ export const HODStaff: React.FC<HODStaffProps> = ({ mode }) => {
           <p className="text-xs font-bold uppercase tracking-[0.18em] text-primary">
             HOD Portal · {department?.code || "Department"}
           </p>
-          <h1 className="mt-1 font-display text-3xl font-bold">
+          <h1 className="mt-1 font-display text-2xl sm:text-3xl font-bold">
             {mode === "teachers" ? "Department Teachers" : "Class Coordinators"}
           </h1>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Manage{" "}
-            {mode === "teachers"
-              ? "lecturers, professors, and faculty roster"
-              : "coordinator assignments"}{" "}
-            for {department?.name || "your department"}.
-          </p>
         </div>
 
         <div className="flex flex-wrap items-center gap-2.5">
@@ -1316,8 +1309,8 @@ export const HODStaff: React.FC<HODStaffProps> = ({ mode }) => {
                 </div>
                 <p className="text-xs text-muted-foreground">
                   Map this faculty member to multiple subjects and class
-                  divisions concurrently (e.g. SE CSE-A and SE CSE-B for Data
-                  Structures, TE CSE-A for DBMS).
+                  divisions concurrently (e.g. SY CSE-A and SY CSE-B for Data
+                  Structures, TY CSE-A for DBMS).
                 </p>
 
                 {/* Existing Staged Teaching Assignments */}

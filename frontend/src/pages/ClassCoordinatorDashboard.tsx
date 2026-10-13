@@ -785,7 +785,6 @@ export const ClassCoordinatorDashboard: React.FC = () => {
         ? `Semester ${myAssignedSemester} Students`
         : "Dept Students",
       value: String(statsSemesters.total),
-      sub: "Total Enrolled",
       icon: GraduationCap,
       border: "border-cyan-500/20",
       iconBg: "bg-cyan-500/10 text-cyan-600 dark:text-cyan-400",
@@ -793,7 +792,6 @@ export const ClassCoordinatorDashboard: React.FC = () => {
     {
       label: "Active Students",
       value: String(statsSemesters.active),
-      sub: "Currently Enrolled",
       icon: CheckCircle2,
       border: "border-emerald-500/20",
       iconBg: "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400",
@@ -801,7 +799,6 @@ export const ClassCoordinatorDashboard: React.FC = () => {
     {
       label: "Inactive",
       value: String(statsSemesters.inactive),
-      sub: "On Leave / Dropped",
       icon: XCircle,
       border: "border-rose-500/20",
       iconBg: "bg-rose-500/10 text-rose-600 dark:text-rose-400",
@@ -809,7 +806,6 @@ export const ClassCoordinatorDashboard: React.FC = () => {
     {
       label: "My Class",
       value: myAssignedSemester ? `Sem ${myAssignedSemester}` : "All",
-      sub: "Assigned Semester",
       icon: UserCog,
       border: "border-violet-500/20",
       iconBg: "bg-violet-500/10 text-violet-600 dark:text-violet-400",
@@ -820,7 +816,6 @@ export const ClassCoordinatorDashboard: React.FC = () => {
     {
       label: "Curriculum Subjects",
       value: String(subjectStats.total),
-      sub: `${myDepartment?.name || "Department"} Courses`,
       icon: BookOpen,
       border: "border-emerald-500/20",
       iconBg: "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400",
@@ -828,7 +823,6 @@ export const ClassCoordinatorDashboard: React.FC = () => {
     {
       label: "Assigned to Faculty",
       value: String(subjectStats.assigned),
-      sub: "Teachers Mapped",
       icon: UserCheck,
       border: "border-emerald-500/20",
       iconBg: "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400",
@@ -836,10 +830,6 @@ export const ClassCoordinatorDashboard: React.FC = () => {
     {
       label: "Pending Assignment",
       value: String(subjectStats.unassigned),
-      sub:
-        subjectStats.unassigned > 0
-          ? "Needs Teacher Assignment"
-          : "All Subjects Assigned",
       icon: subjectStats.unassigned > 0 ? XCircle : CheckCircle2,
       border:
         subjectStats.unassigned > 0
@@ -853,7 +843,6 @@ export const ClassCoordinatorDashboard: React.FC = () => {
     {
       label: "HOD Faculty Pool",
       value: String(subjectStats.facultyCount),
-      sub: "Imported Teachers Available",
       icon: Users,
       border: "border-violet-500/20",
       iconBg: "bg-violet-500/10 text-violet-600 dark:text-violet-400",
@@ -883,10 +872,6 @@ export const ClassCoordinatorDashboard: React.FC = () => {
           <h1 className="font-display text-2xl font-bold tracking-tight text-foreground">
             Class Coordinator Dashboard
           </h1>
-          <p className="text-sm text-muted-foreground mt-0.5">
-            Manage student roster, create curriculum subjects, and assign
-            teaching faculty imported by HOD.
-          </p>
         </div>
 
         {/* Tab Switcher & Reports Link */}
@@ -956,9 +941,6 @@ export const ClassCoordinatorDashboard: React.FC = () => {
                   <div className="text-sm font-semibold text-foreground">
                     {s.label}
                   </div>
-                  <div className="text-xs text-muted-foreground mt-0.5">
-                    {s.sub}
-                  </div>
                 </div>
               </Card>
             );
@@ -975,10 +957,6 @@ export const ClassCoordinatorDashboard: React.FC = () => {
                 <ClipboardList className="h-5 w-5 text-primary" />
                 Student Roster
               </h2>
-              <p className="text-xs text-muted-foreground">
-                {myStudents.length} student{myStudents.length !== 1 ? "s" : ""}{" "}
-                in your class
-              </p>
             </div>
             <div className="flex flex-wrap items-center gap-2">
               <Button
@@ -1100,19 +1078,19 @@ export const ClassCoordinatorDashboard: React.FC = () => {
                             class_name: e.target.value,
                           })
                         }
-                        placeholder="e.g. TE CSE-A, TE CSE-B"
+                        placeholder="e.g. TY CSE-A, TY CSE-B"
                         list="cc-student-classes"
                       />
                       <datalist id="cc-student-classes">
                         {academicClasses.map((c) => (
                           <option key={c.id} value={c.name} />
                         ))}
-                        <option value="SE CSE-A" />
-                        <option value="SE CSE-B" />
-                        <option value="TE CSE-A" />
-                        <option value="TE CSE-B" />
+                        <option value="SY CSE-A" />
+                        <option value="SY CSE-B" />
+                        <option value="TY CSE-A" />
+                        <option value="TY CSE-B" />
                         <option value="BE CSE-A" />
-                        <option value="FE CSE-A" />
+                        <option value="FY CSE-A" />
                       </datalist>
                     </div>
                     <div>
@@ -2033,7 +2011,7 @@ export const ClassCoordinatorDashboard: React.FC = () => {
               <Input
                 value={selectedClassForAssign}
                 onChange={(e) => setSelectedClassForAssign(e.target.value)}
-                placeholder="e.g. TE CSE-A, TE CSE-B (or leave blank for All Divisions)"
+                placeholder="e.g. TY CSE-A, TY CSE-B (or leave blank for All Divisions)"
                 list="cc-modal-assign-classes"
                 className="text-xs"
               />
@@ -2041,12 +2019,12 @@ export const ClassCoordinatorDashboard: React.FC = () => {
                 {academicClasses.map((c) => (
                   <option key={c.id} value={c.name} />
                 ))}
-                <option value="SE CSE-A" />
-                <option value="SE CSE-B" />
-                <option value="TE CSE-A" />
-                <option value="TE CSE-B" />
+                <option value="SY CSE-A" />
+                <option value="SY CSE-B" />
+                <option value="TY CSE-A" />
+                <option value="TY CSE-B" />
                 <option value="BE CSE-A" />
-                <option value="FE CSE-A" />
+                <option value="FY CSE-A" />
               </datalist>
 
               <div className="flex flex-wrap items-center gap-1.5 mt-2">
@@ -2057,7 +2035,7 @@ export const ClassCoordinatorDashboard: React.FC = () => {
                   new Set(
                     academicClasses
                       .map((c) => c.name)
-                      .concat(["TE CSE-A", "TE CSE-B"]),
+                      .concat(["TY CSE-A", "TY CSE-B"]),
                   ),
                 )
                   .slice(0, 4)
