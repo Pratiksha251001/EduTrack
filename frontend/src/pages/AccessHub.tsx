@@ -101,8 +101,7 @@ export const AccessHub: React.FC = () => {
       title: "HOD Portal",
       category: "admin",
       badge: "Department Head",
-      description:
-        "Sign in to manage your department and review compliance.",
+      description: "Sign in to manage your department and review compliance.",
       icon: Building2,
       iconBg: "bg-teal-500/10",
       iconColor: "text-teal-600 dark:text-teal-400",
@@ -113,8 +112,7 @@ export const AccessHub: React.FC = () => {
       title: "Teacher Portal",
       category: "faculty",
       badge: "Classroom Faculty",
-      description:
-        "Sign in to record attendance and send parent alerts.",
+      description: "Sign in to record attendance and send parent alerts.",
       icon: Users,
       iconBg: "bg-emerald-500/10",
       iconColor: "text-emerald-600 dark:text-emerald-400",
@@ -125,8 +123,7 @@ export const AccessHub: React.FC = () => {
       title: "Class Teacher Portal",
       category: "faculty",
       badge: "Class Coordinator",
-      description:
-        "Sign in to manage your class and student records.",
+      description: "Sign in to manage your class and student records.",
       icon: UserCog,
       iconBg: "bg-teal-500/10",
       iconColor: "text-teal-600 dark:text-teal-400",
@@ -137,8 +134,7 @@ export const AccessHub: React.FC = () => {
       title: "Student Portal",
       category: "student",
       badge: "Learner Self-Service",
-      description:
-        "Sign in to view your attendance and academic updates.",
+      description: "Sign in to view your attendance and academic updates.",
       icon: GraduationCap,
       iconBg: "bg-emerald-500/10",
       iconColor: "text-emerald-600 dark:text-emerald-400",
@@ -232,7 +228,8 @@ export const AccessHub: React.FC = () => {
       return;
     }
 
-    const dest = selectedRole === "teacher" ? "/teacher/dashboard" : "/dashboard";
+    const dest =
+      selectedRole === "teacher" ? "/teacher/dashboard" : "/dashboard";
     try {
       localStorage.setItem("edutrack_last_active_path", dest);
     } catch {}
@@ -269,10 +266,10 @@ export const AccessHub: React.FC = () => {
         <img
           src="/edutrack-bg.svg"
           alt=""
-          className="w-full h-full object-cover object-center opacity-85 dark:opacity-45"
+          className="w-full h-full object-cover object-center opacity-60 dark:opacity-30"
         />
         {/* Subtle light mode contrast scrim so white cards stand out prominently */}
-        <div className="absolute inset-0 bg-slate-900/[0.03] dark:bg-black/50" />
+        <div className="absolute inset-0 bg-white/20 dark:bg-slate-950/65" />
       </div>
 
       {/* Top Bar - 100% Fixed and Docked at Top (Never scrolls off screen) */}
@@ -321,11 +318,11 @@ export const AccessHub: React.FC = () => {
         aria-hidden="true"
         className="pointer-events-none fixed top-16 left-0 right-0 z-40 w-full h-0 overflow-visible"
       >
-        <div className="h-[2px] w-full bg-gradient-to-r from-transparent via-emerald-500/60 dark:via-emerald-400/75 to-transparent shadow-[0_2px_12px_rgba(16,185,129,0.4)]" />
+        <div className="h-px w-full bg-gradient-to-r from-transparent via-emerald-500/45 dark:via-emerald-400/40 to-transparent" />
       </div>
 
       {/* Main Container - Padded top so content starts below fixed bar */}
-      <main className="relative z-10 mx-auto max-w-6xl px-4 sm:px-6 pt-24 pb-12 sm:pt-28 sm:pb-16 space-y-8">
+      <main className="relative z-10 mx-auto max-w-6xl px-4 sm:px-6 pt-20 pb-10 sm:pt-24 sm:pb-12 space-y-5">
         {/* Active Session Quick Resume Banner if user is already signed in */}
         {user && role && (
           <div className="rounded-2xl border border-emerald-500/30 bg-white dark:bg-[#111827] p-4 sm:p-5 flex flex-col sm:flex-row items-center justify-between gap-4 text-left shadow-sm">
@@ -338,8 +335,12 @@ export const AccessHub: React.FC = () => {
                   Active Session Detected
                 </p>
                 <p className="text-sm sm:text-base font-bold text-foreground">
-                  Signed in as <span className="text-emerald-600 dark:text-emerald-400">{user.full_name || user.email}</span> (
-                  <span className="capitalize">{role.replace("_", " ")}</span> Portal)
+                  Signed in as{" "}
+                  <span className="text-emerald-600 dark:text-emerald-400">
+                    {user.full_name || user.email}
+                  </span>{" "}
+                  (<span className="capitalize">{role.replace("_", " ")}</span>{" "}
+                  Portal)
                 </p>
               </div>
             </div>
@@ -348,150 +349,108 @@ export const AccessHub: React.FC = () => {
                 size="sm"
                 className="w-full sm:w-auto text-xs font-semibold bg-emerald-600 hover:bg-emerald-700 text-white shadow-xs h-9 cursor-pointer"
                 onClick={() => {
-                  const saved = localStorage.getItem("edutrack_last_active_path");
-                  const dest = saved && saved !== "/" && saved !== "/teacher/login"
-                    ? saved
-                    : (role === "teacher" ? "/teacher/dashboard" : "/dashboard");
+                  const saved = localStorage.getItem(
+                    "edutrack_last_active_path",
+                  );
+                  const dest =
+                    saved && saved !== "/" && saved !== "/teacher/login"
+                      ? saved
+                      : role === "teacher"
+                        ? "/teacher/dashboard"
+                        : "/dashboard";
                   navigate(dest, { replace: true });
                 }}
               >
-                Return to Active Page <ArrowRight className="h-3.5 w-3.5 ml-1.5" />
+                Return to Active Page{" "}
+                <ArrowRight className="h-3.5 w-3.5 ml-1.5" />
               </Button>
             </div>
           </div>
         )}
-
-        {/* Hero Section - Elevated with Strong Light & Dark Mode Contrast */}
-        <section className="relative overflow-hidden w-full text-center space-y-5 rounded-3xl border border-slate-300/85 dark:border-slate-800 bg-white dark:bg-[#111827] p-6 sm:p-10 shadow-xl shadow-slate-900/[0.06] dark:shadow-none ring-1 ring-slate-900/[0.05] dark:ring-white/[0.05]">
-          {/* Subtle ambient light aura */}
-          <div className="absolute -top-20 left-1/2 -translate-x-1/2 w-[520px] h-36 bg-emerald-500/18 dark:bg-emerald-400/18 rounded-full blur-3xl pointer-events-none" />
-
-          <div className="flex justify-center py-1">
-            <EduTrackLogo variant="horizontal" size="xl" showTagline={false} />
-          </div>
-
-          <div>
-            <h1 className="font-display text-2xl sm:text-3xl font-extrabold tracking-tight text-foreground">
-              Academic Portal Hub
-            </h1>
-            <p className="mt-2 text-sm text-muted-foreground leading-relaxed max-w-xl mx-auto">
-              Select your assigned institutional role below to enter your portal · Session {CURRENT_ACADEMIC_YEAR}
-            </p>
-          </div>
-
-          {/* Interactive Category Filter Tabs */}
-          <div className="pt-2 flex flex-wrap items-center justify-center gap-2.5">
-            <button
-              onClick={() => setActiveCategory("all")}
-              className={`rounded-full px-4 py-2 text-xs font-bold transition-all shadow-xs cursor-pointer ${
-                activeCategory === "all"
-                  ? "bg-emerald-600 dark:bg-emerald-500 text-white shadow-sm ring-2 ring-emerald-500/30"
-                  : "bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-200 border border-slate-300/80 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700 hover:text-slate-950 dark:hover:text-white shadow-xs ring-1 ring-slate-900/[0.04]"
-              }`}
-            >
-              All Portals (5)
-            </button>
-            <button
-              onClick={() => setActiveCategory("admin")}
-              className={`rounded-full px-4 py-2 text-xs font-bold transition-all shadow-xs cursor-pointer ${
-                activeCategory === "admin"
-                  ? "bg-emerald-600 dark:bg-emerald-500 text-white shadow-sm ring-2 ring-emerald-500/30"
-                  : "bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-200 border border-slate-300/80 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700 hover:text-slate-950 dark:hover:text-white shadow-xs ring-1 ring-slate-900/[0.04]"
-              }`}
-            >
-              Administration (2)
-            </button>
-            <button
-              onClick={() => setActiveCategory("faculty")}
-              className={`rounded-full px-4 py-2 text-xs font-bold transition-all shadow-xs cursor-pointer ${
-                activeCategory === "faculty"
-                  ? "bg-emerald-600 dark:bg-emerald-500 text-white shadow-sm ring-2 ring-emerald-500/30"
-                  : "bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-200 border border-slate-300/80 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-750 hover:text-slate-950 dark:hover:text-white shadow-xs ring-1 ring-slate-900/[0.04]"
-              }`}
-            >
-              Faculty & Teachers (2)
-            </button>
-            <button
-              onClick={() => setActiveCategory("student")}
-              className={`rounded-full px-4 py-2 text-xs font-bold transition-all shadow-xs cursor-pointer ${
-                activeCategory === "student"
-                  ? "bg-emerald-600 dark:bg-emerald-500 text-white shadow-sm ring-2 ring-emerald-500/30"
-                  : "bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-200 border border-slate-300/80 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-750 hover:text-slate-950 dark:hover:text-white shadow-xs ring-1 ring-slate-900/[0.04]"
-              }`}
-            >
-              Students (1)
-            </button>
+        {/* Simplified portal introduction */}
+        <section className="rounded-2xl border border-slate-200/90 dark:border-slate-800 bg-white/95 dark:bg-[#111827]/95 px-5 py-6 sm:px-7 sm:py-7 shadow-md dark:shadow-none">
+          <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
+            <div className="text-left">
+              <p className="text-xs font-bold uppercase tracking-[0.16em] text-emerald-600 dark:text-emerald-400">
+                Academic Portal Hub
+              </p>
+              <h1 className="mt-1.5 font-display text-2xl sm:text-3xl font-extrabold tracking-tight text-foreground">
+                Choose your portal
+              </h1>
+              <p className="mt-2 max-w-xl text-sm text-muted-foreground">
+                Sign in with your assigned institutional role for session{" "}
+                {CURRENT_ACADEMIC_YEAR}.
+              </p>
+            </div>
+            <div className="flex flex-wrap items-center gap-2 lg:justify-end">
+              {(
+                [
+                  ["all", "All", 5],
+                  ["admin", "Administration", 2],
+                  ["faculty", "Faculty", 2],
+                  ["student", "Students", 1],
+                ] as const
+              ).map(([category, label, count]) => (
+                <button
+                  key={category}
+                  onClick={() => setActiveCategory(category)}
+                  className={`rounded-lg px-3.5 py-2 text-xs font-bold transition-colors cursor-pointer ${activeCategory === category ? "bg-emerald-600 text-white" : "border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-200 hover:border-emerald-500"}`}
+                >
+                  {label} ({count})
+                </button>
+              ))}
+            </div>
           </div>
         </section>
-
-        {/* Quick 1-Click Demo Access - Elevated Card */}
-        <section className="rounded-2xl border border-slate-300/85 dark:border-slate-800 bg-white dark:bg-[#111827] p-5 sm:p-6 shadow-xl shadow-slate-900/[0.06] dark:shadow-none ring-1 ring-slate-900/[0.05] dark:ring-white/[0.05] text-left flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-          <div className="space-y-1">
-            <div className="flex flex-wrap items-center gap-2">
-              <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 shadow-xs">
+        {/* Solid demo panel and softened background */}
+        {/* Compact demo access */}
+        <section className="rounded-2xl border border-slate-200/90 dark:border-slate-800 bg-white dark:bg-[#111827] px-5 py-4 shadow-md shadow-slate-900/[0.05] dark:shadow-none">
+          <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+            <div className="flex items-center gap-3">
+              <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-emerald-600 text-white">
                 <Sparkles className="h-4 w-4" />
               </span>
-              <h2 className="text-base font-bold text-foreground">
-                Quick 1-Click Demo Access
-              </h2>
-              <span className="rounded-full bg-emerald-500/15 border border-emerald-500/30 px-2 py-0.5 text-[10px] font-bold text-emerald-600 dark:text-emerald-400 uppercase tracking-wide">
-                DIRECT PREVIEW
-              </span>
+              <div>
+                <h2 className="text-sm font-bold text-foreground">
+                  Preview a dashboard
+                </h2>
+                <p className="text-xs text-muted-foreground">
+                  Open any role in demo mode.
+                </p>
+              </div>
             </div>
-            <p className="text-xs text-muted-foreground">
-              Instantly view the actual post-login dashboard for any
-              institutional role:
-            </p>
-          </div>
-
-          <div className="flex flex-wrap items-center gap-2 shrink-0">
-            <button
-              onClick={() => handleQuickDemo("admin")}
-              disabled={loading}
-              className="rounded-full px-3.5 py-1.5 text-xs font-semibold bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-200 border border-slate-300/80 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-700 hover:text-slate-950 dark:hover:text-white transition-all shadow-xs ring-1 ring-slate-900/[0.04] cursor-pointer"
-            >
-              Admin
-            </button>
-            <button
-              onClick={() => handleQuickDemo("hod")}
-              disabled={loading}
-              className="rounded-full px-3.5 py-1.5 text-xs font-semibold bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-200 border border-slate-300/80 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-700 hover:text-slate-950 dark:hover:text-white transition-all shadow-xs ring-1 ring-slate-900/[0.04] cursor-pointer"
-            >
-              HOD
-            </button>
-            <button
-              onClick={() => handleQuickDemo("class_coordinator")}
-              disabled={loading}
-              className="rounded-full px-3.5 py-1.5 text-xs font-bold bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-500 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-100 dark:hover:bg-emerald-900/50 transition-all shadow-xs cursor-pointer"
-            >
-              Class Coordinator
-            </button>
-            <button
-              onClick={() => handleQuickDemo("teacher")}
-              disabled={loading}
-              className="rounded-full px-3.5 py-1.5 text-xs font-semibold bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-200 border border-slate-300/80 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-700 hover:text-slate-950 dark:hover:text-white transition-all shadow-xs ring-1 ring-slate-900/[0.04] cursor-pointer"
-            >
-              Teacher
-            </button>
-            <button
-              onClick={() => handleQuickDemo("student")}
-              disabled={loading}
-              className="rounded-full px-3.5 py-1.5 text-xs font-semibold bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-200 border border-slate-300/80 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-700 hover:text-slate-950 dark:hover:text-white transition-all shadow-xs ring-1 ring-slate-900/[0.04] cursor-pointer"
-            >
-              Student
-            </button>
+            <div className="flex flex-wrap gap-2">
+              {(
+                [
+                  ["admin", "Admin"],
+                  ["hod", "HOD"],
+                  ["class_coordinator", "Coordinator"],
+                  ["teacher", "Teacher"],
+                  ["student", "Student"],
+                ] as const
+              ).map(([demoRole, label]) => (
+                <button
+                  key={demoRole}
+                  onClick={() => handleQuickDemo(demoRole)}
+                  disabled={loading}
+                  className="rounded-lg border border-emerald-500/25 bg-white dark:bg-slate-900 px-3 py-1.5 text-xs font-semibold hover:border-emerald-500 disabled:opacity-50"
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
           </div>
         </section>
 
         {/* Portal Cards Grid - High Contrast, Crisp Borders & Rich Elevation */}
-        <section className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+        <section className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {filteredCards.map((card) => {
             const Icon = card.icon;
             return (
               <div
                 key={card.role}
                 onClick={() => handleCardClick(card)}
-                className="group relative flex flex-col justify-between rounded-2xl border border-slate-300/85 dark:border-slate-800 bg-white dark:bg-[#111827] p-6 shadow-xl shadow-slate-900/[0.06] hover:shadow-2xl hover:shadow-emerald-950/15 ring-1 ring-slate-900/[0.05] dark:ring-white/[0.05] hover:border-emerald-500 dark:hover:border-emerald-500 hover:-translate-y-1 transition-all duration-200 cursor-pointer overflow-hidden"
+                className="group relative flex flex-col justify-between rounded-2xl border border-slate-300/85 dark:border-slate-800 bg-white dark:bg-[#111827] p-5 shadow-md shadow-slate-900/[0.06] hover:shadow-2xl hover:shadow-emerald-950/15 ring-1 ring-slate-900/[0.05] dark:ring-white/[0.05] hover:border-emerald-500 dark:hover:border-emerald-500 hover:-translate-y-1 transition-all duration-200 cursor-pointer overflow-hidden"
               >
                 {/* Top decorative accent bar */}
                 <div className="absolute top-0 left-0 right-0 h-1.5 bg-gradient-to-r from-emerald-500/30 via-emerald-500 to-emerald-500/30 opacity-0 group-hover:opacity-100 transition-opacity" />
@@ -546,7 +505,8 @@ export const AccessHub: React.FC = () => {
             © {new Date().getFullYear()} EduTrack · Academic Portal Hub
           </p>
           <p className="text-[11px] text-muted-foreground/80">
-            Session {CURRENT_ACADEMIC_YEAR} · Smart Attendance & Parent Alert System
+            Session {CURRENT_ACADEMIC_YEAR} · Smart Attendance & Parent Alert
+            System
           </p>
         </footer>
       </main>
@@ -569,7 +529,11 @@ export const AccessHub: React.FC = () => {
 
             <div className="text-center mb-6 relative z-10">
               <div className="mx-auto mb-3 flex items-center justify-center">
-                <EduTrackLogo variant="icon" size="lg" className="w-16 h-16 sm:w-18 sm:h-18" />
+                <EduTrackLogo
+                  variant="icon"
+                  size="lg"
+                  className="w-16 h-16 sm:w-18 sm:h-18"
+                />
               </div>
               <h2 className="font-display text-xl font-bold text-foreground">
                 {portalCards.find((c) => c.role === selectedRole)?.title ||
@@ -636,7 +600,10 @@ export const AccessHub: React.FC = () => {
               </div>
             )}
 
-            <form onSubmit={handleLoginSubmit} className="space-y-4 relative z-10">
+            <form
+              onSubmit={handleLoginSubmit}
+              className="space-y-4 relative z-10"
+            >
               {selectedRole === "admin" && adminMode === "register" && (
                 <div className="space-y-1.5">
                   <label className="text-xs font-semibold text-foreground">
