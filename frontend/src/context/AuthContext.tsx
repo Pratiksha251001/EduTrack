@@ -900,6 +900,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
           "123456",
           "Admin@123",
         ],
+        matchedTeacher?.password,
       );
 
       if (!isValidPassword) {
@@ -1021,6 +1022,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
           matchedTeacher?.employee_id,
           "123456",
         ],
+        matchedTeacher?.password,
       );
 
       if (!isValidPassword) {
@@ -1130,6 +1132,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
           matchedUserAcc?.email,
         ],
         ["Teacher@123", "teacher@123", matchedTeacher?.employee_id, "123456"],
+        matchedTeacher?.password,
       );
 
       if (!isValidPassword) {

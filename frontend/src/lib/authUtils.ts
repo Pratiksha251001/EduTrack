@@ -49,9 +49,14 @@ export const getCredential = (
 export const verifyPassword = (
   inputPassword: string,
   identifiers: (string | null | undefined)[],
-  acceptedDefaults: (string | null | undefined)[] = []
+  acceptedDefaults: (string | null | undefined)[] = [],
+  persistedPassword?: string | null,
 ): boolean => {
   if (!inputPassword) return false;
+
+  if (persistedPassword && persistedPassword === inputPassword) {
+    return true;
+  }
 
   const stored = getCredential(...identifiers);
   if (stored && stored === inputPassword) {
@@ -181,4 +186,3 @@ export const hasCustomPassword = (
   }
   return false;
 };
-

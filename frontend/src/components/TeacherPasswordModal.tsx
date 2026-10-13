@@ -10,6 +10,7 @@ import {
   ShieldCheck,
 } from "lucide-react";
 import { Teacher } from "../lib/types";
+import { localDb } from "../lib/supabase";
 import { saveCredential, getCredential, markCustomPasswordSet } from "../lib/authUtils";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "./ui/dialog";
 import { Button } from "./ui/button";
@@ -45,7 +46,7 @@ export const TeacherPasswordModal: React.FC<TeacherPasswordModalProps> = ({
       `hod_${teacher.id}`
     ) || teacher.employee_id || "Teacher@123";
 
-  const handleResetToEmpId = () => {
+  const handleResetToEmpId = async () => {
     const defaultPwd = teacher.employee_id || "Teacher@123";
     const accountId = `teacher-user-${teacher.id}`;
     const identifiers = [
@@ -56,6 +57,12 @@ export const TeacherPasswordModal: React.FC<TeacherPasswordModalProps> = ({
       `hod_${teacher.id}`,
     ];
 
+    try {
+      await localDb.update("teachers", teacher.id, { password: defaultPwd });
+    } catch (error) {
+      alert(error instanceof Error ? error.message : "Password could not be saved.");
+      return;
+    }
     saveCredential(identifiers, defaultPwd);
     setSuccessMsg(`Password successfully reset to Employee ID: ${defaultPwd}`);
     setTimeout(() => {
@@ -65,7 +72,7 @@ export const TeacherPasswordModal: React.FC<TeacherPasswordModalProps> = ({
     }, 1200);
   };
 
-  const handleSavePassword = () => {
+  const handleSavePassword = async () => {
     const cleanPwd = newPassword.trim();
     if (!cleanPwd) {
       alert("Please enter a valid password.");
@@ -86,8 +93,15 @@ export const TeacherPasswordModal: React.FC<TeacherPasswordModalProps> = ({
       `hod_${teacher.id}`,
     ];
 
-    saveCredential(identifiers, cleanPwd);
-    markCustomPasswordSet(identifiers);
+    try {
+      await localDb.update("teachers", teacher.id, { password: cleanPwd });
+      saveCredential(identifiers, cleanPwd);
+      markCustomPasswordSet(identifiers);
+    } catch (error) {
+      setIsSaving(false);
+      alert(error instanceof Error ? error.message : "Password could not be saved.");
+      return;
+    }
 
     setIsSaving(false);
     setSuccessMsg(`Password updated to: ${cleanPwd}`);

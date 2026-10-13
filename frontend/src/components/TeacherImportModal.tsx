@@ -216,6 +216,10 @@ export const TeacherImportModal: React.FC<TeacherImportModalProps> = ({
           experience_years: item.experience_years.trim() || null,
           role: item.role,
           is_class_coordinator: isCoordinator,
+          password:
+            passwordMode === "empid"
+              ? (item.employee_id.trim() || "Teacher@123")
+              : (customPassword.trim() || item.employee_id.trim() || "Teacher@123"),
           status: "active" as const,
         };
 
@@ -245,10 +249,7 @@ export const TeacherImportModal: React.FC<TeacherImportModalProps> = ({
           await localDb.update("teachers", teacher.id, { user_id: accountId });
 
           // 3. Save default password credential (Employee ID or custom password)
-          const pwd =
-            passwordMode === "empid"
-              ? (teacher.employee_id || "Teacher@123")
-              : (customPassword.trim() || teacher.employee_id || "Teacher@123");
+          const pwd = teacher.password || teacher.employee_id || "Teacher@123";
           saveCredential(
             [
               accountId,

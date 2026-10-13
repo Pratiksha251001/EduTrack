@@ -98,6 +98,7 @@ const TABLE_COLUMNS: Record<string, string[]> = {
     "experience_years",
     "email",
     "mobile",
+    "password",
     "department_id",
     "user_id",
     "is_class_coordinator",
@@ -253,6 +254,8 @@ export function sanitizePayloadForSupabase(table: string, rawItem: any): any {
 
 class LocalDatabase {
   private readonly storageKey = "edutrack_local_db";
+  private syncReady: Promise<void> = Promise.resolve();
+  private realtimeChannel: ReturnType<typeof supabase.channel> | null = null;
   departments = this.load("departments", mockDepartments);
   teachers = this.load("teachers", mockTeachers);
   subjects = this.load("subjects", mockSubjects);
@@ -318,7 +321,7 @@ class LocalDatabase {
     this.ensureStandardEngineeringDivisions();
 
     if (isSupabaseConfigured) {
-      this.syncFromSupabase();
+      this.syncReady = this.syncFromSupabase();
     }
   }
 
@@ -508,6 +511,60 @@ class LocalDatabase {
       }
     } catch (err) {
       console.warn("Supabase sync failed for users:", err);
+    }
+
+    this.subscribeToRealtime();
+  }
+
+  private subscribeToRealtime() {
+    if (!isSupabaseConfigured || this.realtimeChannel) return;
+
+    this.realtimeChannel = supabase
+      .channel("edutrack-data")
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "teachers" },
+        (change) => this.applyRealtimeChange("teachers", change),
+      )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "departments" },
+        (change) => this.applyRealtimeChange("departments", change),
+      )
+      .subscribe((status) => {
+        if (status === "CHANNEL_ERROR" || status === "TIMED_OUT") {
+          console.warn(`Supabase realtime subscription ${status.toLowerCase()}.`);
+        }
+      });
+  }
+
+  private applyRealtimeChange(table: string, change: any) {
+    const current = ((this as any)[table] || []) as any[];
+    const record = change.new;
+    const oldId = change.old?.id;
+    let next = current;
+
+    if (change.eventType === "INSERT" && record?.id) {
+      if (!current.some((item) => item.id === record.id)) {
+        next = [...current, record];
+      }
+    } else if (change.eventType === "UPDATE" && record?.id) {
+      next = current.map((item) =>
+        item.id === record.id ? { ...item, ...record } : item,
+      );
+    } else if (change.eventType === "DELETE" && oldId) {
+      next = current.filter((item) => item.id !== oldId);
+    }
+
+    if (next === current) return;
+    (this as any)[table] = next;
+    this.persist(table);
+    if (typeof window !== "undefined") {
+      window.dispatchEvent(
+        new CustomEvent("edutrack_data_updated", {
+          detail: { table, data: next },
+        }),
+      );
     }
   }
 
@@ -742,6 +799,10 @@ class LocalDatabase {
   }
 
   async insert(table: string, data: any) {
+    if (isSupabaseConfigured) {
+      await this.syncReady;
+    }
+
     const list = (this as any)[table] || [];
     const items = Array.isArray(data) ? data : [data];
     const inserted = items.map((it) => {
@@ -789,25 +850,40 @@ class LocalDatabase {
         const payload = inserted.map((item) =>
           sanitizePayloadForSupabase(table, item),
         );
-        const { error } = await supabase.from(table).insert(payload);
+        const { data: savedRows, error } = await supabase
+          .from(table)
+          .insert(payload)
+          .select("*");
         if (error) {
           console.error(`Supabase insert error on ${table}:`, error);
-          if (table === "students") {
+          if (table === "students" || table === "teachers") {
+            const insertedIds = new Set(inserted.map((item) => item.id));
+            (this as any)[table] = ((this as any)[table] || []).filter(
+              (item: any) => !insertedIds.has(item.id),
+            );
+            this.persist(table);
             throw new Error(
-              `Student write failed; local rollback required: ${error.message}`,
+              `${table === "teachers" ? "Teacher" : "Student"} write failed; local rollback required: ${error.message}`,
             );
           }
         } else {
+          if (Array.isArray(savedRows) && savedRows.length > 0) {
+            const savedById = new Map(savedRows.map((row: any) => [row.id, row]));
+            (this as any)[table] = ((this as any)[table] || []).map(
+              (item: any) => savedById.get(item.id) || item,
+            );
+            this.persist(table);
+          }
           console.log(
             `Supabase synced ${inserted.length} record(s) into ${table}`,
           );
         }
       } catch (err) {
         console.error(`Supabase insert exception on ${table}:`, err);
-        if (table === "students") {
+        if (table === "students" || table === "teachers") {
           throw err instanceof Error
             ? err
-            : new Error("Student write failed; local rollback required.");
+            : new Error(`${table} write failed; local rollback required.`);
         }
       }
     }
@@ -816,9 +892,14 @@ class LocalDatabase {
   }
 
   async update(table: string, id: string, data: any) {
+    if (isSupabaseConfigured) {
+      await this.syncReady;
+    }
+
     const list = (this as any)[table] || [];
     const idx = list.findIndex((x: any) => x.id === id);
     if (idx !== -1) {
+      const previous = { ...list[idx] };
       list[idx] = { ...list[idx], ...data };
       if (table === "students" && list[idx].semester !== undefined) {
         list[idx].semester = parseInt(String(list[idx].semester), 10) || 1;
@@ -834,9 +915,19 @@ class LocalDatabase {
             .eq("id", id);
           if (error) {
             console.error(`Supabase update error for ${table}:`, error);
+            if (table === "teachers") {
+              throw new Error(`Teacher update failed in Supabase: ${error.message}`);
+            }
           }
         } catch (err) {
           console.error(`Supabase update exception on ${table}:`, err);
+          if (table === "teachers") {
+            list[idx] = previous;
+            this.persist(table);
+            throw err instanceof Error
+              ? err
+              : new Error("Teacher update failed; local rollback required.");
+          }
         }
       }
 

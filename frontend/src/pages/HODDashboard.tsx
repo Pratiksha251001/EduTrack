@@ -309,6 +309,9 @@ export const HODDashboard: React.FC = () => {
         academic_year: teacherForm.academic_year,
         assigned_year: Number(teacherForm.assigned_year) || null,
         assigned_semester: Number(teacherForm.assigned_semester) || null,
+        ...(teacherForm.password?.trim()
+          ? { password: effectivePwd }
+          : {}),
       });
 
       let account = localDb.users.find(
@@ -386,6 +389,9 @@ export const HODDashboard: React.FC = () => {
           },
         ]);
         await localDb.update("teachers", teacher.id, { user_id: accountId });
+        await localDb.update("teachers", teacher.id, {
+          password: effectivePwd,
+        });
         saveCredential(
           [accountId, teacher.id, teacher.email, teacher.employee_id],
           effectivePwd,

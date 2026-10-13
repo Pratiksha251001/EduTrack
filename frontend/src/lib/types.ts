@@ -38,6 +38,7 @@ export interface Teacher {
   date_of_birth?: string | null;
   experience_years?: string | number | null;
   photo_url?: string | null;
+  password?: string | null;
   created_at?: string;
 }
 

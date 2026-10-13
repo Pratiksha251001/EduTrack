@@ -29,9 +29,12 @@ create table if not exists public.teachers (
   experience_years text,
   email text unique,
   mobile text,
+  password text,
   department_id uuid references public.departments(id) on delete set null,
   user_id uuid,
   is_class_coordinator boolean default false,
+  year integer check (year between 1 and 4),
+  assigned_year integer check (assigned_year between 1 and 4),
   assigned_semester integer check (assigned_semester between 1 and 8),
   role text not null default 'lecturer' check (role in ('hod', 'class_coordinator', 'lecturer')),
   status text not null default 'active' check (status in ('active', 'inactive')),
@@ -226,8 +229,34 @@ alter table public.teachers add column if not exists designation text;
 alter table public.teachers add column if not exists qualification text;
 alter table public.teachers add column if not exists date_of_birth date;
 alter table public.teachers add column if not exists experience_years text;
+alter table public.teachers add column if not exists password text;
+alter table public.teachers add column if not exists year integer;
+alter table public.teachers add column if not exists assigned_year integer;
 alter table public.academic_classes add column if not exists coordinator_teacher_id uuid references public.teachers(id) on delete set null;
 
 -- Ensure single institutional admin index
 create unique index if not exists one_admin_per_institution on public.user_roles (role) where role = 'admin';
+
+-- Enable realtime updates for staff and department screens.
+do $$
+begin
+  if exists (select 1 from pg_publication where pubname = 'supabase_realtime')
+     and not exists (
+       select 1 from pg_publication_tables
+       where pubname = 'supabase_realtime'
+         and schemaname = 'public'
+         and tablename = 'teachers'
+     ) then
+    alter publication supabase_realtime add table public.teachers;
+  end if;
+  if exists (select 1 from pg_publication where pubname = 'supabase_realtime')
+     and not exists (
+       select 1 from pg_publication_tables
+       where pubname = 'supabase_realtime'
+         and schemaname = 'public'
+         and tablename = 'departments'
+     ) then
+    alter publication supabase_realtime add table public.departments;
+  end if;
+end $$;
 `;

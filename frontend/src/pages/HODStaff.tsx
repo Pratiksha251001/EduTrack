@@ -598,6 +598,7 @@ export const HODStaff: React.FC<HODStaffProps> = ({ mode }) => {
       }
 
       if (form.password.trim() || !account) {
+        await localDb.update("teachers", editing.id, { password: effectivePwd });
         saveCredential(
           [
             editing.id,
@@ -615,6 +616,9 @@ export const HODStaff: React.FC<HODStaffProps> = ({ mode }) => {
       const teacher = inserted[0];
       if (teacher) {
         targetTeacherId = teacher.id;
+        await localDb.update("teachers", teacher.id, {
+          password: effectivePwd,
+        });
         const accountId = `teacher-user-${teacher.id}`;
         await localDb.insert("users", [
           {
@@ -631,6 +635,9 @@ export const HODStaff: React.FC<HODStaffProps> = ({ mode }) => {
           },
         ]);
         await localDb.update("teachers", teacher.id, { user_id: accountId });
+        await localDb.update("teachers", teacher.id, {
+          password: teacher.password || effectivePwd,
+        });
 
         saveCredential(
           [accountId, teacher.id, teacher.email, teacher.employee_id],
