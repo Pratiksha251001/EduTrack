@@ -970,7 +970,7 @@ export const HODStaff: React.FC<HODStaffProps> = ({ mode }) => {
                   : `Add ${mode === "teachers" ? "Teacher" : "Class Coordinator"}`}
               </h2>
               <p className="text-xs text-muted-foreground mt-0.5">
-                Fill in the faculty details below. <strong className="text-foreground">Employee ID</strong> and <strong className="text-foreground">Email Address</strong> are automatically prepared for you. Other fields (designation, qualification, experience, mobile) are optional.
+                Fill in the faculty details below. <strong className="text-foreground">Employee ID</strong> and <strong className="text-foreground">Email Address</strong> are automatically prepared for you.
               </p>
             </div>
             <Button
@@ -1049,65 +1049,6 @@ export const HODStaff: React.FC<HODStaffProps> = ({ mode }) => {
               </p>
             </div>
 
-            {/* 3. Academic Designation - OPTIONAL */}
-            <div className="space-y-1">
-              <label className="text-xs font-semibold text-foreground flex items-center justify-between">
-                <span>Academic Designation</span>
-                <span className="text-[10px] text-muted-foreground font-normal">(Optional)</span>
-              </label>
-              <div className="space-y-1.5">
-                <Input
-                  placeholder="e.g. Assistant Professor (Optional)"
-                  value={form.designation}
-                  onChange={(event) =>
-                    setForm({ ...form, designation: event.target.value })
-                  }
-                />
-                <div className="flex flex-wrap gap-1">
-                  {COMMON_DESIGNATIONS.slice(1, 6).map((item) => (
-                    <button
-                      key={item}
-                      type="button"
-                      onClick={() => setForm({ ...form, designation: item })}
-                      className="text-[10px] px-2 py-0.5 rounded bg-muted hover:bg-muted/80 text-muted-foreground"
-                    >
-                      {item}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            </div>
-
-            {/* 4. Qualification - OPTIONAL */}
-            <div className="space-y-1">
-              <label className="text-xs font-semibold text-foreground flex items-center justify-between">
-                <span>Highest Qualification</span>
-                <span className="text-[10px] text-muted-foreground font-normal">(Optional)</span>
-              </label>
-              <Input
-                placeholder="e.g. Ph.D, M.Tech (Optional)"
-                value={form.qualification}
-                onChange={(event) =>
-                  setForm({ ...form, qualification: event.target.value })
-                }
-              />
-            </div>
-
-            {/* 5. Year of Experience - OPTIONAL */}
-            <div className="space-y-1">
-              <label className="text-xs font-semibold text-foreground flex items-center justify-between">
-                <span>Year of Experience</span>
-                <span className="text-[10px] text-muted-foreground font-normal">(Optional)</span>
-              </label>
-              <Input
-                placeholder="e.g. 8 Years (Optional)"
-                value={form.experience_years}
-                onChange={(event) =>
-                  setForm({ ...form, experience_years: event.target.value })
-                }
-              />
-            </div>
-
             {/* 6. Phone / Mobile - OPTIONAL */}
             <div className="space-y-1">
               <label className="text-xs font-semibold text-foreground flex items-center justify-between">
@@ -1133,7 +1074,7 @@ export const HODStaff: React.FC<HODStaffProps> = ({ mode }) => {
                 inputMode="numeric"
                 pattern="[0-9]*"
                 maxLength={10}
-                placeholder="9876543210 (Optional)"
+                placeholder="9876543210"
                 value={form.mobile}
                 onChange={(event) =>
                   setForm({
@@ -1147,9 +1088,6 @@ export const HODStaff: React.FC<HODStaffProps> = ({ mode }) => {
                     : ""
                 }`}
               />
-              <p className="text-[10px] text-muted-foreground">
-                Optional: strictly 10 digits only if provided (e.g. 9876543210).
-              </p>
             </div>
 
             {/* 7. Email Address */}
@@ -1670,63 +1608,6 @@ export const HODStaff: React.FC<HODStaffProps> = ({ mode }) => {
               </div>
             )}
 
-            {/* 10. Photo URL or File Upload */}
-            <div className="space-y-1 sm:col-span-2">
-              <label className="text-xs font-semibold text-foreground flex items-center justify-between">
-                <span>Profile Photo (Optional / Manual Set)</span>
-                {form.photo_url && (
-                  <button
-                    type="button"
-                    onClick={() =>
-                      setForm((prev) => ({ ...prev, photo_url: "" }))
-                    }
-                    className="text-[11px] text-destructive hover:underline"
-                  >
-                    Clear Photo
-                  </button>
-                )}
-              </label>
-              <div className="flex items-center gap-3">
-                {form.photo_url ? (
-                  <div className="h-10 w-10 rounded-lg border border-border overflow-hidden shrink-0">
-                    <img
-                      src={form.photo_url}
-                      alt="Preview"
-                      className="h-full w-full object-cover"
-                    />
-                  </div>
-                ) : (
-                  <div className="h-10 w-10 rounded-lg bg-muted border border-border flex items-center justify-center text-muted-foreground shrink-0">
-                    <Camera className="h-4 w-4" />
-                  </div>
-                )}
-                <Input
-                  placeholder="Paste photo image URL, or click upload button"
-                  value={form.photo_url}
-                  onChange={(e) =>
-                    setForm({ ...form, photo_url: e.target.value })
-                  }
-                  className="text-xs"
-                />
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={() => photoFileInputRef.current?.click()}
-                  className="shrink-0 text-xs"
-                >
-                  <Camera className="h-3.5 w-3.5 mr-1" />
-                  Browse
-                </Button>
-                <input
-                  ref={photoFileInputRef}
-                  type="file"
-                  accept="image/*"
-                  className="hidden"
-                  onChange={handlePhotoFileChange}
-                />
-              </div>
-            </div>
 
             {/* 11. Password */}
             <div className="space-y-1 sm:col-span-2 lg:col-span-1">
@@ -1908,42 +1789,6 @@ export const HODStaff: React.FC<HODStaffProps> = ({ mode }) => {
                 </button>
               ))}
             </div>
-
-            {/* Roster Counts Summary */}
-            <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
-              <span className="font-semibold text-foreground">
-                Showing {sortedTeachers.length} of {departmentTeachers.length} Faculty
-              </span>
-              <span>•</span>
-              <span>
-                {departmentTeachers.filter((t) => t.role === "hod").length} HOD
-              </span>
-              <span>•</span>
-              <span className="text-emerald-600 dark:text-emerald-400 font-medium">
-                {
-                  departmentTeachers.filter(
-                    (t) =>
-                      t.role === "class_coordinator" ||
-                      coordinatorIds.has(t.id) ||
-                      t.is_class_coordinator,
-                  ).length
-                }{" "}
-                Coordinators
-              </span>
-              <span>•</span>
-              <span>
-                {
-                  departmentTeachers.filter(
-                    (t) =>
-                      t.role !== "hod" &&
-                      t.role !== "class_coordinator" &&
-                      !coordinatorIds.has(t.id) &&
-                      !t.is_class_coordinator,
-                  ).length
-                }{" "}
-                Lecturers
-              </span>
-            </div>
           </div>
         </div>
 
@@ -1961,7 +1806,6 @@ export const HODStaff: React.FC<HODStaffProps> = ({ mode }) => {
                     <TableHead className="min-w-[130px] font-bold">Academic Role</TableHead>
                     <TableHead className="min-w-[170px] font-bold">Coordinated Classes</TableHead>
                     <TableHead className="min-w-[190px] font-bold">Teaching Subjects</TableHead>
-                    <TableHead className="min-w-[150px] font-bold">Qualification & Exp</TableHead>
                     <TableHead className="min-w-[150px] font-bold">Contact Details</TableHead>
                     <TableHead className="min-w-[110px] font-bold">Portal Access</TableHead>
                     <TableHead className="min-w-[120px] text-right font-bold pr-4">Actions</TableHead>
@@ -1971,7 +1815,7 @@ export const HODStaff: React.FC<HODStaffProps> = ({ mode }) => {
                   {sortedTeachers.length === 0 ? (
                     <TableRow>
                       <TableCell
-                        colSpan={10}
+                        colSpan={9}
                         className="py-14 text-center text-muted-foreground"
                       >
                         <div className="max-w-md mx-auto space-y-3">
@@ -2047,39 +1891,28 @@ export const HODStaff: React.FC<HODStaffProps> = ({ mode }) => {
                             {idx + 1}
                           </TableCell>
 
-                          {/* 2. Faculty Name + Designation + Avatar */}
+                          {/* 2. Faculty Name + Avatar */}
                           <TableCell className="font-medium">
                             <div className="flex items-center gap-3">
-                              <div className="h-10 w-10 shrink-0 rounded-lg border border-border bg-primary/10 text-primary flex items-center justify-center overflow-hidden font-bold font-display shadow-2xs">
-                                {teacher.photo_url ? (
-                                  <img
-                                    src={teacher.photo_url}
-                                    alt={teacher.full_name}
-                                    className="h-full w-full object-cover"
-                                  />
-                                ) : (
-                                  <span className="text-xs">
-                                    {teacher.full_name
-                                      .split(" ")
-                                      .map((n) => n[0])
-                                      .slice(0, 2)
-                                      .join("")
-                                      .toUpperCase()}
-                                  </span>
-                                )}
+                              <div className="h-9 w-9 shrink-0 rounded-lg border border-border bg-primary/10 text-primary flex items-center justify-center overflow-hidden font-bold font-display shadow-2xs">
+                                <span className="text-xs">
+                                  {teacher.full_name
+                                    .split(" ")
+                                    .map((n) => n[0])
+                                    .slice(0, 2)
+                                    .join("")
+                                    .toUpperCase()}
+                                </span>
                               </div>
                               <div className="min-w-0">
                                 <button
                                   type="button"
                                   onClick={() => setProfileModalTeacher(teacher)}
-                                  className="font-bold text-sm text-foreground hover:text-primary transition-colors text-left block truncate max-w-[190px]"
-                                  title="View faculty dossier"
+                                  className="font-bold text-sm text-foreground hover:text-primary transition-colors text-left block truncate max-w-[200px]"
+                                  title="View faculty details"
                                 >
                                   {teacher.full_name}
                                 </button>
-                                <span className="text-[11px] text-muted-foreground block truncate max-w-[190px]">
-                                  {teacher.designation || "Assistant Professor"}
-                                </span>
                               </div>
                             </div>
                           </TableCell>
@@ -2094,17 +1927,17 @@ export const HODStaff: React.FC<HODStaffProps> = ({ mode }) => {
                           {/* 4. Academic Role */}
                           <TableCell>
                             {teacher.role === "hod" ? (
-                              <Badge className="bg-primary text-primary-foreground font-semibold text-[11px]">
+                              <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-semibold bg-primary/10 text-primary border border-primary/25">
                                 HOD & Lecturer
-                              </Badge>
+                              </span>
                             ) : isCC ? (
-                              <Badge className="bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border border-emerald-500/30 font-semibold text-[11px]">
+                              <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-semibold bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border border-emerald-500/25">
                                 Class Coordinator
-                              </Badge>
+                              </span>
                             ) : (
-                              <Badge variant="secondary" className="font-medium text-[11px]">
+                              <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-medium bg-muted/60 text-muted-foreground border border-border/60">
                                 Lecturer
-                              </Badge>
+                              </span>
                             )}
                           </TableCell>
 
@@ -2178,25 +2011,6 @@ export const HODStaff: React.FC<HODStaffProps> = ({ mode }) => {
                                 {teacher.assigned_semester || 3}
                               </Badge>
                             )}
-                          </TableCell>
-
-                          {/* 7. Qualification & Experience */}
-                          <TableCell>
-                            <div className="space-y-0.5 text-xs">
-                              <span
-                                className="font-medium text-foreground block truncate max-w-[160px]"
-                                title={teacher.qualification || ""}
-                              >
-                                {teacher.qualification || "B.Tech / M.Tech"}
-                              </span>
-                              {teacher.experience_years && (
-                                <span className="text-[11px] text-muted-foreground font-mono">
-                                  {String(teacher.experience_years).includes("Year")
-                                    ? teacher.experience_years
-                                    : `${teacher.experience_years} Yrs Exp`}
-                                </span>
-                              )}
-                            </div>
                           </TableCell>
 
                           {/* 8. Contact Details */}

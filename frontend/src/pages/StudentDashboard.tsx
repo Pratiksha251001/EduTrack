@@ -228,6 +228,12 @@ export const StudentDashboard: React.FC = () => {
                     {student.parent_name || "—"}
                   </span>
                 </div>
+                <div className="flex justify-between gap-3">
+                  <span className="text-muted-foreground">Parent Mobile</span>
+                  <span className="font-medium text-right font-mono">
+                    {student.parent_mobile || "—"}
+                  </span>
+                </div>
               </div>
             </CardContent>
           </Card>

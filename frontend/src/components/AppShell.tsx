@@ -16,6 +16,7 @@ import {
   Sun,
   UserCog,
   Bell,
+  Zap,
 } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import { useTheme } from "../context/ThemeContext";
@@ -24,6 +25,8 @@ import { Button } from "./ui/button";
 import { Badge } from "./ui/badge";
 import { EduTrackLogo } from "./EduTrackLogo";
 import { NotificationBell } from "./NotificationBell";
+import { Msg91SetupModal } from "./Msg91SetupModal";
+import { getSmsGatewayStatus, SmsGatewayStatus } from "../lib/smsService";
 import {
   getNotificationsForUser,
   getStoredNotifications,
@@ -41,6 +44,14 @@ export const AppShell: React.FC = () => {
   const [notifications, setNotifications] = useState<AppNotification[]>(() =>
     getStoredNotifications(),
   );
+  const [smsGatewayModalOpen, setSmsGatewayModalOpen] = useState(false);
+  const [smsGatewayStatus, setSmsGatewayStatus] = useState<SmsGatewayStatus | null>(null);
+
+  React.useEffect(() => {
+    if (role && role !== "student") {
+      getSmsGatewayStatus().then(setSmsGatewayStatus).catch(() => {});
+    }
+  }, [role]);
 
   React.useEffect(() => {
     const handleUpdate = () => setNotifications(getStoredNotifications());
@@ -75,15 +86,8 @@ export const AppShell: React.FC = () => {
       .length;
   }, [userNotifications, userKey]);
 
-  const navItems = [
+  const mainNavItems = [
     { label: "Dashboard", path: "/dashboard", icon: LayoutDashboard },
-    {
-      label: "Notifications",
-      path: "/notifications",
-      icon: Bell,
-      badge: unreadNotifCount > 0 ? unreadNotifCount : undefined,
-    },
-    { label: "My Profile", path: "/profile", icon: UserCog },
     ...(role === "hod"
       ? [
           { label: "Teachers", path: "/hod/teachers", icon: Users },
@@ -130,6 +134,16 @@ export const AppShell: React.FC = () => {
     ...(role !== "student"
       ? [{ label: "Parent SMS Logs", path: "/sms-logs", icon: MessageSquare }]
       : []),
+  ];
+
+  const bottomNavItems = [
+    {
+      label: "Notifications",
+      path: "/notifications",
+      icon: Bell,
+      badge: unreadNotifCount > 0 ? unreadNotifCount : undefined,
+    },
+    { label: "My Profile", path: "/profile", icon: UserCog },
   ];
 
   return (
@@ -181,7 +195,40 @@ export const AppShell: React.FC = () => {
           </div>
         </Link>
         <nav className="flex-1 min-h-0 space-y-1.5 px-4 py-1 overflow-y-auto overscroll-contain custom-sidebar-scroll">
-          {navItems.map((item) => {
+          {mainNavItems.map((item) => {
+            const active = location.pathname === item.path;
+            const Icon = item.icon;
+            return (
+              <Link
+                key={item.path}
+                to={item.path}
+                onClick={() => setMobileOpen(false)}
+                className={`flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all ${
+                  active
+                    ? "bg-[hsl(var(--sidebar-primary))] text-[hsl(var(--sidebar-primary-foreground))] font-semibold shadow-xs"
+                    : "text-[hsl(var(--sidebar-foreground))] opacity-85 hover:opacity-100 hover:bg-[hsl(var(--sidebar-accent))]"
+                }`}
+              >
+                <Icon
+                  className={`h-4 w-4 shrink-0 transition-opacity ${
+                    active
+                      ? "opacity-100 text-[hsl(var(--sidebar-primary-foreground))]"
+                      : "opacity-75"
+                  }`}
+                />
+                <span className="truncate flex-1">{item.label}</span>
+              </Link>
+            );
+          })}
+
+          <div className="pt-3 pb-1">
+            <div className="border-t border-[hsl(var(--sidebar-border))]/60 mb-2" />
+            <p className="px-3 text-[10px] font-bold uppercase tracking-wider text-[hsl(var(--sidebar-foreground))] opacity-50">
+              Account & Alerts
+            </p>
+          </div>
+
+          {bottomNavItems.map((item) => {
             const active = location.pathname === item.path;
             const Icon = item.icon;
             return (
@@ -234,16 +281,16 @@ export const AppShell: React.FC = () => {
           </Button>
           <Button
             id="sidebar-logout-btn"
-            variant="destructive"
+            variant="ghost"
             size="sm"
             onClick={() => {
               setMobileOpen(false);
               openLogoutConfirm();
             }}
-            className="w-full justify-start bg-red-500/20 text-red-300 hover:bg-red-500/30 border border-red-500/30 font-medium transition-colors"
+            className="w-full justify-start text-destructive hover:bg-destructive/10 hover:text-destructive border border-destructive/20 font-medium transition-colors"
           >
             <LogOut className="h-4 w-4 mr-2" />
-            Sign out
+            Log out
           </Button>
         </div>
       </aside>
@@ -260,6 +307,24 @@ export const AppShell: React.FC = () => {
             <EduTrackLogo size="sm" variant="horizontal" />
           </div>
           <div className="flex items-center gap-2">
+            {role && role !== "student" && (
+              <button
+                type="button"
+                onClick={() => setSmsGatewayModalOpen(true)}
+                className="flex items-center gap-1.5 rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-2 py-1.5 text-xs font-semibold text-emerald-700 dark:text-emerald-300 hover:bg-emerald-500/20 transition-colors"
+                title="SMS Gateway Setup & Status"
+              >
+                <Zap className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400" />
+                <span className="hidden sm:inline">Gateway</span>
+                <span
+                  className={`inline-block h-2 w-2 rounded-full ${
+                    smsGatewayStatus?.isConfigured
+                      ? "bg-emerald-500 animate-pulse"
+                      : "bg-amber-500"
+                  }`}
+                />
+              </button>
+            )}
             <NotificationBell />
             <Badge
               variant="outline"
@@ -269,11 +334,11 @@ export const AppShell: React.FC = () => {
             </Badge>
             <Button
               id="mobile-header-logout-btn"
-              variant="ghost"
+              variant="outline"
               size="sm"
               onClick={openLogoutConfirm}
-              className="text-muted-foreground hover:text-destructive hover:bg-destructive/10 p-2 h-8 w-8 rounded-lg transition-colors"
-              title="Sign out"
+              className="text-destructive border-destructive/30 hover:bg-destructive/10 hover:border-destructive/50 p-2 h-8 w-8 rounded-lg transition-colors"
+              title="Log out"
             >
               <LogOut className="h-4 w-4" />
             </Button>
@@ -303,6 +368,25 @@ export const AppShell: React.FC = () => {
           </div>
 
           <div className="flex items-center gap-3">
+            {role && role !== "student" && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setSmsGatewayModalOpen(true)}
+                className="h-9 px-3 rounded-xl border-emerald-500/40 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-800 dark:text-emerald-300 text-xs font-semibold gap-1.5 shadow-2xs transition-colors"
+                title="SMS Gateway Setup & Status"
+              >
+                <Zap className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400" />
+                <span>SMS Gateway</span>
+                <span
+                  className={`inline-block h-2 w-2 rounded-full ${
+                    smsGatewayStatus?.isConfigured
+                      ? "bg-emerald-500 animate-pulse"
+                      : "bg-amber-500"
+                  }`}
+                />
+              </Button>
+            )}
             <NotificationBell />
             <button
               type="button"
@@ -331,6 +415,17 @@ export const AppShell: React.FC = () => {
                 {user?.full_name || "Profile"}
               </span>
             </Link>
+            <Button
+              id="desktop-header-logout-btn"
+              variant="outline"
+              size="sm"
+              onClick={openLogoutConfirm}
+              className="h-9 px-3 rounded-xl border-destructive/30 text-destructive hover:bg-destructive/10 hover:border-destructive/50 text-xs font-semibold gap-1.5 shadow-2xs transition-colors"
+              title="Sign out of EduTrack"
+            >
+              <LogOut className="h-3.5 w-3.5" />
+              <span>Log out</span>
+            </Button>
           </div>
         </header>
 
@@ -341,6 +436,21 @@ export const AppShell: React.FC = () => {
           <Outlet />
         </main>
       </div>
+
+      {role && role !== "student" && (
+        <Msg91SetupModal
+          open={smsGatewayModalOpen}
+          onOpenChange={(open) => {
+            setSmsGatewayModalOpen(open);
+            if (!open) {
+              getSmsGatewayStatus().then(setSmsGatewayStatus).catch(() => {});
+            }
+          }}
+          onTestSent={() => {
+            getSmsGatewayStatus().then(setSmsGatewayStatus).catch(() => {});
+          }}
+        />
+      )}
     </div>
   );
 };

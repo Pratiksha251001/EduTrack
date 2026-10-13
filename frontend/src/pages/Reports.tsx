@@ -48,8 +48,8 @@ import {
   TableHead,
   TableCell,
 } from "../components/ui/table";
-
-type ReportViewMode = "consolidated" | "defaulters" | "student_summary";
+type StudentCategoryFilter = "all" | "defaulters" | "eligible";
+type ReportViewType = "subject" | "student_summary";
 
 export const Reports: React.FC = () => {
   const { user, role } = useAuth();
@@ -148,8 +148,9 @@ export const Reports: React.FC = () => {
   const [selectedYear, setSelectedYear] = useState<string>(initialYear);
   const [selectedClass, setSelectedClass] = useState<string>(initialClass);
   const [selectedSubject, setSelectedSubject] = useState<string>("__all");
+  const [studentCategory, setStudentCategory] = useState<StudentCategoryFilter>("all");
+  const [reportViewType, setReportViewType] = useState<ReportViewType>("subject");
   const [searchQuery, setSearchQuery] = useState<string>("");
-  const [viewMode, setViewMode] = useState<ReportViewMode>("consolidated");
   const [monthlyAlertModalOpen, setMonthlyAlertModalOpen] = useState<boolean>(false);
   const [alertToast, setAlertToast] = useState<string | null>(null);
 
@@ -485,18 +486,27 @@ export const Reports: React.FC = () => {
     return reportRows.filter((r) => r.percentage < college.minAttendance);
   }, [reportRows]);
 
-  // Active dataset according to selected view mode
-  const activeDataset = useMemo(() => {
-    if (viewMode === "defaulters") return defaulterRows;
-    if (viewMode === "student_summary") return studentSummaryRows;
-    return reportRows;
-  }, [viewMode, defaulterRows, studentSummaryRows, reportRows]);
+  // Base dataset according to selected report format
+  const baseDataset = useMemo(() => {
+    return reportViewType === "student_summary" ? studentSummaryRows : reportRows;
+  }, [reportViewType, studentSummaryRows, reportRows]);
+
+  // Categorize students by attendance status (All / Defaulters / Eligible)
+  const categorizedDataset = useMemo(() => {
+    if (studentCategory === "defaulters") {
+      return baseDataset.filter((r) => r.percentage < college.minAttendance);
+    }
+    if (studentCategory === "eligible") {
+      return baseDataset.filter((r) => r.percentage >= college.minAttendance);
+    }
+    return baseDataset;
+  }, [baseDataset, studentCategory]);
 
   // Filtered dataset by search query
   const displayedRows = useMemo(() => {
-    if (!searchQuery.trim()) return activeDataset;
+    if (!searchQuery.trim()) return categorizedDataset;
     const q = searchQuery.toLowerCase().trim();
-    return activeDataset.filter(
+    return categorizedDataset.filter(
       (r) =>
         r.name.toLowerCase().includes(q) ||
         r.roll.toLowerCase().includes(q) ||
@@ -504,7 +514,7 @@ export const Reports: React.FC = () => {
         r.subject.toLowerCase().includes(q) ||
         (r.className && r.className.toLowerCase().includes(q))
     );
-  }, [activeDataset, searchQuery]);
+  }, [categorizedDataset, searchQuery]);
 
   // Statistical aggregates
   const stats = useMemo(() => {
@@ -563,6 +573,7 @@ export const Reports: React.FC = () => {
 
   // Export handlers
   const handleDownloadPdf = () => {
+    const isDefaulterReport = studentCategory === "defaulters";
     exportAttendancePdf({
       rows: displayedRows,
       periodLabel: `${startDate} to ${endDate}`,
@@ -572,18 +583,18 @@ export const Reports: React.FC = () => {
       classLabel: currentClassLabel,
       subjectLabel: currentSubjectLabel,
       roleLabel: roleScopeLabel,
-      isDefaulterReport: viewMode === "defaulters",
-      reportTitle:
-        viewMode === "defaulters"
-          ? "ACADEMIC DEFAULTER AUDIT REPORT (< 75% ATTENDANCE)"
-          : viewMode === "student_summary"
-          ? "CONSOLIDATED STUDENT ATTENDANCE AUDIT REGISTER"
-          : "OFFICIAL SUBJECT ATTENDANCE REGISTER & RECORD",
-      fileName: `${viewMode === "defaulters" ? "Defaulters" : "Attendance"}_Report_${currentDeptLabel.replace(/\s+/g, "_")}_${startDate}_to_${endDate}.pdf`,
+      isDefaulterReport,
+      reportTitle: isDefaulterReport
+        ? "ACADEMIC DEFAULTER REPORT (< 75% ATTENDANCE)"
+        : reportViewType === "student_summary"
+        ? "CONSOLIDATED STUDENT ATTENDANCE REPORT"
+        : "OFFICIAL ATTENDANCE REPORT",
+      fileName: `${isDefaulterReport ? "Defaulters" : "Attendance"}_Report_${startDate}_to_${endDate}.pdf`,
     });
   };
 
   const handleDownloadExcel = () => {
+    const isDefaulterReport = studentCategory === "defaulters";
     exportAttendanceExcel({
       rows: displayedRows,
       periodLabel: `${startDate} to ${endDate}`,
@@ -593,15 +604,15 @@ export const Reports: React.FC = () => {
       classLabel: currentClassLabel,
       subjectLabel: currentSubjectLabel,
       roleLabel: roleScopeLabel,
-      isDefaulterReport: viewMode === "defaulters",
-      fileName: `${viewMode === "defaulters" ? "Defaulters" : "Attendance"}_Report_${currentDeptLabel.replace(/\s+/g, "_")}_${startDate}_to_${endDate}.xlsx`,
+      isDefaulterReport,
+      fileName: `${isDefaulterReport ? "Defaulters" : "Attendance"}_Report_${startDate}_to_${endDate}.xlsx`,
     });
   };
 
   const handleDownloadCsv = () => {
     exportAttendanceCsv({
       rows: displayedRows,
-      isDefaulterReport: viewMode === "defaulters",
+      isDefaulterReport: studentCategory === "defaulters",
       yearLabel: currentYearLabel,
       startDate,
       endDate,
@@ -609,39 +620,39 @@ export const Reports: React.FC = () => {
   };
 
   return (
-    <div className="space-y-6">
-      {/* Header and Access Role Scope Banner */}
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+    <div className="space-y-5">
+      {/* Header and Export Actions */}
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <div className="flex flex-wrap items-center gap-2">
             <h1 className="font-display text-2xl font-bold tracking-tight text-foreground">
-              Official Attendance Reports & Audit Sign-Off
+              Attendance Reports
             </h1>
             <Badge
               variant="outline"
-              className="text-xs font-semibold px-2.5 py-0.5 border-primary/30 bg-primary/10 text-primary"
+              className="text-xs font-semibold px-2 py-0.5 border-primary/30 bg-primary/10 text-primary"
             >
-              {role === "admin" && "Institutional Admin (College-Wide)"}
-              {role === "hod" && `Head of Department (${currentDeptLabel})`}
-              {role === "class_coordinator" &&
-                `Class Coordinator (${currentYearLabel} · ${currentClassLabel})`}
-              {role === "teacher" &&
-                `Subject Teacher (${linkedTeacher?.full_name || user?.full_name})`}
-              {role === "student" && "Student Record"}
+              {role === "admin" && "Admin (College-Wide)"}
+              {role === "hod" && `HOD · ${currentDeptLabel}`}
+              {role === "class_coordinator" && `Coordinator · ${currentClassLabel}`}
+              {role === "teacher" && `Faculty · ${linkedTeacher?.full_name || user?.full_name}`}
+              {role === "student" && "My Record"}
             </Badge>
           </div>
         </div>
 
-        {/* Global Export & Alert Actions */}
+        {/* Export Buttons */}
         <div className="flex flex-wrap items-center gap-2 self-start sm:self-auto shrink-0">
-          <Button
-            size="sm"
-            onClick={() => setMonthlyAlertModalOpen(true)}
-            className="text-xs h-9 shadow-xs font-semibold bg-rose-600 hover:bg-rose-700 text-white"
-          >
-            <Bell className="mr-1.5 h-3.5 w-3.5" />
-            Alert Defaulter Parents (Monthly)
-          </Button>
+          {stats.defaultersCount > 0 && (
+            <Button
+              size="sm"
+              onClick={() => setMonthlyAlertModalOpen(true)}
+              className="text-xs h-9 font-semibold bg-rose-600 hover:bg-rose-700 text-white"
+            >
+              <Bell className="mr-1.5 h-3.5 w-3.5" />
+              Alert Defaulter Parents
+            </Button>
+          )}
 
           <Button
             variant="outline"
@@ -662,32 +673,30 @@ export const Reports: React.FC = () => {
             className="text-xs h-9 font-medium"
           >
             <Download className="mr-1.5 h-3.5 w-3.5 text-emerald-600" />
-            Excel (.xlsx)
+            Excel
           </Button>
 
           <Button
             size="sm"
             onClick={handleDownloadPdf}
             disabled={displayedRows.length === 0}
-            className={`text-xs h-9 shadow-xs font-semibold ${
-              viewMode === "defaulters"
+            className={`text-xs h-9 font-semibold ${
+              studentCategory === "defaulters"
                 ? "bg-rose-600 hover:bg-rose-700 text-white"
                 : "bg-primary hover:bg-primary/90 text-primary-foreground"
             }`}
           >
             <FileText className="mr-1.5 h-3.5 w-3.5" />
-            {viewMode === "defaulters"
-              ? "Download Defaulters PDF"
-              : "Download Official PDF"}
+            {studentCategory === "defaulters" ? "Download Defaulters PDF" : "Download PDF"}
           </Button>
         </div>
       </div>
 
-      {/* Metric Cards Row */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
-        <div className="p-4 rounded-xl border border-border/80 bg-card shadow-xs">
+      {/* Summary Stat Cards */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        <div className="p-3.5 rounded-xl border border-border bg-card shadow-xs">
           <div className="flex items-center justify-between text-muted-foreground mb-1">
-            <span className="text-xs font-medium">Students Evaluated</span>
+            <span className="text-xs font-medium">Students</span>
             <Users className="h-4 w-4 text-primary" />
           </div>
           <div className="text-2xl font-black text-foreground">
@@ -695,42 +704,29 @@ export const Reports: React.FC = () => {
           </div>
         </div>
 
-        <div className="p-4 rounded-xl border border-rose-500/20 bg-rose-500/5 shadow-xs">
+        <div className="p-3.5 rounded-xl border border-rose-500/25 bg-rose-500/5 shadow-xs">
           <div className="flex items-center justify-between text-rose-600 dark:text-rose-400 mb-1">
             <span className="text-xs font-medium">Defaulters (&lt; {college.minAttendance}%)</span>
-            <ShieldAlert className="h-4 w-4" />
+            <ShieldAlert className="h-4 w-4 text-rose-500" />
           </div>
-          <div className="flex items-baseline justify-between gap-2">
-            <div className="text-2xl font-black text-rose-600 dark:text-rose-400">
-              {stats.defaultersCount}
-            </div>
-            {stats.defaultersCount > 0 && (
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={() => setMonthlyAlertModalOpen(true)}
-                className="text-[10px] h-6 px-2 border-rose-500/30 text-rose-700 bg-rose-500/10 hover:bg-rose-500/20 font-bold"
-              >
-                <Bell className="h-3 w-3 mr-1" />
-                Alert Parents
-              </Button>
-            )}
+          <div className="text-2xl font-black text-rose-600 dark:text-rose-400">
+            {stats.defaultersCount}
           </div>
         </div>
 
-        <div className="p-4 rounded-xl border border-emerald-500/20 bg-emerald-500/5 shadow-xs">
+        <div className="p-3.5 rounded-xl border border-emerald-500/25 bg-emerald-500/5 shadow-xs">
           <div className="flex items-center justify-between text-emerald-600 dark:text-emerald-400 mb-1">
-            <span className="text-xs font-medium">Eligible Students (&ge; {college.minAttendance}%)</span>
-            <CheckCircle2 className="h-4 w-4" />
+            <span className="text-xs font-medium">Not Defaulter (&ge; {college.minAttendance}%)</span>
+            <CheckCircle2 className="h-4 w-4 text-emerald-500" />
           </div>
           <div className="text-2xl font-black text-emerald-600 dark:text-emerald-400">
             {stats.eligibleCount}
           </div>
         </div>
 
-        <div className="p-4 rounded-xl border border-border/80 bg-card shadow-xs">
+        <div className="p-3.5 rounded-xl border border-border bg-card shadow-xs">
           <div className="flex items-center justify-between text-muted-foreground mb-1">
-            <span className="text-xs font-medium">Cohort Average</span>
+            <span className="text-xs font-medium">Average Attendance</span>
             <Percent className="h-4 w-4 text-primary" />
           </div>
           <div className="text-2xl font-black text-foreground">
@@ -739,15 +735,13 @@ export const Reports: React.FC = () => {
         </div>
       </div>
 
-      {/* Primary Filtering Panel */}
-      <div className="rounded-xl border border-border/80 bg-card p-4 sm:p-5 space-y-4 shadow-xs">
-        {/* Date Filter Presets */}
-        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border/60 pb-3.5">
-          <div className="flex items-center gap-2">
-            <Calendar className="h-4 w-4 text-primary shrink-0" />
-            <span className="text-xs font-bold text-foreground">
-              Academic Attendance Date Range:
-            </span>
+      {/* Filter Bar */}
+      <div className="rounded-xl border border-border bg-card p-4 space-y-3.5 shadow-xs">
+        {/* Quick Date Presets */}
+        <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border/60 pb-3">
+          <div className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
+            <Calendar className="h-3.5 w-3.5 text-primary" />
+            <span>Select Date:</span>
           </div>
 
           <div className="flex flex-wrap items-center gap-1.5">
@@ -767,28 +761,12 @@ export const Reports: React.FC = () => {
               size="sm"
               className="text-[11px] h-7 px-2.5"
               onClick={() => {
-                const past7 = new Date(Date.now() - 7 * 86400000)
-                  .toISOString()
-                  .split("T")[0];
+                const past7 = new Date(Date.now() - 7 * 86400000).toISOString().split("T")[0];
                 setStartDate(past7);
                 setEndDate(todayStr);
               }}
             >
               Last 7 Days
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              className="text-[11px] h-7 px-2.5"
-              onClick={() => {
-                const past14 = new Date(Date.now() - 14 * 86400000)
-                  .toISOString()
-                  .split("T")[0];
-                setStartDate(past14);
-                setEndDate(todayStr);
-              }}
-            >
-              Last 14 Days
             </Button>
             <Button
               variant="outline"
@@ -821,7 +799,6 @@ export const Reports: React.FC = () => {
               size="sm"
               className="text-[11px] h-7 px-2.5 font-semibold text-primary"
               onClick={() => {
-                // Set to start of academic term (6 months ago)
                 const sixMonthsAgo = new Date(Date.now() - 180 * 86400000)
                   .toISOString()
                   .split("T")[0];
@@ -829,17 +806,15 @@ export const Reports: React.FC = () => {
                 setEndDate(todayStr);
               }}
             >
-              All Time / Semester
+              All Semester
             </Button>
           </div>
         </div>
 
-        {/* Form Controls Grid */}
-        <div className="grid gap-3.5 sm:grid-cols-2 lg:grid-cols-6">
-          <div className="space-y-1.5">
-            <label className="text-xs font-semibold text-muted-foreground flex items-center gap-1">
-              From Date
-            </label>
+        {/* Inputs & Dropdowns Row */}
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-6">
+          <div className="space-y-1">
+            <label className="text-xs font-semibold text-muted-foreground">From Date</label>
             <DatePicker
               value={startDate}
               max={endDate}
@@ -847,10 +822,8 @@ export const Reports: React.FC = () => {
             />
           </div>
 
-          <div className="space-y-1.5">
-            <label className="text-xs font-semibold text-muted-foreground flex items-center gap-1">
-              To Date
-            </label>
+          <div className="space-y-1">
+            <label className="text-xs font-semibold text-muted-foreground">To Date</label>
             <DatePicker
               value={endDate}
               min={startDate}
@@ -859,65 +832,28 @@ export const Reports: React.FC = () => {
             />
           </div>
 
-          {/* Department Filter (Admin can choose all, others locked to department) */}
-          <div className="space-y-1.5">
+          {/* Defaulter / Not Defaulter Categorize Dropdown */}
+          <div className="space-y-1">
             <label className="text-xs font-semibold text-muted-foreground flex items-center justify-between">
-              <span>Department</span>
-              {role !== "admin" && (
-                <span className="text-[10px] text-primary">Scoped</span>
+              <span>Category Filter</span>
+              {studentCategory !== "all" && (
+                <span className="text-[10px] text-primary font-bold">Active</span>
               )}
             </label>
             <Select
-              value={selectedDept}
-              disabled={role !== "admin"}
-              onChange={(e) => {
-                setSelectedDept(e.target.value);
-                setSelectedYear("__all");
-                setSelectedClass("__all");
-                setSelectedSubject("__all");
-              }}
+              value={studentCategory}
+              onChange={(e) => setStudentCategory(e.target.value as StudentCategoryFilter)}
               options={[
-                ...(role === "admin"
-                  ? [{ value: "__all", label: "All Departments" }]
-                  : []),
-                ...departments.map((d) => ({ value: d.id, label: d.name })),
-              ]}
-            />
-          </div>
-
-          {/* Engineering Year Filter */}
-          <div className="space-y-1.5">
-            <label className="text-xs font-semibold text-muted-foreground flex items-center justify-between">
-              <span>Academic Year</span>
-              {role === "class_coordinator" && (
-                <span className="text-[10px] text-primary">Year {coordYear}</span>
-              )}
-            </label>
-            <Select
-              value={selectedYear}
-              onChange={(e) => {
-                setSelectedYear(e.target.value);
-                setSelectedClass("__all");
-                setSelectedSubject("__all");
-              }}
-              options={[
-                { value: "__all", label: "All Years (FY · SY · TY · BE)" },
-                ...ENGINEERING_YEARS.map((y) => ({
-                  value: String(y.year),
-                  label: `${["FY", "SY", "TY", "BE"][y.year - 1]} · ${y.name}`,
-                })),
+                { value: "all", label: "All Students" },
+                { value: "defaulters", label: `Defaulters (< ${college.minAttendance}%)` },
+                { value: "eligible", label: `Not Defaulter (≥ ${college.minAttendance}%)` },
               ]}
             />
           </div>
 
           {/* Class / Division Filter */}
-          <div className="space-y-1.5">
-            <label className="text-xs font-semibold text-muted-foreground flex items-center justify-between">
-              <span>Class / Division</span>
-              {role === "teacher" && (
-                <span className="text-[10px] text-primary">My Classes</span>
-              )}
-            </label>
+          <div className="space-y-1">
+            <label className="text-xs font-semibold text-muted-foreground">Class / Division</label>
             <Select
               value={selectedClass}
               onChange={(e) => {
@@ -935,23 +871,15 @@ export const Reports: React.FC = () => {
           </div>
 
           {/* Subject Filter */}
-          <div className="space-y-1.5">
-            <label className="text-xs font-semibold text-muted-foreground flex items-center justify-between">
-              <span>Subject</span>
-              {role === "teacher" && (
-                <span className="text-[10px] text-primary">Assigned</span>
-              )}
-            </label>
+          <div className="space-y-1">
+            <label className="text-xs font-semibold text-muted-foreground">Subject</label>
             <Select
               value={selectedSubject}
               onChange={(e) => setSelectedSubject(e.target.value)}
               options={[
                 {
                   value: "__all",
-                  label:
-                    role === "teacher"
-                      ? "All My Assigned Subjects"
-                      : "All Curriculum Subjects",
+                  label: role === "teacher" ? "All My Subjects" : "All Subjects",
                 },
                 ...permittedSubjects.map((s) => ({
                   value: s.id,
@@ -960,175 +888,95 @@ export const Reports: React.FC = () => {
               ]}
             />
           </div>
-        </div>
-      </div>
 
-      {/* Tab Switcher & Search Bar */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-        <div className="flex items-center gap-1.5 p-1 bg-muted/60 rounded-xl border border-border/60 self-start sm:self-auto">
-          <button
-            onClick={() => setViewMode("consolidated")}
-            className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
-              viewMode === "consolidated"
-                ? "bg-card text-foreground shadow-xs border border-border/80"
-                : "text-muted-foreground hover:text-foreground"
-            }`}
-          >
-            <BookOpen className="h-3.5 w-3.5" />
-            <span>Subject-wise Register</span>
-            <Badge variant="secondary" className="text-[10px] px-1 py-0 h-4">
-              {reportRows.length}
-            </Badge>
-          </button>
-
-          <button
-            onClick={() => setViewMode("defaulters")}
-            className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
-              viewMode === "defaulters"
-                ? "bg-rose-500 text-white shadow-xs"
-                : "text-muted-foreground hover:text-foreground hover:bg-muted"
-            }`}
-          >
-            <ShieldAlert className="h-3.5 w-3.5" />
-            <span>Defaulters List (&lt; {college.minAttendance}%)</span>
-            <Badge
-              variant="outline"
-              className={`text-[10px] px-1 py-0 h-4 ${
-                viewMode === "defaulters"
-                  ? "border-white/30 text-white"
-                  : "border-rose-500/30 text-rose-600 dark:text-rose-400"
-              }`}
-            >
-              {defaulterRows.length}
-            </Badge>
-          </button>
-
-          <button
-            onClick={() => setViewMode("student_summary")}
-            className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
-              viewMode === "student_summary"
-                ? "bg-card text-foreground shadow-xs border border-border/80"
-                : "text-muted-foreground hover:text-foreground"
-            }`}
-          >
-            <Users className="h-3.5 w-3.5" />
-            <span>Student Consolidated</span>
-            <Badge variant="secondary" className="text-[10px] px-1 py-0 h-4">
-              {studentSummaryRows.length}
-            </Badge>
-          </button>
-        </div>
-
-        {/* Real-Time Search Box */}
-        <div className="relative w-full sm:w-64">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
-          <Input
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Search student, roll, subject..."
-            className="pl-8 text-xs h-9"
-          />
-        </div>
-      </div>
-
-      {/* Main Table Card */}
-      <div className="rounded-xl border border-border/80 bg-card overflow-hidden shadow-xs">
-        {viewMode === "defaulters" && (
-          <div className="p-3 bg-rose-500/10 border-b border-rose-500/20 text-rose-800 dark:text-rose-300 text-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-            <div className="flex items-center gap-2">
-              <ShieldAlert className="h-4 w-4 shrink-0 text-rose-600" />
-              <div>
-                <span className="font-semibold block sm:inline">
-                  Official Attendance Shortfall Alert (&lt; {college.minAttendance}%):{" "}
-                </span>
-                <span>
-                  Students below required university minimum. Send automated SMS alerts to parents or download official warning notices.
-                </span>
-              </div>
-            </div>
-            <div className="flex items-center gap-2 shrink-0">
-              <Button
-                size="sm"
-                onClick={() => setMonthlyAlertModalOpen(true)}
-                className="text-xs h-7 bg-rose-600 hover:bg-rose-700 text-white font-semibold"
-              >
-                <Bell className="mr-1 h-3 w-3" />
-                Alert Parents for Month
-              </Button>
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={handleDownloadPdf}
-                className="text-xs h-7 border-rose-500/30 bg-rose-500/10 text-rose-700 hover:bg-rose-500/20"
-              >
-                Download Defaulter Notice PDF
-              </Button>
-            </div>
+          {/* Report Format */}
+          <div className="space-y-1">
+            <label className="text-xs font-semibold text-muted-foreground">Format</label>
+            <Select
+              value={reportViewType}
+              onChange={(e) => setReportViewType(e.target.value as ReportViewType)}
+              options={[
+                { value: "subject", label: "Subject-wise" },
+                { value: "student_summary", label: "Consolidated (All Subjects)" },
+              ]}
+            />
           </div>
-        )}
+        </div>
 
+        {/* Search bar & active count */}
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2.5 pt-1 border-t border-border/40">
+          <div className="relative w-full sm:w-72">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+            <Input
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Search by student name, roll no, subject..."
+              className="pl-8 text-xs h-8"
+            />
+          </div>
+
+          <div className="text-xs text-muted-foreground flex items-center gap-2">
+            <span>
+              Showing <strong className="text-foreground">{displayedRows.length}</strong> records
+            </span>
+            {studentCategory === "defaulters" && (
+              <Badge variant="outline" className="text-[10px] text-rose-600 border-rose-500/30 bg-rose-500/10">
+                Defaulters Only
+              </Badge>
+            )}
+            {studentCategory === "eligible" && (
+              <Badge variant="outline" className="text-[10px] text-emerald-600 border-emerald-500/30 bg-emerald-500/10">
+                Not Defaulters Only
+              </Badge>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* Student Attendance List Table (Shown when Date is selected) */}
+      <div className="rounded-xl border border-border bg-card overflow-hidden shadow-xs">
         <div className="overflow-x-auto">
           <Table>
             <TableHeader>
               <TableRow className="bg-muted/40 hover:bg-muted/40">
                 <TableHead className="w-20 font-bold">Roll No</TableHead>
-                <TableHead className="w-24">Reg / PRN</TableHead>
-                <TableHead className="min-w-40 font-bold">Student Name</TableHead>
+                <TableHead className="min-w-44 font-bold">Student Name</TableHead>
                 <TableHead className="w-28">Class / Div</TableHead>
                 <TableHead className="min-w-44">Subject</TableHead>
                 <TableHead className="text-right w-16">Total</TableHead>
-                <TableHead className="text-right w-16 text-emerald-600 font-bold">
-                  Present
-                </TableHead>
-                <TableHead className="text-right w-16 text-rose-600 font-bold">
-                  Absent
-                </TableHead>
-                <TableHead className="text-right w-24 font-bold">
-                  Attendance %
-                </TableHead>
-                {viewMode === "defaulters" && (
-                  <>
-                    <TableHead className="min-w-32">Parent Contact</TableHead>
-                    <TableHead className="w-24 text-right">Alert Action</TableHead>
-                  </>
-                )}
+                <TableHead className="text-right w-16 text-emerald-600 font-bold">Present</TableHead>
+                <TableHead className="text-right w-16 text-rose-600 font-bold">Absent</TableHead>
+                <TableHead className="text-right w-24 font-bold">Attendance %</TableHead>
+                <TableHead className="w-24 text-center">Status</TableHead>
+                <TableHead className="min-w-32 text-right">Parent Contact / Alert</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {displayedRows.length === 0 ? (
                 <TableRow>
-                  <TableCell
-                    colSpan={viewMode === "defaulters" ? 11 : 9}
-                    className="py-14 text-center text-muted-foreground"
-                  >
-                    <div className="max-w-md mx-auto space-y-2">
-                      <div className="h-10 w-10 mx-auto rounded-full bg-muted flex items-center justify-center text-muted-foreground">
-                        <AlertTriangle className="h-5 w-5" />
-                      </div>
+                  <TableCell colSpan={10} className="py-12 text-center text-muted-foreground">
+                    <div className="max-w-sm mx-auto space-y-2">
+                      <AlertTriangle className="h-7 w-7 mx-auto text-muted-foreground/60" />
                       <p className="font-semibold text-foreground text-sm">
-                        No attendance records found for this period
+                        No attendance records for this period
                       </p>
                       <p className="text-xs text-muted-foreground">
-                        No sessions matched between {startDate} and {endDate} with the
-                        selected filters. Try switching the date preset to &quot;Last 14
-                        Days&quot; or &quot;All Time / Semester&quot;.
+                        No sessions found between {startDate} and {endDate}.
                       </p>
-                      <div className="pt-2">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="text-xs"
-                          onClick={() => {
-                            const sixMonths = new Date(Date.now() - 180 * 86400000)
-                              .toISOString()
-                              .split("T")[0];
-                            setStartDate(sixMonths);
-                            setEndDate(todayStr);
-                          }}
-                        >
-                          View All Semester Records
-                        </Button>
-                      </div>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="text-xs h-7 mt-1"
+                        onClick={() => {
+                          const sixMonths = new Date(Date.now() - 180 * 86400000)
+                            .toISOString()
+                            .split("T")[0];
+                          setStartDate(sixMonths);
+                          setEndDate(todayStr);
+                        }}
+                      >
+                        Reset to All Semester
+                      </Button>
                     </div>
                   </TableCell>
                 </TableRow>
@@ -1138,25 +986,19 @@ export const Reports: React.FC = () => {
                   return (
                     <TableRow
                       key={`${r.roll}-${r.subject}-${idx}`}
-                      className={
-                        isDefaulter && viewMode !== "defaulters"
-                          ? "bg-rose-500/5 hover:bg-rose-500/10"
-                          : ""
-                      }
+                      className={isDefaulter ? "bg-rose-500/5 hover:bg-rose-500/10" : ""}
                     >
                       <TableCell className="font-mono text-xs font-bold text-foreground">
                         {r.roll}
                       </TableCell>
-                      <TableCell className="text-xs text-muted-foreground font-mono">
-                        {r.reg}
-                      </TableCell>
-                      <TableCell className="font-semibold text-foreground">
-                        {r.name}
+                      <TableCell>
+                        <div className="font-semibold text-foreground text-xs">{r.name}</div>
+                        {r.reg && r.reg !== "—" && (
+                          <div className="text-[10px] text-muted-foreground font-mono">{r.reg}</div>
+                        )}
                       </TableCell>
                       <TableCell className="text-xs text-muted-foreground">
-                        <Badge variant="outline" className="text-[10px] font-normal">
-                          {r.className || "—"}
-                        </Badge>
+                        {r.className || "—"}
                       </TableCell>
                       <TableCell className="text-xs font-medium text-foreground">
                         {r.subject}
@@ -1182,53 +1024,53 @@ export const Reports: React.FC = () => {
                           {r.percentage}%
                         </Badge>
                       </TableCell>
-                      {viewMode === "defaulters" && (
-                        <>
-                          <TableCell className="text-xs">
-                            {r.parentMobile ? (
-                              <div className="flex items-center justify-between gap-1.5">
-                                <div>
-                                  <span className="font-mono text-foreground font-semibold">
-                                    {r.parentMobile}
-                                  </span>
-                                  {r.parentName && (
-                                    <span className="block text-[10px] text-muted-foreground">
-                                      ({r.parentName})
-                                    </span>
-                                  )}
-                                </div>
-                                <a
-                                  href={getParentWhatsAppUrl(
-                                    r.parentMobile,
-                                    `Dear Parent, Your ward ${r.name} (Roll: ${r.roll}) has secured only ${r.percentage}% attendance. This is below the mandatory 75% university requirement. Please ensure regular attendance to avoid examination detention. - ${college.name}`
-                                  )}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  className="p-1 rounded-md text-emerald-600 hover:bg-emerald-500/15 shrink-0"
-                                  title="Send WhatsApp Direct Message"
-                                >
-                                  <ExternalLink className="h-3.5 w-3.5" />
-                                </a>
-                              </div>
-                            ) : (
-                              <span className="text-muted-foreground italic">
-                                No mobile
-                              </span>
-                            )}
-                          </TableCell>
-                          <TableCell className="text-right">
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={() => setMonthlyAlertModalOpen(true)}
-                              className="text-[10px] h-6 px-2 border-rose-500/30 text-rose-700 bg-rose-500/10 hover:bg-rose-500/20 font-semibold"
+                      <TableCell className="text-center">
+                        {isDefaulter ? (
+                          <span className="inline-flex items-center text-[11px] font-bold text-rose-600 dark:text-rose-400 bg-rose-500/10 px-2 py-0.5 rounded-md">
+                            Defaulter
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center text-[11px] font-semibold text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-md">
+                            Eligible
+                          </span>
+                        )}
+                      </TableCell>
+                      <TableCell className="text-right text-xs">
+                        {r.parentMobile ? (
+                          <div className="inline-flex items-center gap-1.5 justify-end">
+                            <span className="font-mono text-foreground text-[11px]">
+                              {r.parentMobile}
+                            </span>
+                            <a
+                              href={getParentWhatsAppUrl(
+                                r.parentMobile,
+                                `Dear Parent, Your ward ${r.name} (Roll: ${r.roll}) has secured ${r.percentage}% attendance. Required minimum is ${college.minAttendance}%. Please ensure regular attendance. - ${college.name}`
+                              )}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="p-1 rounded text-emerald-600 hover:bg-emerald-500/15 inline-flex items-center"
+                              title="Send WhatsApp Direct Message"
                             >
-                              <Bell className="h-2.5 w-2.5 mr-1" />
-                              Alert
-                            </Button>
-                          </TableCell>
-                        </>
-                      )}
+                              <ExternalLink className="h-3 w-3" />
+                            </a>
+                            {isDefaulter && (
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => setMonthlyAlertModalOpen(true)}
+                                className="text-[10px] h-6 px-1.5 border-rose-500/30 text-rose-700 bg-rose-500/10 hover:bg-rose-500/20 font-semibold ml-1"
+                              >
+                                <Bell className="h-2.5 w-2.5 mr-0.5" />
+                                Alert
+                              </Button>
+                            )}
+                          </div>
+                        ) : (
+                          <span className="text-muted-foreground text-[11px] italic">
+                            No mobile
+                          </span>
+                        )}
+                      </TableCell>
                     </TableRow>
                   );
                 })
@@ -1237,21 +1079,21 @@ export const Reports: React.FC = () => {
           </Table>
         </div>
 
-        {/* Table Footer Summary Bar */}
+        {/* Table Footer */}
         {displayedRows.length > 0 && (
           <div className="p-3 bg-muted/40 border-t border-border flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs text-muted-foreground">
             <div>
               Showing <span className="font-semibold text-foreground">{displayedRows.length}</span>{" "}
-              records across {currentYearLabel} · {currentDeptLabel}
+              records ({startDate} to {endDate})
             </div>
             <div className="flex items-center gap-3">
               <span className="flex items-center gap-1.5">
                 <span className="h-2 w-2 rounded-full bg-emerald-500 inline-block" />
-                &ge; {college.minAttendance}%: {stats.eligibleCount} Eligible
+                Eligible (&ge; {college.minAttendance}%): {stats.eligibleCount}
               </span>
               <span className="flex items-center gap-1.5">
                 <span className="h-2 w-2 rounded-full bg-rose-500 inline-block" />
-                &lt; {college.minAttendance}%: {stats.defaultersCount} Defaulters
+                Defaulters (&lt; {college.minAttendance}%): {stats.defaultersCount}
               </span>
             </div>
           </div>

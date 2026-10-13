@@ -86,43 +86,27 @@ export const Teachers: React.FC = () => {
             required: true,
           },
           { key: "full_name", label: "Full Name", required: true },
-          {
-            key: "designation",
-            label:
-              "Academic Designation (e.g. Professor & HOD, Associate Professor, Asst Professor)",
-          },
-          {
-            key: "qualification",
-            label: "Highest Qualification (e.g. Ph.D, M.Tech, M.Sc)",
-          },
-          {
-            key: "experience_years",
-            label: "Year of Experience (e.g. 8 Years)",
-          },
           { key: "email", label: "Email Address", type: "email", required: true },
           {
             key: "mobile",
             label: "Mobile Number (Optional)",
-            helperText: "Strictly 10 digits if provided (e.g. 9876543210).",
           },
           {
             key: "role",
-            label: "Role (All roles can take lectures)",
+            label: "Role",
             type: "select",
             required: true,
             defaultValue: "lecturer",
-            helperText:
-              "HODs automatically have dual roles: they manage the department AND can be assigned subjects to conduct lectures & mark attendance.",
             options: [
               {
                 value: "hod",
-                label: "HOD (Head of Department & Senior Lecturer)",
+                label: "HOD",
               },
               {
                 value: "class_coordinator",
-                label: "Class Coordinator (CC & Lecturer)",
+                label: "Class Coordinator",
               },
-              { value: "lecturer", label: "Lecturer / Faculty Member" },
+              { value: "lecturer", label: "Lecturer" },
             ],
           },
           {
@@ -202,35 +186,26 @@ export const Teachers: React.FC = () => {
           },
           {
             header: "Faculty Name",
-            render: (t) => (
-              <div>
-                <span className="font-semibold block">{t.full_name}</span>
-                {t.designation && (
-                  <span className="text-[11px] text-muted-foreground">
-                    {t.designation}
-                  </span>
-                )}
-              </div>
-            ),
+            render: (t) => <span className="font-semibold block">{t.full_name}</span>,
           },
           {
             header: "Role",
             render: (t) => (
-              <Badge
-                variant={
+              <span
+                className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium border ${
                   t.role === "hod"
-                    ? "default"
+                    ? "bg-primary/10 text-primary border-primary/25 font-semibold"
                     : t.role === "class_coordinator"
-                      ? "outline"
-                      : "secondary"
-                }
+                      ? "bg-amber-500/10 text-amber-700 dark:text-amber-400 border-amber-500/25"
+                      : "bg-muted/60 text-muted-foreground border-border/60"
+                }`}
               >
                 {t.role === "class_coordinator"
                   ? `Class Coordinator${t.assigned_semester ? ` (Sem ${t.assigned_semester})` : ""}`
                   : t.role === "hod"
                     ? "HOD & Lecturer"
                     : "Lecturer"}
-              </Badge>
+              </span>
             ),
           },
           {
@@ -243,17 +218,32 @@ export const Teachers: React.FC = () => {
           {
             header: "Account Status",
             render: (t) => (
-              <Badge variant={t.user_id ? "success" : "secondary"}>
+              <span
+                className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-xs font-medium border ${
+                  t.user_id
+                    ? "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-500/25"
+                    : "bg-muted/40 text-muted-foreground border-border/60"
+                }`}
+              >
+                <span
+                  className={`h-1.5 w-1.5 rounded-full ${t.user_id ? "bg-emerald-500" : "bg-muted-foreground/40"}`}
+                />
                 {t.user_id ? "Active & Linked" : "Not Registered"}
-              </Badge>
+              </span>
             ),
           },
           {
             header: "Status",
             render: (t) => (
-              <Badge variant={t.status === "active" ? "success" : "secondary"}>
-                {t.status}
-              </Badge>
+              <span
+                className={`text-xs font-medium ${
+                  t.status === "active"
+                    ? "text-emerald-700 dark:text-emerald-400"
+                    : "text-muted-foreground"
+                }`}
+              >
+                {t.status === "active" ? "Active" : "Inactive"}
+              </span>
             ),
           },
         ]}

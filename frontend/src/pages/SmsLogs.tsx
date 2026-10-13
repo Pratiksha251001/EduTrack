@@ -3,11 +3,9 @@ import {
   Search,
   CheckCircle,
   XCircle,
-  Globe,
   MessageSquare,
   Copy,
   Check,
-  Send,
   Plus,
   RefreshCw,
   Clock,
@@ -17,8 +15,6 @@ import {
   Minimize2,
   Maximize2,
   Eye,
-  Shield,
-  Filter,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { localDb } from '../lib/supabase';
@@ -34,7 +30,6 @@ import {
 import { ParentAlertModal } from '../components/ParentAlertModal';
 import { Msg91SetupModal } from '../components/Msg91SetupModal';
 import { getSmsGatewayStatus, SmsGatewayStatus } from '../lib/smsService';
-import { Zap } from 'lucide-react';
 
 export const SmsLogs: React.FC = () => {
   const { user, role } = useAuth();
@@ -244,29 +239,10 @@ export const SmsLogs: React.FC = () => {
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <div>
-          <div className="flex items-center gap-2">
-            <h2 className="font-display text-2xl font-bold">Parent Absentee SMS Logs</h2>
-            <Badge variant="outline" className="text-xs border-primary/30 bg-primary/10 text-primary">
-              {role === 'admin' && 'College-Wide Audit'}
-              {role === 'hod' && `Department: ${user?.department_id || 'All Classes'}`}
-              {role === 'class_coordinator' && `Class Coordinator Scope (Sem ${user?.assigned_semester || 5})`}
-              {role === 'teacher' && 'Assigned Classes & Subjects'}
-            </Badge>
-          </div>
+          <h2 className="font-display text-2xl font-bold">Parent Absentee SMS Logs</h2>
         </div>
 
         <div className="flex items-center gap-2 self-start sm:self-auto flex-wrap">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setMsg91ModalOpen(true)}
-            className="text-xs font-semibold border-emerald-500/40 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-800 dark:text-emerald-300"
-          >
-            <Zap className="h-3.5 w-3.5 mr-1.5 text-emerald-600 dark:text-emerald-400" />
-            SMS Gateway ({gatewayStatus?.isConfigured ? (gatewayStatus?.activeProvider || gatewayStatus?.provider || 'Live').toUpperCase() : 'Setup'})
-            <span className={`ml-1.5 inline-block h-2 w-2 rounded-full ${gatewayStatus?.isConfigured ? 'bg-emerald-500 animate-pulse' : 'bg-amber-500'}`} />
-          </Button>
-
           <Button
             variant="outline"
             size="sm"
@@ -278,7 +254,7 @@ export const SmsLogs: React.FC = () => {
             className="text-xs font-semibold"
           >
             <RefreshCw className={`h-3.5 w-3.5 mr-1.5 ${isRefreshing ? 'animate-spin text-primary' : ''}`} />
-            Refresh History
+            Refresh
           </Button>
 
           <Button onClick={openNewAlertModal} size="sm" className="font-semibold text-xs">
@@ -295,41 +271,6 @@ export const SmsLogs: React.FC = () => {
             {toastMsg}
           </span>
           <button onClick={() => setToastMsg(null)} className="text-muted-foreground hover:text-foreground">✕</button>
-        </div>
-      )}
-
-      {/* Live Dispatches Callout Banner if alerts were sent today */}
-      {todayLogs.length > 0 && (
-        <div className="rounded-2xl border border-emerald-500/35 bg-emerald-500/[0.07] p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-xs">
-          <div className="flex items-center gap-3.5">
-            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-emerald-500 text-white shadow-xs">
-              <Send className="h-5 w-5" />
-            </div>
-            <div>
-              <div className="flex items-center gap-2 flex-wrap">
-                <h3 className="font-bold text-sm text-foreground">
-                  {todayLogs.length} Parent SMS Alert{todayLogs.length > 1 ? 's' : ''} Dispatched Today
-                </h3>
-                <Badge className="bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 border-emerald-500/30 text-[10px] font-bold">
-                  Live Log Active
-                </Badge>
-              </div>
-              <p className="text-xs text-muted-foreground mt-0.5">
-                Each SMS includes English, Marathi, and Hindi messages in a single dispatch.
-              </p>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-2 shrink-0 self-start sm:self-auto">
-            <Button
-              variant={dateScope === 'today' ? 'default' : 'outline'}
-              size="sm"
-              onClick={() => setDateScope(dateScope === 'today' ? 'all' : 'today')}
-              className="text-xs font-semibold"
-            >
-              {dateScope === 'today' ? 'Show All History' : `Filter Today's Alerts (${todayLogs.length})`}
-            </Button>
-          </div>
         </div>
       )}
 
@@ -518,9 +459,6 @@ export const SmsLogs: React.FC = () => {
                           )}
                           {log.status === 'sent' ? 'Delivered' : 'Failed'}
                         </Badge>
-                        <span className="text-[10px] text-muted-foreground font-mono">
-                          MSG91 Gateway
-                        </span>
                       </div>
                     </TableCell>
 

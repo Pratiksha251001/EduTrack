@@ -696,10 +696,6 @@ export function CrudPage<T extends { id: string }>({
                       <p className="text-[11px] text-muted-foreground leading-tight">
                         {f.helperText}
                       </p>
-                    ) : isMobile ? (
-                      <p className="text-[11px] text-muted-foreground leading-tight">
-                        Must be strictly 10 digits (e.g. 9876543210).
-                      </p>
                     ) : null}
                   </div>
                 );

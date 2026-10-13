@@ -736,7 +736,7 @@ export const Attendance: React.FC = () => {
               <button
                 type="button"
                 onClick={() => setSelectedClassName("all")}
-                className={`px-3 py-1 rounded-full text-xs font-semibold transition-all ${
+                className={`px-3 py-1 rounded-lg text-xs font-semibold transition-all ${
                   selectedClassName === "all"
                     ? "bg-primary text-primary-foreground shadow-xs"
                     : "bg-muted hover:bg-muted/80 text-muted-foreground hover:text-foreground"
@@ -762,7 +762,7 @@ export const Attendance: React.FC = () => {
                     key={cn}
                     type="button"
                     onClick={() => setSelectedClassName(cn)}
-                    className={`px-3 py-1 rounded-full text-xs font-semibold flex items-center gap-1.5 transition-all ${
+                    className={`px-3 py-1 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all ${
                       isSelected
                         ? "bg-primary text-primary-foreground shadow-xs"
                         : "bg-muted hover:bg-muted/80 text-foreground"
@@ -770,7 +770,7 @@ export const Attendance: React.FC = () => {
                   >
                     <span>{cn}</span>
                     <span
-                      className={`text-[10px] px-1.5 py-0.2 rounded-full ${isSelected ? "bg-white/20 text-white" : "bg-background text-muted-foreground"}`}
+                      className={`text-[10px] px-1.5 py-0.5 rounded-md ${isSelected ? "bg-white/20 text-white" : "bg-background text-muted-foreground"}`}
                     >
                       {count}
                     </span>
