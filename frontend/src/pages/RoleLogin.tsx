@@ -15,8 +15,8 @@ import { localDb } from "../lib/supabase";
 import { Button } from "../components/ui/button";
 import { Card } from "../components/ui/card";
 import { Input } from "../components/ui/input";
-import { EduTrackLogo } from "../components/EduTrackLogo";
 import { PasswordInput } from "../components/PasswordInput";
+import { EduTrackLogo } from "../components/EduTrackLogo";
 
 const roleDetails: Record<
   Exclude<UserRoleType, "admin">,
@@ -61,7 +61,6 @@ export const RoleLogin: React.FC = () => {
     return <Navigate to="/" replace />;
   }
 
-  const Icon = details.icon;
   const identifierLabel =
     role === "student"
       ? "Student Roll Number or Email"
@@ -99,36 +98,54 @@ export const RoleLogin: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-background bg-grid-green-sm flex items-center justify-center p-4">
-      <Card className="w-full max-w-md border-border p-6 shadow-lg sm:p-8">
-        <div className="mb-6 flex justify-center">
-          <EduTrackLogo variant="full" size="md" showTagline />
-        </div>
+    <div className="relative min-h-screen bg-[#f4fbf7] dark:bg-background flex items-center justify-center p-4 overflow-hidden">
+      {/* Educational Illustration Background - High Contrast */}
+      <div
+        aria-hidden="true"
+        className="pointer-events-none fixed inset-0 overflow-hidden z-0 select-none"
+      >
+        <img
+          src="/edutrack-bg.svg"
+          alt=""
+          className="w-full h-full object-cover object-center opacity-85 dark:opacity-45"
+        />
+        {/* Subtle light mode contrast scrim */}
+        <div className="absolute inset-0 bg-slate-900/[0.03] dark:bg-black/50" />
+      </div>
 
-        <div className="mb-6 text-center">
-          <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-xl border border-primary/20 bg-primary/10 text-primary">
-            <Icon className="h-6 w-6" />
+      {/* Luminous emerald line at top of page like AccessHub */}
+      <div
+        aria-hidden="true"
+        className="pointer-events-none fixed top-0 left-0 right-0 z-20 h-0 overflow-visible"
+      >
+        <div className="h-[2px] w-full bg-gradient-to-r from-transparent via-emerald-500/60 dark:via-emerald-400/75 to-transparent shadow-[0_2px_12px_rgba(16,185,129,0.4)]" />
+      </div>
+
+      <Card className="relative z-10 overflow-hidden w-full max-w-md border border-slate-300/85 dark:border-slate-800 bg-white dark:bg-[#111827] p-6 sm:p-8 shadow-2xl shadow-slate-900/[0.12] dark:shadow-none ring-1 ring-slate-900/[0.08] dark:ring-white/[0.08] rounded-2xl sm:rounded-3xl">
+        <div className="mb-6 text-center relative z-10">
+          <div className="mx-auto mb-3.5 flex items-center justify-center">
+            <EduTrackLogo variant="icon" size="lg" className="w-16 h-16 sm:w-18 sm:h-18" />
           </div>
-          <h1 className="font-display text-xl font-bold">{details.title}</h1>
-          <p className="mt-1 text-sm text-muted-foreground">{details.description}</p>
+          <h1 className="font-display text-2xl font-extrabold text-foreground tracking-tight">{details.title}</h1>
+          <p className="mt-1.5 text-xs text-muted-foreground leading-relaxed">{details.description}</p>
         </div>
 
         {error && (
-          <p className="mb-4 text-center text-sm text-destructive" role="alert">
+          <div className="mb-4 relative z-10 rounded-xl border border-destructive/30 bg-destructive/10 p-3 text-center text-xs font-semibold text-destructive" role="alert">
             {error}
-          </p>
+          </div>
         )}
 
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <form onSubmit={handleSubmit} className="space-y-4 relative z-10">
           {role === "hod" && (
             <div className="space-y-1.5">
-              <label className="text-xs font-semibold text-muted-foreground">
-                Assigned Department <span className="font-normal">(optional)</span>
+              <label className="text-xs font-semibold text-foreground/80">
+                Assigned Department <span className="text-muted-foreground font-normal">(optional)</span>
               </label>
               <select
                 value={departmentId}
                 onChange={(event) => setDepartmentId(event.target.value)}
-                className="flex h-10 w-full rounded-lg border border-input bg-background px-3 py-1 text-sm text-foreground focus:outline-hidden focus:ring-2 focus:ring-primary/20"
+                className="flex h-10 w-full rounded-xl border border-input bg-background px-3 py-1 text-sm text-foreground focus:outline-hidden focus:ring-2 focus:ring-primary/20"
               >
                 <option value="">Auto-detect department</option>
                 {localDb.departments
@@ -143,14 +160,14 @@ export const RoleLogin: React.FC = () => {
           )}
 
           <div className="space-y-1.5">
-            <label className="text-xs font-semibold text-muted-foreground">
+            <label className="text-xs font-semibold text-foreground/80">
               {identifierLabel}
             </label>
             <div className="relative">
-              <Mail className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <Mail className="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
               <Input
                 required
-                className="pl-9"
+                className="pl-10 rounded-xl h-10"
                 placeholder={role === "student" ? "Roll number or email" : "Enter your ID or email"}
                 value={email}
                 onChange={(event) => setEmail(event.target.value)}
@@ -159,35 +176,40 @@ export const RoleLogin: React.FC = () => {
           </div>
 
           <div className="space-y-1.5">
-            <label className="text-xs font-semibold text-muted-foreground">Password</label>
+            <label className="text-xs font-semibold text-foreground/80">Password</label>
             <PasswordInput
               required
+              className="rounded-xl h-10"
               placeholder="••••••••"
               value={password}
               onChange={(event) => setPassword(event.target.value)}
             />
           </div>
 
-          <Button type="submit" className="w-full" disabled={loading}>
-            {loading ? (
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-            ) : (
-              <ArrowRight className="mr-2 h-4 w-4" />
-            )}
-            Sign In
-          </Button>
+          <div className="pt-2 flex items-center gap-2.5">
+            <Button
+              type="button"
+              variant="outline"
+              className="w-1/3 rounded-xl h-10 text-xs font-semibold border-border hover:bg-muted cursor-pointer"
+              onClick={() => navigate("/")}
+              disabled={loading}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="submit"
+              className="flex-1 rounded-xl h-10 text-xs font-bold bg-primary text-primary-foreground hover:bg-primary/90 shadow-xs cursor-pointer"
+              disabled={loading}
+            >
+              {loading ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : (
+                <ArrowRight className="mr-2 h-4 w-4" />
+              )}
+              Go to {details.title}
+            </Button>
+          </div>
         </form>
-
-        <div className="mt-6 border-t border-border/60 pt-4 text-center">
-          <Button
-            variant="ghost"
-            size="sm"
-            className="text-xs text-muted-foreground hover:text-foreground"
-            onClick={() => navigate("/")}
-          >
-            ← Back to Academic Portal Hub
-          </Button>
-        </div>
       </Card>
     </div>
   );

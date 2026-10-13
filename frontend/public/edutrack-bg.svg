@@ -1,0 +1,376 @@
+<svg viewBox="0 0 1920 1080" fill="none" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="xMidYMid slice" shape-rendering="geometricPrecision" text-rendering="geometricPrecision">
+  <defs>
+    <!-- Background Sky Gradient - Fresh Mint & Emerald Academic Tone -->
+    <linearGradient id="bgSky" x1="0" y1="0" x2="1920" y2="1080" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#D1FAE5" />
+      <stop offset="30%" stop-color="#ECFDF5" />
+      <stop offset="65%" stop-color="#F0FDF4" />
+      <stop offset="100%" stop-color="#F8FAFC" />
+    </linearGradient>
+
+    <!-- Top Left Lush Emerald Swoosh -->
+    <linearGradient id="topSwoosh" x1="0" y1="0" x2="600" y2="500" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#059669" stop-opacity="0.25" />
+      <stop offset="50%" stop-color="#10B981" stop-opacity="0.3" />
+      <stop offset="100%" stop-color="#6EE7B7" stop-opacity="0" />
+    </linearGradient>
+
+    <!-- Bottom Right Emerald Wave Gradients -->
+    <linearGradient id="bottomWave1" x1="900" y1="850" x2="1920" y2="1080" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#34D399" />
+      <stop offset="50%" stop-color="#10B981" />
+      <stop offset="100%" stop-color="#047857" />
+    </linearGradient>
+
+    <linearGradient id="bottomWave2" x1="1200" y1="920" x2="1920" y2="1080" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#059669" />
+      <stop offset="100%" stop-color="#064E3B" />
+    </linearGradient>
+
+    <!-- Desk Wood Gradient -->
+    <linearGradient id="deskGrad" x1="0" y1="920" x2="750" y2="1080" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#FED7AA" />
+      <stop offset="45%" stop-color="#FDBA74" />
+      <stop offset="100%" stop-color="#F97316" />
+    </linearGradient>
+
+    <!-- School Building Crisp Gradient -->
+    <linearGradient id="schoolGrad" x1="960" y1="460" x2="960" y2="820" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#E2E8F0" />
+      <stop offset="100%" stop-color="#CBD5E1" />
+    </linearGradient>
+
+    <!-- Phone Body Gradient -->
+    <linearGradient id="phoneBody" x1="1380" y1="360" x2="1740" y2="920" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#064E3B" />
+      <stop offset="100%" stop-color="#022C22" />
+    </linearGradient>
+  </defs>
+
+  <!-- Sky Base -->
+  <rect width="1920" height="1080" fill="url(#bgSky)" />
+
+  <!-- Top-Left Flowing Curved Waves (Emerald / Mint Tones) -->
+  <path d="M-100 -50 C 260 -50, 480 180, 290 350 C 140 480, -60 360, -100 280 Z" fill="url(#topSwoosh)" />
+  <path d="M-120 120 C 190 140, 330 290, 190 440 C 60 550, -90 480, -120 400 Z" fill="#34D399" fill-opacity="0.22" />
+  <path d="M-140 240 C 120 260, 220 380, 120 490 C 20 570, -100 520, -140 460 Z" fill="#A7F3D0" fill-opacity="0.32" />
+
+  <!-- Crisp Clouds in Sky -->
+  <g fill="white" fill-opacity="0.95">
+    <!-- Cloud Cluster 1 -->
+    <ellipse cx="620" cy="220" rx="140" ry="40" />
+    <circle cx="580" cy="200" r="55" />
+    <circle cx="650" cy="190" r="70" />
+    <circle cx="710" cy="215" r="45" />
+
+    <!-- Cloud Cluster 2 -->
+    <ellipse cx="1280" cy="280" rx="160" ry="45" />
+    <circle cx="1230" cy="260" r="60" />
+    <circle cx="1310" cy="250" r="75" />
+    <circle cx="1380" cy="275" r="50" />
+  </g>
+
+  <!-- School Campus Centerpiece (Crisp, High Contrast Vector Architecture) -->
+  <g>
+    <!-- Background Foliage & Trees behind building (Vibrant Emerald) -->
+    <circle cx="730" cy="740" r="52" fill="#6EE7B7" fill-opacity="0.85" />
+    <circle cx="785" cy="730" r="62" fill="#34D399" fill-opacity="0.9" />
+    <circle cx="850" cy="740" r="48" fill="#10B981" fill-opacity="0.85" />
+    <circle cx="1250" cy="740" r="58" fill="#34D399" fill-opacity="0.9" />
+    <circle cx="1310" cy="735" r="52" fill="#6EE7B7" fill-opacity="0.85" />
+
+    <!-- Main Building Block -->
+    <rect x="750" y="610" width="500" height="180" rx="6" fill="url(#schoolGrad)" stroke="#94A3B8" stroke-width="2" />
+    
+    <!-- Central Tower Section -->
+    <rect x="905" y="520" width="190" height="270" rx="6" fill="#CBD5E1" stroke="#94A3B8" stroke-width="2" />
+    
+    <!-- Tower Triangle Pediment -->
+    <polygon points="1000,455 895,525 1105,525" fill="#94A3B8" stroke="#64748B" stroke-width="2" />
+    
+    <!-- Flagpole & Flying Green Banner -->
+    <line x1="1000" y1="455" x2="1000" y2="425" stroke="#475569" stroke-width="3.5" stroke-linecap="round" />
+    <polygon points="1000,427 1030,436 1000,446" fill="#10B981" />
+
+    <!-- Clock Tower Face (Ultra Sharp) -->
+    <circle cx="1000" cy="560" r="30" fill="white" stroke="#64748B" stroke-width="4.5" />
+    <!-- Clock Hour Marks -->
+    <circle cx="1000" cy="534" r="2.5" fill="#475569" />
+    <circle cx="1000" cy="586" r="2.5" fill="#475569" />
+    <circle cx="974" cy="560" r="2.5" fill="#475569" />
+    <circle cx="1026" cy="560" r="2.5" fill="#475569" />
+    <!-- Clock Hands (10:10) -->
+    <line x1="1000" y1="560" x2="988" y2="544" stroke="#0F172A" stroke-width="3.5" stroke-linecap="round" />
+    <line x1="1000" y1="560" x2="1018" y2="550" stroke="#0F172A" stroke-width="3" stroke-linecap="round" />
+    <circle cx="1000" cy="560" r="4" fill="#10B981" />
+
+    <!-- Windows Left Wing (Sharp Grid) -->
+    <g fill="white" stroke="#94A3B8" stroke-width="1.5">
+      <rect x="775" y="640" width="24" height="36" rx="2" />
+      <rect x="809" y="640" width="24" height="36" rx="2" />
+      <rect x="843" y="640" width="24" height="36" rx="2" />
+      <rect x="877" y="640" width="24" height="36" rx="2" />
+      
+      <rect x="775" y="695" width="24" height="36" rx="2" />
+      <rect x="809" y="695" width="24" height="36" rx="2" />
+      <rect x="843" y="695" width="24" height="36" rx="2" />
+      <rect x="877" y="695" width="24" height="36" rx="2" />
+
+      <!-- Windows Right Wing -->
+      <rect x="1100" y="640" width="24" height="36" rx="2" />
+      <rect x="1134" y="640" width="24" height="36" rx="2" />
+      <rect x="1168" y="640" width="24" height="36" rx="2" />
+      <rect x="1202" y="640" width="24" height="36" rx="2" />
+      
+      <rect x="1100" y="695" width="24" height="36" rx="2" />
+      <rect x="1134" y="695" width="24" height="36" rx="2" />
+      <rect x="1168" y="695" width="24" height="36" rx="2" />
+      <rect x="1202" y="695" width="24" height="36" rx="2" />
+    </g>
+
+    <!-- Main Entrance Doorway -->
+    <path d="M972 735 Q1000 705 1028 735 L1028 790 L972 790 Z" fill="#334155" />
+    <line x1="1000" y1="710" x2="1000" y2="790" stroke="#64748B" stroke-width="2" />
+
+    <!-- Winding Campus Pathway -->
+    <path d="M972 790 C 965 825, 920 855, 900 890 C 880 925, 915 955, 890 990 C 870 1020, 830 1045, 800 1080 L1080 1080 C 1070 1010, 1075 960, 1060 920 C 1045 880, 1035 835, 1028 790 Z" fill="#E2E8F0" stroke="#CBD5E1" stroke-width="2" />
+  </g>
+
+  <!-- Left Bottom Ground & Desk Details -->
+  <!-- Layered Soft Mint/Emerald Wave Back -->
+  <path d="M-50 780 C 250 720, 500 820, 800 840 C 1100 860, 1300 780, 1970 830 L1970 1080 L-50 1080 Z" fill="#A7F3D0" fill-opacity="0.8" />
+  <path d="M-50 825 C 300 795, 600 885, 950 895 C 1300 905, 1550 845, 1970 895 L1970 1080 L-50 1080 Z" fill="#6EE7B7" fill-opacity="0.6" />
+
+  <!-- Wooden Desk Surface (Warm Natural Wood Grain) -->
+  <path d="M-20 920 C 200 900, 440 910, 700 955 C 880 985, 1010 1030, 1080 1080 L-20 1080 Z" fill="url(#deskGrad)" stroke="#EA580C" stroke-width="2" />
+  <path d="M-20 920 L700 955 C 710 958, 720 962, 720 970 L-20 935 Z" fill="#F59E0B" fill-opacity="0.7" />
+
+  <!-- Desk Books Stack (Emerald, Amber & Forest Green) -->
+  <g transform="translate(0, 5)">
+    <!-- Book 3 (Bottom Forest Green) -->
+    <rect x="0" y="865" width="380" height="52" rx="9" fill="#064E3B" stroke="#022C22" stroke-width="2" />
+    <rect x="368" y="868" width="12" height="46" rx="2" fill="#F8FAFC" />
+    <line x1="371" y1="872" x2="371" y2="910" stroke="#CBD5E1" stroke-width="1.5" />
+    <line x1="375" y1="872" x2="375" y2="910" stroke="#CBD5E1" stroke-width="1.5" />
+    <!-- Yellow Ribbon Bookmark -->
+    <polygon points="105,917 105,946 120,935 135,946 135,917" fill="#F59E0B" stroke="#D97706" stroke-width="1.5" />
+
+    <!-- Book 2 (Middle Golden Amber) -->
+    <rect x="0" y="815" width="340" height="48" rx="9" fill="#F59E0B" stroke="#D97706" stroke-width="2" />
+    <rect x="328" y="818" width="12" height="42" rx="2" fill="#FEF3C7" />
+    <line x1="331" y1="822" x2="331" y2="856" stroke="#FDE68A" stroke-width="1.5" />
+    <!-- White Spine Accent -->
+    <line x1="40" y1="825" x2="40" y2="853" stroke="#FEF3C7" stroke-width="4.5" stroke-linecap="round" />
+
+    <!-- Book 1 (Top Vivid Emerald Green) -->
+    <rect x="0" y="765" width="300" height="48" rx="9" fill="#059669" stroke="#047857" stroke-width="2" />
+    <rect x="288" y="768" width="12" height="42" rx="2" fill="#ECFDF5" />
+    <line x1="291" y1="772" x2="291" y2="806" stroke="#A7F3D0" stroke-width="1.5" />
+    <!-- Spine Line -->
+    <line x1="40" y1="775" x2="40" y2="803" stroke="#6EE7B7" stroke-width="4.5" stroke-linecap="round" />
+
+    <!-- Ceramic Pen Holder Mug (Clean White Ceramic with Sharp Border) -->
+    <path d="M102 670 L106 765 C 106 772, 206 772, 206 765 L210 670 Z" fill="#FFFFFF" stroke="#CBD5E1" stroke-width="2.5" />
+    <ellipse cx="156" cy="670" rx="54" ry="12" fill="#F1F5F9" stroke="#CBD5E1" stroke-width="2" />
+    <ellipse cx="156" cy="670" rx="48" ry="9" fill="#E2E8F0" />
+
+    <!-- Pencils and Pens (Emerald, Mint, Amber) -->
+    <!-- Pencil 1 (Yellow) -->
+    <polygon points="120,580 126,598 114,598" fill="#F59E0B" />
+    <polygon points="120,580 123,587 117,587" fill="#0F172A" />
+    <rect x="114" y="598" width="12" height="82" fill="#FBBF24" stroke="#D97706" stroke-width="1" rx="1" />
+    
+    <!-- Pencil 2 (Emerald) -->
+    <polygon points="146,562 153,582 139,582" fill="#10B981" />
+    <polygon points="146,562 149,570 143,570" fill="#0F172A" />
+    <rect x="139" y="582" width="14" height="98" fill="#059669" stroke="#047857" stroke-width="1" rx="1" />
+
+    <!-- Pen 3 (Teal Marker) -->
+    <rect x="166" y="595" width="10" height="85" rx="5" fill="#0D9488" stroke="#0F766E" stroke-width="1" />
+    <rect x="164" y="620" width="14" height="7" rx="2" fill="#115E59" />
+
+    <!-- Pencil 4 (Mint Green) -->
+    <polygon points="188,586 195,604 181,604" fill="#34D399" />
+    <polygon points="188,586 191,593 185,593" fill="#0F172A" />
+    <rect x="181" y="604" width="14" height="76" fill="#10B981" stroke="#059669" stroke-width="1" rx="1" />
+
+    <!-- Green Plant Leaves beside Mug -->
+    <path d="M68 760 C 15 710, 15 600, 80 550 C 80 625, 90 700, 68 760 Z" fill="#10B981" stroke="#059669" stroke-width="2" />
+    <path d="M80 550 C 74 625, 71 690, 68 760" stroke="#047857" stroke-width="2.5" />
+    <path d="M45 770 C -15 730, -15 645, 40 595 C 34 660, 44 720, 45 770 Z" fill="#34D399" stroke="#10B981" stroke-width="2" />
+    <path d="M8 815 C -45 775, -45 710, 8 665 C 2 720, 5 765, 8 815 Z" fill="#059669" stroke="#047857" stroke-width="2" />
+  </g>
+
+  <!-- Left Header Branding: EduTrack Logo & Typography (Emerald Theme) -->
+  <g transform="translate(130, 200)">
+    <!-- Brand Icon Emblem -->
+    <g transform="translate(0, 0)">
+      <!-- Outer Orbit Crescent Swoosh (Emerald) -->
+      <path d="M125 125 C 150 70, 110 15, 60 15 C 15 15, -20 65, -5 125 C 10 180, 70 200, 110 170 C 130 155, 125 140, 110 148 C 80 170, 30 155, 18 115 C 5 70, 35 35, 70 35 C 105 35, 130 75, 110 120 Z" fill="#059669" />
+      <path d="M110 170 C 85 190, 40 185, 20 160 C 35 170, 60 172, 85 160 Z" fill="#10B981" />
+
+      <!-- Graduate Body & Tie -->
+      <path d="M40 125 C 40 95, 55 90, 75 90 C 95 90, 110 95, 110 125 Z" fill="#064E3B" />
+      <polygon points="75,98 81,112 75,122 69,112" fill="#34D399" />
+
+      <!-- Head Circle -->
+      <circle cx="75" cy="74" r="18" fill="#064E3B" />
+
+      <!-- Mortarboard Cap -->
+      <polygon points="75,32 125,50 75,64 25,50" fill="#022C22" stroke="#047857" stroke-width="2" />
+      <rect x="52" y="58" width="46" height="10" rx="3" fill="#064E3B" />
+      <!-- Golden Tassel -->
+      <path d="M75 48 C 95 48, 120 54, 122 66 L122 84" stroke="#F59E0B" stroke-width="3.5" fill="none" stroke-linecap="round" />
+      <circle cx="122" cy="86" r="4" fill="#F59E0B" />
+
+      <!-- Verified Attendance Green Badge -->
+      <circle cx="75" cy="122" r="15" fill="#10B981" stroke="white" stroke-width="2.5" />
+      <path d="M68 122 L73 127 L82 118" stroke="white" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round" fill="none" />
+    </g>
+
+    <!-- EduTrack Wordmark (Edu in Charcoal, Track in Emerald) -->
+    <text x="165" y="105" font-family="'Outfit', 'Plus Jakarta Sans', system-ui, sans-serif" font-weight="800" font-size="78" letter-spacing="-1">
+      <tspan fill="#0F172A">Edu</tspan>
+      <tspan fill="#059669">Track</tspan>
+    </text>
+
+    <!-- Subtitle -->
+    <text x="168" y="148" font-family="'Plus Jakarta Sans', system-ui, sans-serif" font-weight="600" font-size="25" fill="#1E293B" letter-spacing="0.5">
+      Attendance <tspan fill="#10B981" font-weight="700"> | </tspan> Parent Alert
+    </text>
+
+    <!-- Tagline -->
+    <text x="50" y="240" font-family="'Plus Jakarta Sans', system-ui, sans-serif" font-weight="600" font-size="21" fill="#047857" letter-spacing="3.5">
+      Better Attendance  |  Safer Tomorrow
+    </text>
+  </g>
+
+  <!-- Origami Paper Airplane in Top-Right with Crisp Green Trail -->
+  <g>
+    <!-- Dashed Flight Curve Trail (Emerald) -->
+    <path d="M1410 400 C 1450 290, 1590 260, 1690 260 C 1730 260, 1760 240, 1790 200" stroke="#10B981" stroke-width="3.5" stroke-dasharray="10 10" fill="none" stroke-linecap="round" />
+    
+    <!-- Paper Airplane (Emerald & Mint) -->
+    <g transform="translate(1770, 170) rotate(10)">
+      <polygon points="56,0 0,68 50,51" fill="#059669" />
+      <polygon points="56,0 50,51 90,68" fill="#34D399" />
+      <polygon points="50,51 56,0 47,59" fill="#047857" />
+    </g>
+  </g>
+
+  <!-- Right Side: Smartphone Frame & UI Display (Emerald Academic Edition) -->
+  <g transform="translate(1360, 370)">
+    <!-- Crisp Vector Drop Shadow under Phone -->
+    <rect x="-8" y="16" width="356" height="556" rx="52" fill="#064E3B" fill-opacity="0.22" />
+
+    <!-- Smartphone Body Casing -->
+    <rect x="0" y="0" width="340" height="540" rx="46" fill="url(#phoneBody)" stroke="#10B981" stroke-width="4.5" />
+
+    <!-- Smartphone Screen Display -->
+    <rect x="12" y="12" width="316" height="516" rx="36" fill="#F8FAFC" stroke="#A7F3D0" stroke-width="1.5" />
+
+    <!-- Top Camera / Dynamic Island -->
+    <rect x="110" y="22" width="120" height="16" rx="8" fill="#064E3B" />
+    <circle cx="205" cy="30" r="4" fill="#10B981" />
+
+    <!-- Mini Header -->
+    <g transform="translate(30, 56)">
+      <circle cx="16" cy="16" r="14" fill="#059669" />
+      <polygon points="16,8 24,12 16,16 8,12" fill="white" />
+      <circle cx="16" cy="20" r="4" fill="#34D399" />
+      <text x="38" y="22" font-family="'Plus Jakarta Sans', sans-serif" font-weight="800" font-size="19" fill="#0F172A">
+        Edu<tspan fill="#059669">Track</tspan>
+      </text>
+    </g>
+
+    <!-- Attendance Pill -->
+    <g transform="translate(30, 115)">
+      <rect x="0" y="0" width="280" height="38" rx="19" fill="#ECFDF5" stroke="#10B981" stroke-width="2" />
+      <circle cx="20" cy="19" r="12" fill="#10B981" />
+      <path d="M15 19 L19 23 L25 15" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" fill="none" />
+      <text x="40" y="24" font-family="'Plus Jakarta Sans', sans-serif" font-weight="700" font-size="14.5" fill="#065F46">Attendance</text>
+      <path d="M255 15 L260 19 L255 23" stroke="#059669" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" fill="none" />
+    </g>
+
+    <!-- Student Attendance List Rows -->
+    <!-- Row 1: Present -->
+    <g transform="translate(30, 172)">
+      <rect x="0" y="0" width="280" height="46" rx="12" fill="white" stroke="#E2E8F0" stroke-width="1.5" />
+      <circle cx="24" cy="23" r="16" fill="#10B981" />
+      <circle cx="24" cy="19" r="6" fill="white" />
+      <path d="M14 29 C 14 25, 18 24, 24 24 C 30 24, 34 25, 34 29 Z" fill="white" />
+      <rect x="52" y="16" width="65" height="7" rx="3.5" fill="#334155" />
+      <rect x="52" y="27" width="40" height="5" rx="2.5" fill="#94A3B8" />
+      <rect x="205" y="12" width="65" height="23" rx="11.5" fill="#10B981" />
+      <text x="219" y="27.5" font-family="'Plus Jakarta Sans', sans-serif" font-weight="700" font-size="10.5" fill="white">Present</text>
+    </g>
+
+    <!-- Row 2: Absent -->
+    <g transform="translate(30, 228)">
+      <rect x="0" y="0" width="280" height="46" rx="12" fill="white" stroke="#E2E8F0" stroke-width="1.5" />
+      <circle cx="24" cy="23" r="16" fill="#047857" />
+      <circle cx="24" cy="19" r="6" fill="white" />
+      <path d="M14 29 C 14 25, 18 24, 24 24 C 30 24, 34 25, 34 29 Z" fill="white" />
+      <rect x="52" y="16" width="75" height="7" rx="3.5" fill="#334155" />
+      <rect x="52" y="27" width="45" height="5" rx="2.5" fill="#94A3B8" />
+      <rect x="207" y="12" width="63" height="23" rx="11.5" fill="#EF4444" />
+      <text x="221" y="27.5" font-family="'Plus Jakarta Sans', sans-serif" font-weight="700" font-size="10.5" fill="white">Absent</text>
+    </g>
+
+    <!-- Row 3: Present -->
+    <g transform="translate(30, 284)">
+      <rect x="0" y="0" width="280" height="46" rx="12" fill="white" stroke="#E2E8F0" stroke-width="1.5" />
+      <circle cx="24" cy="23" r="16" fill="#059669" />
+      <circle cx="24" cy="19" r="6" fill="white" />
+      <path d="M14 29 C 14 25, 18 24, 24 24 C 30 24, 34 25, 34 29 Z" fill="white" />
+      <rect x="52" y="16" width="60" height="7" rx="3.5" fill="#334155" />
+      <rect x="52" y="27" width="35" height="5" rx="2.5" fill="#94A3B8" />
+      <rect x="205" y="12" width="65" height="23" rx="11.5" fill="#10B981" />
+      <text x="219" y="27.5" font-family="'Plus Jakarta Sans', sans-serif" font-weight="700" font-size="10.5" fill="white">Present</text>
+    </g>
+
+    <!-- Parent Alert Notification Banner Card -->
+    <g transform="translate(30, 350)">
+      <rect x="0" y="0" width="280" height="74" rx="14" fill="#FFFBEB" stroke="#F59E0B" stroke-width="2" />
+      <circle cx="28" cy="37" r="18" fill="#F59E0B" />
+      <path d="M28 28 C 24 28, 22 31, 22 36 L20 39 L36 39 L34 36 C 34 31, 32 28, 28 28 Z" fill="white" />
+      <circle cx="28" cy="43" r="2.5" fill="white" />
+      <text x="56" y="32" font-family="'Plus Jakarta Sans', sans-serif" font-weight="800" font-size="13.5" fill="#92400E">Parent Alert</text>
+      <text x="56" y="52" font-family="'Plus Jakarta Sans', sans-serif" font-weight="600" font-size="11" fill="#B45309">Your child is absent today.</text>
+    </g>
+  </g>
+
+  <!-- Floating Floating Action Badges beside Smartphone (Emerald Palette) -->
+  <!-- Top Bell Notification Circular Badge (Emerald Green) -->
+  <g transform="translate(1720, 310)">
+    <!-- Vector Drop Shadow -->
+    <circle cx="50" cy="54" r="48" fill="#064E3B" fill-opacity="0.25" />
+    <circle cx="50" cy="50" r="48" fill="#059669" stroke="white" stroke-width="4.5" />
+    <path d="M50 30 C 41 30, 37 36, 37 46 L33 58 L67 58 L63 46 C 63 36, 59 30, 50 30 Z" fill="white" />
+    <circle cx="50" cy="65" r="5" fill="white" />
+    <path d="M46 25 L54 25" stroke="white" stroke-width="3.5" stroke-linecap="round" />
+  </g>
+
+  <!-- Lower Parent-Child Group Badge (Vibrant Mint) -->
+  <g transform="translate(1720, 480)">
+    <circle cx="50" cy="54" r="48" fill="#064E3B" fill-opacity="0.25" />
+    <circle cx="50" cy="50" r="48" fill="#10B981" stroke="white" stroke-width="4.5" />
+    <!-- Parent -->
+    <circle cx="43" cy="41" r="9.5" fill="white" />
+    <path d="M28 65 C 28 54, 35 52, 43 52 C 51 52, 58 54, 58 65 Z" fill="white" />
+    <!-- Child -->
+    <circle cx="63" cy="47" r="7.5" fill="white" />
+    <path d="M53 65 C 53 58, 57 57, 63 57 C 69 57, 73 58, 73 65 Z" fill="white" />
+  </g>
+
+  <!-- Foliage around the Smartphone Base -->
+  <g transform="translate(1620, 710)">
+    <path d="M40 180 C 10 100, 40 40, 110 0 C 120 70, 100 130, 40 180 Z" fill="#047857" />
+    <path d="M70 180 C 130 110, 170 50, 240 10 C 230 80, 170 140, 70 180 Z" fill="#059669" />
+    <path d="M50 180 C 70 130, 110 70, 170 30 C 150 100, 110 150, 50 180 Z" fill="#10B981" />
+  </g>
+
+  <!-- Bottom Right Emerald Waves (Lush Academic Gradient) -->
+  <path d="M1020 980 C 1220 880, 1480 840, 1970 860 L1970 1080 L1020 1080 Z" fill="url(#bottomWave1)" />
+  <path d="M1250 990 C 1450 930, 1680 910, 1970 930 L1970 1080 L1250 1080 Z" fill="url(#bottomWave2)" />
+</svg>

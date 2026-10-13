@@ -1,0 +1,176 @@
+<svg viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <!-- Background Rich Gradient -->
+    <linearGradient id="bg-grad" x1="40" y1="40" x2="472" y2="472" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#064e3b" />
+      <stop offset="45%" stop-color="#047857" />
+      <stop offset="100%" stop-color="#0f766e" />
+    </linearGradient>
+
+    <!-- Glowing Border Gradient -->
+    <linearGradient id="border-grad" x1="40" y1="40" x2="472" y2="472" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#a7f3d0" stop-opacity="0.95" />
+      <stop offset="50%" stop-color="#34d399" stop-opacity="0.8" />
+      <stop offset="100%" stop-color="#2dd4bf" stop-opacity="0.5" />
+    </linearGradient>
+
+    <!-- Inner Radial Glow -->
+    <radialGradient id="inner-glow" cx="256" cy="275" r="210" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#34d399" stop-opacity="0.4" />
+      <stop offset="60%" stop-color="#10b981" stop-opacity="0.15" />
+      <stop offset="100%" stop-color="#047857" stop-opacity="0" />
+    </radialGradient>
+
+    <!-- Phone Screen Gradient -->
+    <linearGradient id="screen-grad" x1="166" y1="162" x2="346" y2="430" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#022c22" />
+      <stop offset="55%" stop-color="#064e3b" />
+      <stop offset="100%" stop-color="#047857" />
+    </linearGradient>
+
+    <!-- Cap Mortarboard Gradient -->
+    <linearGradient id="cap-grad" x1="126" y1="70" x2="386" y2="146" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#1e293b" />
+      <stop offset="45%" stop-color="#0f172a" />
+      <stop offset="100%" stop-color="#020617" />
+    </linearGradient>
+
+    <!-- Golden Tassel Gradient -->
+    <linearGradient id="tassel-grad" x1="355" y1="170" x2="368" y2="202" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#fde047" />
+      <stop offset="40%" stop-color="#fbbf24" />
+      <stop offset="100%" stop-color="#d97706" />
+    </linearGradient>
+
+    <!-- Dynamic Orbit Swoosh Gradient -->
+    <linearGradient id="swoosh-grad" x1="80" y1="200" x2="445" y2="400" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#38bdf8" />
+      <stop offset="35%" stop-color="#34d399" />
+      <stop offset="80%" stop-color="#10b981" />
+      <stop offset="100%" stop-color="#059669" stop-opacity="0.15" />
+    </linearGradient>
+
+    <!-- Verified Attendance Check Circle Gradient -->
+    <linearGradient id="check-grad" x1="220" y1="304" x2="292" y2="376" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#10b981" />
+      <stop offset="100%" stop-color="#047857" />
+    </linearGradient>
+
+    <!-- Parent Alert Bubble Gradient -->
+    <linearGradient id="alert-grad" x1="362" y1="138" x2="484" y2="235" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#fb923c" />
+      <stop offset="50%" stop-color="#f97316" />
+      <stop offset="100%" stop-color="#ea580c" />
+    </linearGradient>
+  </defs>
+
+  <!-- Outer Rounded Squircle Base -->
+  <rect
+    x="24"
+    y="24"
+    width="464"
+    height="464"
+    rx="112"
+    fill="url(#bg-grad)"
+    stroke="url(#border-grad)"
+    stroke-width="6"
+  />
+
+  <!-- Ambient Glow Behind Centerpiece -->
+  <circle cx="256" cy="275" r="180" fill="url(#inner-glow)" />
+
+  <!-- Background Attendance Grid Rings -->
+  <circle cx="256" cy="285" r="190" stroke="white" stroke-opacity="0.07" stroke-width="2.5" stroke-dasharray="8 8" />
+  <circle cx="256" cy="285" r="140" stroke="white" stroke-opacity="0.1" stroke-width="2" />
+
+  <!-- Dynamic Circular Orbit / Swoosh -->
+  <path
+    d="M 98 318 C 72 216, 154 152, 280 172 C 398 192, 448 280, 400 370 C 352 448, 206 452, 128 394 C 98 370, 90 342, 98 318"
+    fill="none"
+    stroke="url(#swoosh-grad)"
+    stroke-width="10"
+    stroke-linecap="round"
+    stroke-dasharray="290 20"
+    opacity="0.95"
+  />
+
+  <!-- Orbiting Satellite Pulse -->
+  <circle cx="418" cy="275" r="14" fill="#38bdf8" fill-opacity="0.3" />
+  <circle cx="418" cy="275" r="8" fill="#38bdf8" />
+  <circle cx="418" cy="275" r="3.5" fill="white" />
+
+  <!-- Smartphone Outer Body -->
+  <rect
+    x="154"
+    y="144"
+    width="204"
+    height="304"
+    rx="36"
+    fill="#0f172a"
+    stroke="#34d399"
+    stroke-width="3.5"
+  />
+
+  <!-- Smartphone Screen Display -->
+  <rect
+    x="166"
+    y="162"
+    width="180"
+    height="268"
+    rx="26"
+    fill="url(#screen-grad)"
+  />
+
+  <!-- Top Speaker Grille & Camera -->
+  <rect x="224" y="152" width="64" height="5" rx="2.5" fill="#334155" />
+  <circle cx="208" cy="154.5" r="3" fill="#34d399" />
+
+  <!-- Student Profile Figure -->
+  <circle cx="256" cy="216" r="24" fill="white" />
+  <path
+    d="M 218 272 C 218 240, 240 238, 256 238 C 272 238, 294 240, 294 272 Z"
+    fill="white"
+  />
+  <path d="M 251 239 L 256 252 L 261 239 Z" fill="#047857" />
+  <path d="M 256 252 L 258 266 L 256 270 L 254 266 Z" fill="#047857" />
+
+  <!-- Live Attendance Metric Bar Lines -->
+  <line x1="210" y1="284" x2="302" y2="284" stroke="#34d399" stroke-width="2.5" stroke-linecap="round" stroke-opacity="0.7" />
+
+  <!-- Verified Attendance Checkmark Badge -->
+  <circle cx="256" cy="340" r="44" fill="#10b981" fill-opacity="0.25" />
+  <circle cx="256" cy="340" r="36" fill="url(#check-grad)" stroke="#a7f3d0" stroke-width="3.5" />
+  <path
+    d="M 238 340 L 251 353 L 275 328"
+    fill="none"
+    stroke="white"
+    stroke-width="7"
+    stroke-linecap="round"
+    stroke-linejoin="round"
+  />
+
+  <!-- Bottom Live Data Bars on Screen -->
+  <line x1="218" y1="394" x2="294" y2="394" stroke="#a7f3d0" stroke-width="3.5" stroke-linecap="round" />
+  <line x1="232" y1="404" x2="280" y2="404" stroke="#6ee7b7" stroke-width="2.5" stroke-linecap="round" stroke-opacity="0.8" />
+
+  <!-- Academic Graduation Cap -->
+  <path d="M 198 132 C 198 158, 314 158, 314 132 Z" fill="#0f172a" />
+  <path d="M 210 135 C 210 152, 302 152, 302 135 Z" fill="#1e293b" />
+  <path d="M 126 110 L 256 138 L 386 110 L 386 118 L 256 146 L 126 118 Z" fill="#020617" />
+  <path d="M 256 70 L 386 110 L 256 138 L 126 110 Z" fill="url(#cap-grad)" stroke="#475569" stroke-width="3" />
+  <ellipse cx="256" cy="104" rx="9" ry="6" fill="#f59e0b" />
+  <ellipse cx="256" cy="103" rx="5.5" ry="3.5" fill="#fef3c7" />
+
+  <!-- Golden Tassel -->
+  <path d="M 256 104 C 300 106, 348 112, 356 132 C 360 142, 358 156, 359 170" fill="none" stroke="#fbbf24" stroke-width="4" stroke-linecap="round" />
+  <rect x="355" y="169" width="9" height="4.5" rx="2" fill="#b45309" />
+  <path d="M 355 173 L 364 173 L 368 198 L 351 198 Z" fill="url(#tassel-grad)" />
+
+  <!-- Parent Notification Alert Bubble -->
+  <path d="M 362 164 C 362 148, 376 138, 394 138 L 452 138 C 470 138, 484 148, 484 164 L 484 192 C 470 208, 452 218, 452 218 L 398 218 L 374 235 L 379 218 C 367 218, 362 208, 362 192 Z" fill="url(#alert-grad)" stroke="white" stroke-width="2.5" />
+  <path d="M 426 166 C 426 160, 421 155, 415 155 C 409 155, 404 160, 404 166 C 404 178, 397 181, 397 185 L 433 185 C 433 181, 426 178, 426 166 Z" fill="white" />
+  <circle cx="415" cy="190" r="3" fill="white" />
+  <path d="M 412 151 L 418 151" stroke="white" stroke-width="2.5" stroke-linecap="round" />
+  <circle cx="438" cy="156" r="6" fill="#ef4444" stroke="white" stroke-width="2" />
+  <path d="M 440 170 C 444 174, 444 179, 440 183" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" />
+</svg>

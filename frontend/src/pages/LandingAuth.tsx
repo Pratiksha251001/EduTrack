@@ -87,8 +87,8 @@ export const LandingAuth: React.FC = () => {
             {college.tagline} — seamless morning roll calls, automated parent SMS notifications, and audit-ready reports.
           </p>
 
-          <div className="mx-auto mt-10 max-w-md rounded-2xl border border-border bg-card p-6 shadow-xl text-left">
-            <div className="flex border-b border-border mb-6">
+          <div className="relative overflow-hidden mx-auto mt-10 max-w-md rounded-2xl border border-border bg-card p-6 shadow-xl text-left">
+            <div className="flex border-b border-border mb-6 relative z-10">
               <button
                 className={`flex-1 pb-3 text-sm font-semibold transition-colors ${
                   tab === 'signin' ? 'border-b-2 border-primary text-primary' : 'text-muted-foreground'
@@ -107,7 +107,7 @@ export const LandingAuth: React.FC = () => {
               </button>
             </div>
 
-            <form onSubmit={handleSubmit} className="space-y-4">
+            <form onSubmit={handleSubmit} className="space-y-4 relative z-10">
               {tab === 'signup' && (
                 <div className="space-y-1.5">
                   <label className="text-xs font-semibold text-muted-foreground">Full Name</label>
@@ -128,7 +128,7 @@ export const LandingAuth: React.FC = () => {
               </Button>
             </form>
 
-            <div className="mt-6 rounded-xl border border-dashed border-border bg-muted/30 p-4">
+            <div className="mt-6 relative z-10 rounded-xl border border-dashed border-border bg-muted/30 p-4">
               <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-primary">
                 <Lock className="h-3.5 w-3.5" /> Instant Sandbox Demo
               </div>
