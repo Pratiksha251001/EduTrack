@@ -25,20 +25,6 @@ export const Students: React.FC = () => {
     };
   }, []);
 
-  const handleClearDefaultData = () => {
-    if (
-      window.confirm(
-        "Remove all default demo students, attendance, and logs? Your roster will be clean with 0 students, and only newly created students will be stored.",
-      )
-    ) {
-      localDb.clearDemoStudents();
-      setNotice(
-        "Default demo data removed. You can now add your real students.",
-      );
-      setTimeout(() => setNotice(null), 4000);
-    }
-  };
-
   return (
     <div className="space-y-4">
       {notice && (
@@ -56,7 +42,7 @@ export const Students: React.FC = () => {
       <CrudPage<Student>
         title="Students"
         table="students"
-        searchKeys={["full_name", "roll_number", "reg_number", "parent_mobile"]}
+        searchKeys={["full_name", "roll_number", "parent_mobile"]}
         extraHeaderActions={
           <div className="flex items-center gap-2 flex-wrap">
             <Button
@@ -68,22 +54,10 @@ export const Students: React.FC = () => {
               <FileSpreadsheet className="h-3.5 w-3.5 text-primary" />
               Import Students
             </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={handleClearDefaultData}
-              title="Remove default sample students to start fresh"
-              className="text-xs h-9 gap-1.5 text-destructive hover:bg-destructive/10 hover:text-destructive"
-            >
-              <Trash2 className="h-3.5 w-3.5" />
-              Clear Default Data
-            </Button>
           </div>
         }
         fields={[
           { key: "roll_number", label: "Roll Number", required: true },
-          { key: "prn_number", label: "PRN Number", required: true },
-          { key: "reg_number", label: "University Reg Number" },
           { key: "full_name", label: "Student Full Name", required: true },
           {
             key: "department_id",
@@ -92,7 +66,7 @@ export const Students: React.FC = () => {
             required: true,
             options: [
               { value: "", label: "Unassigned" },
-              ...departments.map((d) => ({ value: d.id, label: d.name })),
+              ...departments.map((d) => ({ value: d.id, label: `${d.code} - ${d.name}` })),
             ],
           },
           {
@@ -109,29 +83,14 @@ export const Students: React.FC = () => {
           { key: "parent_name", label: "Parent / Guardian Name", required: true },
           {
             key: "parent_mobile",
-            label: "Parent Mobile (For SMS Alerts)",
+            label: "Parent Mobile",
             required: true,
-            helperText:
-              "Required for parent attendance SMS alerts. Must be unique.",
           },
           {
             key: "student_mobile",
             label: "Student Mobile",
-            helperText:
-              "Enter this or Parent Mobile. If both are entered, they must be different and unique.",
           },
-          { key: "date_of_birth", label: "Date of Birth", type: "date" },
           { key: "email", label: "Student Email", type: "email", required: true },
-          {
-            key: "status",
-            label: "Enrollment Status",
-            type: "select",
-            required: true,
-            options: [
-              { value: "active", label: "Active" },
-              { value: "inactive", label: "Inactive" },
-            ],
-          },
         ]}
         columns={[
           {
@@ -147,27 +106,19 @@ export const Students: React.FC = () => {
             ),
           },
           {
-            header: "PRN No",
-            render: (s) => (
-              <span className="font-mono text-xs">{s.prn_number || "-"}</span>
-            ),
-          },
-          {
-            header: "Reg No",
-            render: (s) => (
-              <span className="font-mono text-xs text-muted-foreground">
-                {s.reg_number || "—"}
-              </span>
-            ),
-          },
-          {
             header: "Student Name",
             render: (s) => <span className="font-semibold">{s.full_name}</span>,
           },
           {
             header: "Department",
-            render: (s) =>
-              departments.find((d) => d.id === s.department_id)?.name || "—",
+            render: (s) => {
+              const dept = departments.find((d) => d.id === s.department_id);
+              return (
+                <span className="font-mono text-xs font-bold px-2 py-0.5 rounded bg-muted text-foreground">
+                  {dept?.code || "—"}
+                </span>
+              );
+            },
           },
           {
             header: "Semester",
@@ -209,14 +160,6 @@ export const Students: React.FC = () => {
                   </div>
                 )}
               </div>
-            ),
-          },
-          {
-            header: "Status",
-            render: (s) => (
-              <Badge variant={s.status === "active" ? "success" : "secondary"}>
-                {s.status}
-              </Badge>
             ),
           },
         ]}

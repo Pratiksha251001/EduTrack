@@ -320,9 +320,69 @@ class LocalDatabase {
     // Ensure 2nd, 3rd, and 4th years have two divisions (A and B), excluding 1st year
     this.ensureStandardEngineeringDivisions();
     this.migrateLegacyYearCodes();
+    this.syncAllUserAccounts();
 
     if (isSupabaseConfigured) {
       this.syncReady = this.syncFromSupabase();
+    }
+  }
+
+  /**
+   * Synchronizes user accounts for all teachers and students so the admin Users section displays all accounts
+   */
+  public syncAllUserAccounts() {
+    let usersUpdated = false;
+    const existingEmails = new Set(
+      this.users.map((u) => (u.email || "").toLowerCase().trim()).filter(Boolean)
+    );
+    const existingUserIds = new Set(this.users.map((u) => u.id));
+
+    // Ensure teachers have user accounts
+    for (const t of this.teachers) {
+      const email = (t.email || "").toLowerCase().trim();
+      const hasAccount =
+        (email && existingEmails.has(email)) ||
+        (t.user_id && existingUserIds.has(t.user_id));
+
+      if (!hasAccount) {
+        this.users.push({
+          id: t.user_id || `user-${t.id}`,
+          full_name: t.full_name,
+          email: t.email || `${t.employee_id.toLowerCase()}@edutrack.edu`,
+          role: t.role === "hod" ? "hod" : t.is_class_coordinator ? "class_coordinator" : "teacher",
+          department_id: t.department_id,
+          teacher_id: t.id,
+          status: t.status === "inactive" ? "inactive" : "active",
+        });
+        if (email) existingEmails.add(email);
+        usersUpdated = true;
+      }
+    }
+
+    // Ensure students have user accounts
+    for (const s of this.students) {
+      const email = (s.email || "").toLowerCase().trim();
+      const hasAccount =
+        (email && existingEmails.has(email)) ||
+        (s.user_id && existingUserIds.has(s.user_id));
+
+      if (!hasAccount) {
+        this.users.push({
+          id: s.user_id || `user-${s.id}`,
+          full_name: s.full_name,
+          email: s.email || `${s.roll_number.toLowerCase()}@student.college.edu`,
+          role: "student",
+          department_id: s.department_id,
+          student_id: s.id,
+          status: "active",
+        });
+        if (email) existingEmails.add(email);
+        usersUpdated = true;
+      }
+    }
+
+    if (usersUpdated) {
+      this.persist("users");
     }
   }
 
@@ -420,9 +480,10 @@ class LocalDatabase {
       const deptClasses = this.academic_classes.filter((c) => c.department_id === dept.id);
 
       const yearsConfig = [
-        { year: 2, sem: 3, code: "SY" },
-        { year: 3, sem: 5, code: "TY" },
-        { year: 4, sem: 7, code: "BE" },
+        { year: 1, sem: 1, code: "FY", hasDivB: false },
+        { year: 2, sem: 3, code: "SY", hasDivB: true },
+        { year: 3, sem: 5, code: "TY", hasDivB: true },
+        { year: 4, sem: 7, code: "BE", hasDivB: true },
       ];
 
       for (const yc of yearsConfig) {
@@ -451,7 +512,7 @@ class LocalDatabase {
           classesChanged = true;
         }
 
-        if (!divBExists) {
+        if (yc.hasDivB && !divBExists) {
           const newClassB: AcademicClass = {
             id: `class-${deptCode.toLowerCase()}-${yc.code.toLowerCase()}-b`,
             name: `${yc.code} ${deptCode}-B`,

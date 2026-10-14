@@ -307,14 +307,12 @@ export async function parseStudentSpreadsheet(
 export function downloadStudentExcelTemplate(semester: number = 1) {
   const headers = [
     "Enrollment Number / Roll No*",
-    "PRN Number*",
     "Student Full Name*",
     "Semester",
     "Parent / Guardian Name*",
     "Parent Mobile (10 Digits)*",
     "Student Mobile (10 Digits)",
     "Student Email*",
-    "Date of Birth (YYYY-MM-DD)",
     "Gender (male/female)",
     "Residential Address",
   ];
@@ -322,40 +320,34 @@ export function downloadStudentExcelTemplate(semester: number = 1) {
   const sampleData = [
     [
       "21CS101",
-      "PRN-CSE-001",
       "Aarav Sharma",
       semester,
       "Rajesh Sharma",
       "9876543210",
       "9876543211",
       "aarav.s@student.edu",
-      "2004-03-15",
       "male",
       "Plot 42, North Campus Enclave",
     ],
     [
       "21CS102",
-      "PRN-CSE-002",
       "Diya Patel",
       semester,
       "Mukesh Patel",
       "9876543212",
       "9876543213",
       "diya.p@student.edu",
-      "2004-07-22",
       "female",
       "14 Royal Palms Residency",
     ],
     [
       "21CS103",
-      "PRN-CSE-003",
       "Rohan Verma",
       semester,
       "Suresh Verma",
       "9876543214",
       "9876543215",
       "rohan.v@student.edu",
-      "2003-11-05",
       "male",
       "A-88 Green Park Extension",
     ],
@@ -366,14 +358,12 @@ export function downloadStudentExcelTemplate(semester: number = 1) {
   // Set column widths for readability
   ws["!cols"] = [
     { wch: 28 }, // Enrollment
-    { wch: 20 }, // PRN
     { wch: 24 }, // Name
     { wch: 10 }, // Semester
     { wch: 24 }, // Parent Name
     { wch: 28 }, // Parent Mobile
     { wch: 20 }, // Student Mobile
     { wch: 26 }, // Email
-    { wch: 25 }, // DOB
     { wch: 20 }, // Gender
     { wch: 32 }, // Address
   ];
@@ -389,14 +379,12 @@ export function downloadStudentExcelTemplate(semester: number = 1) {
 export function downloadStudentCsvTemplate(semester: number = 1) {
   const headers = [
     "enrollment_number",
-    "prn_number",
     "full_name",
     "semester",
     "parent_name",
     "parent_mobile",
     "student_mobile",
     "email",
-    "date_of_birth",
     "gender",
     "address",
   ];
@@ -404,27 +392,23 @@ export function downloadStudentCsvTemplate(semester: number = 1) {
   const sampleRows = [
     [
       "21CS101",
-      "PRN-CSE-001",
       "Aarav Sharma",
       semester,
       "Rajesh Sharma",
       "+91 98765 43210",
       "+91 98765 43211",
       "aarav.s@student.edu",
-      "2004-03-15",
       "male",
       "Plot 42 North Campus Enclave",
     ],
     [
       "21CS102",
-      "PRN-CSE-002",
       "Diya Patel",
       semester,
       "Mukesh Patel",
       "+91 98765 43212",
       "+91 98765 43213",
       "diya.p@student.edu",
-      "2004-07-22",
       "female",
       "14 Royal Palms Residency",
     ],

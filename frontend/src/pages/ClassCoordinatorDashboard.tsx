@@ -1012,23 +1012,6 @@ export const ClassCoordinatorDashboard: React.FC = () => {
                     </div>
                     <div>
                       <label className="text-xs font-semibold text-muted-foreground mb-1 block">
-                        PRN No *
-                      </label>
-                      <Input
-                        name="student-prn-number"
-                        autoComplete="off"
-                        value={studentForm.prn_number}
-                        onChange={(e) =>
-                          setStudentForm({
-                            ...studentForm,
-                            prn_number: e.target.value,
-                          })
-                        }
-                        placeholder="PRN-CSE-001"
-                      />
-                    </div>
-                    <div className="col-span-2">
-                      <label className="text-xs font-semibold text-muted-foreground mb-1 block">
                         Full Name *
                       </label>
                       <Input
@@ -1133,13 +1116,7 @@ export const ClassCoordinatorDashboard: React.FC = () => {
                     <div>
                       <div className="flex items-center justify-between mb-1">
                         <label className="text-xs font-semibold text-muted-foreground block">
-                          Parent Mobile *{" "}
-                          <Badge
-                            variant="default"
-                            className="text-[9px] ml-1 px-1 py-0"
-                          >
-                            MANDATORY SMS
-                          </Badge>
+                          Parent Mobile *
                         </label>
                         <span
                           className={`text-[10px] font-mono ${studentForm.parent_mobile.length === 10 ? "text-emerald-500 font-bold" : "text-muted-foreground"}`}
@@ -1168,9 +1145,6 @@ export const ClassCoordinatorDashboard: React.FC = () => {
                             : ""
                         }
                       />
-                      <p className="text-[10px] text-muted-foreground mt-0.5">
-                        Must be strictly 10 digits for automated absentee SMS.
-                      </p>
                     </div>
                     <div>
                       <div className="flex items-center justify-between mb-1">
@@ -1206,9 +1180,6 @@ export const ClassCoordinatorDashboard: React.FC = () => {
                             : ""
                         }
                       />
-                      <p className="text-[10px] text-muted-foreground mt-0.5">
-                        Optional student personal phone.
-                      </p>
                     </div>
                     <div>
                       <label className="text-xs font-semibold text-muted-foreground mb-1 block">
@@ -1226,21 +1197,6 @@ export const ClassCoordinatorDashboard: React.FC = () => {
                           })
                         }
                         placeholder="john@student.edu"
-                      />
-                    </div>
-                    <div>
-                      <label className="text-xs font-semibold text-muted-foreground mb-1 block">
-                        Date of Birth
-                      </label>
-                      <Input
-                        type="date"
-                        value={studentForm.date_of_birth}
-                        onChange={(e) =>
-                          setStudentForm({
-                            ...studentForm,
-                            date_of_birth: e.target.value,
-                          })
-                        }
                       />
                     </div>
                     <div className="col-span-2">
@@ -1353,7 +1309,6 @@ export const ClassCoordinatorDashboard: React.FC = () => {
                     <TableHead>Class / Div</TableHead>
                     <TableHead>Parent Contact</TableHead>
                     <TableHead>Student No</TableHead>
-                    <TableHead>Status</TableHead>
                     <TableHead className="text-right w-[115px]">
                       Actions
                     </TableHead>
@@ -1363,7 +1318,7 @@ export const ClassCoordinatorDashboard: React.FC = () => {
                   {myStudents.length === 0 && (
                     <TableRow>
                       <TableCell
-                        colSpan={8}
+                        colSpan={7}
                         className="text-center py-10 text-sm text-muted-foreground"
                       >
                         No students found. Import via CSV or add manually.
@@ -1429,15 +1384,6 @@ export const ClassCoordinatorDashboard: React.FC = () => {
                             s.student_mobile || "—"
                           )}
                         </div>
-                      </TableCell>
-                      <TableCell>
-                        <Badge
-                          variant={
-                            s.status === "active" ? "success" : "secondary"
-                          }
-                        >
-                          {s.status}
-                        </Badge>
                       </TableCell>
                       <TableCell className="text-right">
                         <div className="flex justify-end gap-1">
@@ -1579,7 +1525,6 @@ export const ClassCoordinatorDashboard: React.FC = () => {
                     <TableHead className="w-[110px]">Code</TableHead>
                     <TableHead>Subject Name</TableHead>
                     <TableHead className="w-[90px]">Sem</TableHead>
-                    <TableHead className="w-[80px]">Credits</TableHead>
                     <TableHead>Assigned Faculty (Imported by HOD)</TableHead>
                     <TableHead className="text-right w-[140px]">
                       Actions
@@ -1590,7 +1535,7 @@ export const ClassCoordinatorDashboard: React.FC = () => {
                   {coordinatorSubjects.length === 0 && (
                     <TableRow>
                       <TableCell
-                        colSpan={6}
+                        colSpan={5}
                         className="text-center py-12 text-sm text-muted-foreground"
                       >
                         <div className="flex flex-col items-center justify-center gap-2">
@@ -1654,9 +1599,6 @@ export const ClassCoordinatorDashboard: React.FC = () => {
                           >
                             Sem {sub.semester}
                           </Badge>
-                        </TableCell>
-                        <TableCell className="text-xs font-medium text-foreground">
-                          {sub.credits || 3} Cr
                         </TableCell>
                         <TableCell>
                           {tsMappings.length > 0 ? (
@@ -1801,35 +1743,18 @@ export const ClassCoordinatorDashboard: React.FC = () => {
             </DialogTitle>
           </DialogHeader>
           <div className="space-y-3.5 py-3">
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className="text-xs font-semibold text-muted-foreground mb-1 block">
-                  Subject Code *
-                </label>
-                <Input
-                  value={subjectForm.code}
-                  onChange={(e) =>
-                    setSubjectForm({ ...subjectForm, code: e.target.value })
-                  }
-                  placeholder="CS501"
-                  className="font-mono uppercase"
-                />
-              </div>
-              <div>
-                <label className="text-xs font-semibold text-muted-foreground mb-1 block">
-                  Credits
-                </label>
-                <Input
-                  type="number"
-                  min={1}
-                  max={6}
-                  value={subjectForm.credits}
-                  onChange={(e) =>
-                    setSubjectForm({ ...subjectForm, credits: e.target.value })
-                  }
-                  placeholder="3"
-                />
-              </div>
+            <div>
+              <label className="text-xs font-semibold text-muted-foreground mb-1 block">
+                Subject Code *
+              </label>
+              <Input
+                value={subjectForm.code}
+                onChange={(e) =>
+                  setSubjectForm({ ...subjectForm, code: e.target.value })
+                }
+                placeholder="CS501"
+                className="font-mono uppercase"
+              />
             </div>
 
             <div>
@@ -1919,7 +1844,7 @@ export const ClassCoordinatorDashboard: React.FC = () => {
                   </SelectItem>
                   {departmentTeachers.map((t) => (
                     <SelectItem key={t.id} value={t.id}>
-                      {t.full_name} ({t.employee_id}) —{" "}
+                      {t.full_name} —{" "}
                       {t.designation ||
                         (t.role === "hod" ? "HOD & Lecturer" : "Faculty")}
                     </SelectItem>
@@ -1965,8 +1890,7 @@ export const ClassCoordinatorDashboard: React.FC = () => {
                   {targetSubjectForAssign.code} — {targetSubjectForAssign.name}
                 </div>
                 <div className="text-muted-foreground mt-0.5">
-                  Semester {targetSubjectForAssign.semester} •{" "}
-                  {targetSubjectForAssign.credits || 3} Credits
+                  Semester {targetSubjectForAssign.semester}
                 </div>
               </div>
             )}
@@ -1988,7 +1912,7 @@ export const ClassCoordinatorDashboard: React.FC = () => {
                   </SelectItem>
                   {departmentTeachers.map((t) => (
                     <SelectItem key={t.id} value={t.id}>
-                      {t.full_name} ({t.employee_id}) —{" "}
+                      {t.full_name} —{" "}
                       {t.designation ||
                         (t.role === "hod" ? "HOD & Lecturer" : "Faculty")}
                     </SelectItem>

@@ -12,7 +12,6 @@ import {
   MessageSquare,
   ShieldCheck,
   CheckCircle2,
-  Bell,
   ArrowRight,
   Calendar,
   ChevronLeft,
@@ -22,7 +21,6 @@ import {
   Users,
   Layers,
   Sparkles,
-  FileText,
 } from "lucide-react";
 import { localDb } from "../lib/supabase";
 import { useAuth } from "../context/AuthContext";
@@ -519,20 +517,6 @@ export const Attendance: React.FC = () => {
             Mark Subject Attendance
           </h2>
         </div>
-        <div className="flex items-center gap-2">
-          <Link to="/reports">
-            <Button variant="outline" size="sm" className="text-xs h-8">
-              <FileText className="h-3.5 w-3.5 mr-1.5 text-primary" />
-              Reports & Audit PDF
-            </Button>
-          </Link>
-          <Badge
-            variant="outline"
-            className="px-3 py-1 text-xs border-primary/25 bg-primary/5 text-primary"
-          >
-            <Bell className="h-3.5 w-3.5 mr-1.5" /> Automated Parent SMS Enabled
-          </Badge>
-        </div>
       </div>
 
       {/* Multi-Class Faculty Workload Context Bar */}
@@ -874,7 +858,7 @@ export const Attendance: React.FC = () => {
                   <TableRow>
                     <TableHead className="w-12 text-center font-bold">#</TableHead>
                     <TableHead className="min-w-[110px] font-bold">Roll No</TableHead>
-                    <TableHead className="min-w-[210px] font-bold">Student Name & PRN</TableHead>
+                    <TableHead className="min-w-[210px] font-bold">Student Name</TableHead>
                     <TableHead className="min-w-[100px] font-bold">Class / Div</TableHead>
                     <TableHead className="min-w-[190px] font-bold">Guardian Contact</TableHead>
                     <TableHead className="min-w-[100px] text-center font-bold">Status</TableHead>
@@ -904,9 +888,6 @@ export const Attendance: React.FC = () => {
                           <div>
                             <p className="font-semibold text-foreground text-sm">
                               {st.full_name}
-                            </p>
-                            <p className="text-[11px] text-muted-foreground font-mono">
-                              PRN: {st.prn_number || "—"}
                             </p>
                           </div>
                         </TableCell>

@@ -72,20 +72,6 @@ export const StudentDetailsModal: React.FC<StudentDetailsModalProps> = ({
           </div>
           <div>
             <span className="block text-[11px] text-muted-foreground">
-              PRN Number
-            </span>
-            <span className="font-mono font-semibold">
-              {student.prn_number || "-"}
-            </span>
-          </div>
-          <div>
-            <span className="block text-[11px] text-muted-foreground">
-              Registration Number
-            </span>
-            <span>{student.reg_number || "-"}</span>
-          </div>
-          <div>
-            <span className="block text-[11px] text-muted-foreground">
               Department
             </span>
             <span>{departmentName || "-"}</span>
@@ -104,15 +90,6 @@ export const StudentDetailsModal: React.FC<StudentDetailsModalProps> = ({
               Class / Section
             </span>
             <span>{student.class_name || student.section || "-"}</span>
-          </div>
-          <div>
-            <span className="block text-[11px] text-muted-foreground">Status</span>
-            <Badge
-              variant={student.status === "active" ? "success" : "secondary"}
-              className="text-[10px]"
-            >
-              {student.status}
-            </Badge>
           </div>
           <div>
             <span className="block text-[11px] text-muted-foreground">

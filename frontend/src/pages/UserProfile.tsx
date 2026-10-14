@@ -348,28 +348,6 @@ export const UserProfile: React.FC = () => {
                 </p>
               </div>
             )}
-            {role === "student" && (
-              <>
-                <div className="p-3 rounded-lg bg-primary/5 border border-primary/20">
-                  <p className="text-[11px] text-primary font-semibold flex items-center gap-1.5">
-                    <Users className="h-3.5 w-3.5" />
-                    Parent / Guardian Name
-                  </p>
-                  <p className="font-semibold text-foreground mt-1 text-sm">
-                    {student?.parent_name || "—"}
-                  </p>
-                </div>
-                <div className="p-3 rounded-lg bg-primary/5 border border-primary/20">
-                  <p className="text-[11px] text-primary font-semibold flex items-center gap-1.5">
-                    <Phone className="h-3.5 w-3.5" />
-                    Parent Mobile Number
-                  </p>
-                  <p className="font-semibold font-mono text-foreground mt-1 text-sm">
-                    {student?.parent_mobile || "—"}
-                  </p>
-                </div>
-              </>
-            )}
           </div>
 
           {role === "student" && student && (

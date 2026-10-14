@@ -7,7 +7,6 @@ import {
   Search,
   Trash2,
   Layers,
-  Filter,
   Users,
   Sparkles,
   GraduationCap,
@@ -51,7 +50,6 @@ export const HODClasses: React.FC = () => {
     ),
   );
   const [search, setSearch] = useState("");
-  const [selectedYearFilter, setSelectedYearFilter] = useState<string>("all");
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<AcademicClass | null>(null);
   const [divisionNotice, setDivisionNotice] = useState<string | null>(null);
@@ -86,27 +84,16 @@ export const HODClasses: React.FC = () => {
   );
 
   const filtered = useMemo(() => {
+    if (!search) return classes;
+    const q = search.toLowerCase();
     return classes.filter((item) => {
-      const itemYear = item.year || getEngineeringYearFromSemester(item.semester);
-
-      // Year / Track filter
-      if (selectedYearFilter === "odd") {
-        if (item.semester % 2 === 0) return false;
-      } else if (selectedYearFilter === "even") {
-        if (item.semester % 2 !== 0) return false;
-      } else if (selectedYearFilter !== "all") {
-        if (String(itemYear) !== selectedYearFilter) return false;
-      }
-
-      if (!search) return true;
-      const q = search.toLowerCase();
       return (
         item.name.toLowerCase().includes(q) ||
         String(item.semester).includes(q) ||
         getSemesterEngineeringLabel(item.semester).toLowerCase().includes(q)
       );
     });
-  }, [classes, search, selectedYearFilter]);
+  }, [classes, search]);
 
   const openAdd = () => {
     setEditing(null);
@@ -360,8 +347,7 @@ export const HODClasses: React.FC = () => {
                     const yrLabel = teacher.assigned_year
                       ? `${teacher.assigned_year === 1 ? "FY" : teacher.assigned_year === 2 ? "SY" : teacher.assigned_year === 3 ? "TY" : "BE"}`
                       : "";
-                    const semLabel = teacher.assigned_semester ? `Sem ${teacher.assigned_semester}` : "";
-                    const tag = yrLabel || semLabel ? ` [${[yrLabel, semLabel].filter(Boolean).join(" ")}]` : "";
+                    const tag = yrLabel ? ` [${yrLabel}]` : "";
                     return {
                       value: teacher.id,
                       label: `${teacher.full_name}${tag}`,
@@ -384,77 +370,27 @@ export const HODClasses: React.FC = () => {
         </Card>
       )}
 
-      {/* Filter Tabs & Search */}
+      {/* Search Bar */}
       <div className="surface-panel p-4 space-y-3">
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div className="relative max-w-md w-full">
             <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
             <Input
               className="pl-9 h-9 text-xs"
-              placeholder="Search classes (e.g. SY-A, BE-B, CSE, Sem 7)..."
+              placeholder="Search classes (e.g. SY-A, BE-B, CSE)..."
               value={search}
               onChange={(event) => setSearch(event.target.value)}
             />
           </div>
-
-          {/* 4-Year Engineering & Parallel Track Filters */}
-          <div className="flex flex-wrap items-center gap-1.5 text-xs">
-            <span className="text-muted-foreground font-medium mr-1 flex items-center gap-1">
-              <Filter className="h-3 w-3" /> Track:
+          <div className="text-xs text-muted-foreground flex items-center gap-2">
+            <span>
+              Total Classes: <strong className="text-foreground">{filtered.length}</strong>
             </span>
-            <button
-              onClick={() => setSelectedYearFilter("all")}
-              className={`px-2.5 py-1 rounded-md font-medium transition-colors ${
-                selectedYearFilter === "all"
-                  ? "bg-primary text-primary-foreground shadow-xs"
-                  : "bg-muted text-muted-foreground hover:text-foreground"
-              }`}
-            >
-              All Years (1–4)
-            </button>
-            <button
-              onClick={() => setSelectedYearFilter("odd")}
-              className={`px-2.5 py-1 rounded-md font-medium transition-colors ${
-                selectedYearFilter === "odd"
-                  ? "bg-emerald-600 text-white shadow-xs"
-                  : "bg-muted text-muted-foreground hover:text-foreground"
-              }`}
-            >
-              Odd Track (1, 3, 5, 7)
-            </button>
-            <button
-              onClick={() => setSelectedYearFilter("even")}
-              className={`px-2.5 py-1 rounded-md font-medium transition-colors ${
-                selectedYearFilter === "even"
-                  ? "bg-emerald-600 text-white shadow-xs"
-                  : "bg-muted text-muted-foreground hover:text-foreground"
-              }`}
-            >
-              Even Track (2, 4, 6, 8)
-            </button>
-            {ENGINEERING_YEARS.map((y) => (
-              <button
-                key={y.year}
-                onClick={() => setSelectedYearFilter(String(y.year))}
-                className={`px-2.5 py-1 rounded-md font-medium transition-colors ${
-                  selectedYearFilter === String(y.year)
-                    ? "bg-primary text-primary-foreground shadow-xs"
-                    : "bg-muted text-muted-foreground hover:text-foreground"
-                }`}
-              >
-                {y.shortName}
-              </button>
-            ))}
+            <span className="text-border">|</span>
+            <span className="text-[11px] text-muted-foreground">
+              Structure: 1st Year (Single) · 2nd, 3rd, 4th Year (Div A &amp; B)
+            </span>
           </div>
-        </div>
-
-        <div className="flex items-center justify-between text-xs text-muted-foreground pt-1 border-t border-border/60">
-          <span>
-            Total Classes: <strong className="text-foreground">{filtered.length}</strong>
-          </span>
-          <span className="text-[11px] text-muted-foreground">
-            Structure: 1st Year (Single) · 2nd, 3rd, 4th Year (Div A &amp; B)
-          </span>
         </div>
       </div>
 
@@ -470,7 +406,6 @@ export const HODClasses: React.FC = () => {
                 <TableHead className="min-w-[150px] font-bold">Class / Section</TableHead>
                 <TableHead className="min-w-[130px] font-bold">Engineering Year</TableHead>
                 <TableHead className="min-w-[110px] text-center font-bold">Division</TableHead>
-                <TableHead className="min-w-[160px] font-bold">Semester &amp; Track</TableHead>
                 <TableHead className="min-w-[180px] font-bold">Class Coordinator (CC)</TableHead>
                 <TableHead className="min-w-[100px] text-center font-bold">Enrolled Students</TableHead>
                 <TableHead className="min-w-[100px] text-right font-bold pr-4">Actions</TableHead>
@@ -480,7 +415,7 @@ export const HODClasses: React.FC = () => {
               {filtered.length === 0 ? (
                 <TableRow>
                   <TableCell
-                    colSpan={8}
+                    colSpan={7}
                     className="py-14 text-center text-muted-foreground"
                   >
                     <div className="max-w-md mx-auto space-y-3">
@@ -519,7 +454,6 @@ export const HODClasses: React.FC = () => {
                   );
                   const yearNum = item.year || getEngineeringYearFromSemester(item.semester);
                   const yearObj = ENGINEERING_YEARS.find((y) => y.year === yearNum);
-                  const isOdd = item.semester % 2 !== 0;
 
                   // Detect division
                   let divLabel = "Single";
@@ -590,31 +524,10 @@ export const HODClasses: React.FC = () => {
                       </TableCell>
 
                       <TableCell>
-                        <div className="flex items-center gap-1.5">
-                          <Badge variant="outline" className="text-[10px] font-mono">
-                            Sem {item.semester}
-                          </Badge>
-                          <Badge
-                            variant="secondary"
-                            className={`text-[9px] ${
-                              isOdd
-                                ? "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400"
-                                : "bg-sky-500/10 text-sky-700 dark:text-sky-400"
-                            }`}
-                          >
-                            {isOdd ? "Odd Track" : "Even Track"}
-                          </Badge>
-                        </div>
-                      </TableCell>
-
-                      <TableCell>
                         {coordinator ? (
                           <div className="text-xs">
                             <span className="font-semibold text-emerald-600 dark:text-emerald-400 block">
                               {coordinator.full_name}
-                            </span>
-                            <span className="font-mono text-[10px] text-muted-foreground">
-                              {coordinator.employee_id}
                             </span>
                           </div>
                         ) : (

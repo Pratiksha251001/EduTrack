@@ -23,20 +23,6 @@ export const Teachers: React.FC = () => {
     };
   }, []);
 
-  const handleClearDefaultData = () => {
-    if (
-      window.confirm(
-        "Are you sure you want to remove ALL default data across departments, faculty, and students? Your institutional database will be reset to 0 records so you can build your own hierarchy.",
-      )
-    ) {
-      localDb.clearAllDefaultData();
-      setNotice(
-        "All default data removed. You can now add your own faculty teachers, HODs, and coordinators.",
-      );
-      setTimeout(() => setNotice(null), 4000);
-    }
-  };
-
   return (
     <div className="space-y-4">
       {notice && (
@@ -62,16 +48,6 @@ export const Teachers: React.FC = () => {
             >
               <FileSpreadsheet className="h-3.5 w-3.5 text-primary" />
               Import Teachers (Excel / CSV)
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={handleClearDefaultData}
-              title="Remove default sample data to start fresh"
-              className="text-xs h-9 gap-1.5 text-destructive hover:bg-destructive/10 hover:text-destructive"
-            >
-              <Trash2 className="h-3.5 w-3.5" />
-              Clear Default Data
             </Button>
           </div>
         }
@@ -130,7 +106,8 @@ export const Teachers: React.FC = () => {
             key: "assigned_year",
             label: "Engineering Year",
             type: "select",
-            visibleWhen: (data) => data.role === "lecturer",
+            visibleWhen: (data) =>
+              data.role === "lecturer" || data.role === "class_coordinator",
             options: college.engineeringYears.map((year) => ({
               value: String(year),
               label: `${["FY", "SY", "TY", "BE"][year - 1]} · Year ${year}`,
@@ -190,23 +167,40 @@ export const Teachers: React.FC = () => {
           },
           {
             header: "Role",
-            render: (t) => (
-              <span
-                className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium border ${
-                  t.role === "hod"
-                    ? "bg-primary/10 text-primary border-primary/25 font-semibold"
-                    : t.role === "class_coordinator"
-                      ? "bg-amber-500/10 text-amber-700 dark:text-amber-400 border-amber-500/25"
-                      : "bg-muted/60 text-muted-foreground border-border/60"
-                }`}
-              >
-                {t.role === "class_coordinator"
-                  ? `Class Coordinator${t.assigned_semester ? ` (Sem ${t.assigned_semester})` : ""}`
-                  : t.role === "hod"
-                    ? "HOD & Lecturer"
-                    : "Lecturer"}
-              </span>
-            ),
+            render: (t) => {
+              const coordClass = localDb.academic_classes.find(
+                (c) => c.coordinator_teacher_id === t.id
+              );
+              const yrCode =
+                t.assigned_year === 1
+                  ? "FY"
+                  : t.assigned_year === 2
+                  ? "SY"
+                  : t.assigned_year === 3
+                  ? "TY"
+                  : t.assigned_year === 4
+                  ? "BE"
+                  : "";
+              const label = coordClass?.name || yrCode;
+
+              return (
+                <span
+                  className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium border ${
+                    t.role === "hod"
+                      ? "bg-primary/10 text-primary border-primary/25 font-semibold"
+                      : t.role === "class_coordinator"
+                        ? "bg-amber-500/10 text-amber-700 dark:text-amber-400 border-amber-500/25"
+                        : "bg-muted/60 text-muted-foreground border-border/60"
+                  }`}
+                >
+                  {t.role === "class_coordinator"
+                    ? `Class Coordinator${label ? ` [${label}]` : ""}`
+                    : t.role === "hod"
+                      ? "HOD & Lecturer"
+                      : "Lecturer"}
+                </span>
+              );
+            },
           },
           {
             header: "Department",
@@ -215,37 +209,6 @@ export const Teachers: React.FC = () => {
           },
           { header: "Email", render: (t) => t.email || "—" },
           { header: "Mobile", render: (t) => t.mobile || "—" },
-          {
-            header: "Account Status",
-            render: (t) => (
-              <span
-                className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-xs font-medium border ${
-                  t.user_id
-                    ? "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-500/25"
-                    : "bg-muted/40 text-muted-foreground border-border/60"
-                }`}
-              >
-                <span
-                  className={`h-1.5 w-1.5 rounded-full ${t.user_id ? "bg-emerald-500" : "bg-muted-foreground/40"}`}
-                />
-                {t.user_id ? "Active & Linked" : "Not Registered"}
-              </span>
-            ),
-          },
-          {
-            header: "Status",
-            render: (t) => (
-              <span
-                className={`text-xs font-medium ${
-                  t.status === "active"
-                    ? "text-emerald-700 dark:text-emerald-400"
-                    : "text-muted-foreground"
-                }`}
-              >
-                {t.status === "active" ? "Active" : "Inactive"}
-              </span>
-            ),
-          },
         ]}
       />
 

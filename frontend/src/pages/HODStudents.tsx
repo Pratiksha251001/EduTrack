@@ -376,7 +376,6 @@ export const HODStudents: React.FC = () => {
 
     const headers = [
       "Roll Number",
-      "PRN Number",
       "Full Name",
       "Semester",
       "Parent Name",
@@ -400,7 +399,6 @@ export const HODStudents: React.FC = () => {
 
       return [
         `"${s.roll_number}"`,
-        `"${s.prn_number || ""}"`,
         `"${s.full_name}"`,
         s.semester,
         `"${s.parent_name || ""}"`,
@@ -545,16 +543,9 @@ export const HODStudents: React.FC = () => {
       {open && (
         <Card className="border-primary/30 bg-primary/[0.03] p-5 shadow-xs">
           <div className="mb-4 flex items-center justify-between">
-            <div>
-              <h2 className="font-display text-lg font-bold">
-                {editingStudent ? "Edit Student Details" : "Add New Student"}
-              </h2>
-              <p className="text-xs text-muted-foreground">
-                {editingStudent
-                  ? "Update enrollment details, contact info, or credentials."
-                  : "Enter student details to add to department roster."}
-              </p>
-            </div>
+            <h2 className="font-display text-lg font-bold">
+              {editingStudent ? "Edit Student Details" : "Add New Student"}
+            </h2>
             <Button
               variant="ghost"
               size="sm"
@@ -577,19 +568,6 @@ export const HODStudents: React.FC = () => {
                 value={form.roll_number}
                 onChange={(event) =>
                   setForm({ ...form, roll_number: event.target.value })
-                }
-              />
-            </div>
-
-            <div>
-              <label className="text-xs font-semibold text-muted-foreground mb-1 block">
-                PRN Number *
-              </label>
-              <Input
-                placeholder="e.g. PRN-CSE-001"
-                value={form.prn_number}
-                onChange={(event) =>
-                  setForm({ ...form, prn_number: event.target.value })
                 }
               />
             </div>
@@ -702,9 +680,6 @@ export const HODStudents: React.FC = () => {
                   setForm({ ...form, password: event.target.value })
                 }
               />
-              <p className="text-[10px] text-muted-foreground">
-                Students can log in with their Roll Number and password.
-              </p>
             </div>
           </div>
 
@@ -732,7 +707,7 @@ export const HODStudents: React.FC = () => {
             <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
             <Input
               className="pl-9 h-9 text-xs"
-              placeholder="Search by Roll No, PRN, Name, Parent, or Mobile..."
+              placeholder="Search by Roll No, Name, Parent, or Mobile..."
               value={search}
               onChange={(event) => setSearch(event.target.value)}
             />
@@ -798,7 +773,7 @@ export const HODStudents: React.FC = () => {
               <TableRow>
                 <TableHead className="w-12 text-center font-bold">#</TableHead>
                 <TableHead className="min-w-[120px] font-bold">Roll Number</TableHead>
-                <TableHead className="min-w-[200px] font-bold">Student Name & PRN</TableHead>
+                <TableHead className="min-w-[200px] font-bold">Student Name</TableHead>
                 <TableHead className="min-w-[110px] font-bold">Class / Sem</TableHead>
                 <TableHead className="min-w-[180px] font-bold">Guardian Contact</TableHead>
                 <TableHead className="min-w-[160px] font-bold">Email / Login</TableHead>
@@ -875,14 +850,11 @@ export const HODStudents: React.FC = () => {
                         </button>
                       </TableCell>
 
-                      {/* Student Name & PRN */}
+                      {/* Student Name */}
                       <TableCell>
                         <div>
                           <p className="font-semibold text-foreground text-sm">
                             {student.full_name}
-                          </p>
-                          <p className="text-[11px] text-muted-foreground font-mono">
-                            PRN: {student.prn_number || "—"}
                           </p>
                         </div>
                       </TableCell>

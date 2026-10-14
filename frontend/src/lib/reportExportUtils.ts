@@ -155,7 +155,6 @@ export function exportAttendancePdf({
   const headers = isDefaulterReport
     ? [
         "Roll No",
-        "Reg No",
         "Student Name",
         "Class",
         "Subject",
@@ -167,7 +166,6 @@ export function exportAttendancePdf({
       ]
     : [
         "Roll No",
-        "Reg No",
         "Student Name",
         "Class",
         "Subject",
@@ -185,7 +183,6 @@ export function exportAttendancePdf({
       );
       return [
         r.roll,
-        r.reg || "—",
         r.name,
         r.className || "—",
         r.subject,
@@ -198,7 +195,6 @@ export function exportAttendancePdf({
     }
     return [
       r.roll,
-      r.reg || "—",
       r.name,
       r.className || "—",
       r.subject,
@@ -326,7 +322,6 @@ export function exportAttendanceExcel({
 
   const columnHeaders = [
     "Roll No",
-    "PRN / Reg No",
     "Student Name",
     "Class / Division",
     "Subject",
@@ -348,7 +343,6 @@ export function exportAttendanceExcel({
 
     return [
       r.roll,
-      r.reg || "—",
       r.name,
       r.className || "—",
       r.subject,
@@ -419,7 +413,6 @@ export function exportAttendanceCsv({
 
   const headers = [
     "Roll No",
-    "Reg No",
     "Student Name",
     "Class",
     "Subject",
@@ -436,7 +429,6 @@ export function exportAttendanceCsv({
     const isDefaulter = r.percentage < minAttendance;
     return [
       `"${r.roll}"`,
-      `"${r.reg || "—"}"`,
       `"${r.name.replace(/"/g, '""')}"`,
       `"${(r.className || "—").replace(/"/g, '""')}"`,
       `"${r.subject.replace(/"/g, '""')}"`,

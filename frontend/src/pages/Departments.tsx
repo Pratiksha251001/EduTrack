@@ -20,20 +20,6 @@ export const Departments: React.FC = () => {
     };
   }, []);
 
-  const handleClearDefaultData = () => {
-    if (
-      window.confirm(
-        "Are you sure you want to remove ALL default data across departments, faculty, and students? Your institutional database will be reset to 0 records so you can build your own hierarchy.",
-      )
-    ) {
-      localDb.clearAllDefaultData();
-      setNotice(
-        "All default data removed. You can now create your departments, faculty, and students.",
-      );
-      setTimeout(() => setNotice(null), 4000);
-    }
-  };
-
   return (
     <div className="space-y-4">
       {notice && (
@@ -52,20 +38,6 @@ export const Departments: React.FC = () => {
         title="Departments"
         table="departments"
         searchKeys={["name", "code", "status"]}
-        extraHeaderActions={
-          <div className="flex items-center gap-2 flex-wrap">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={handleClearDefaultData}
-              title="Remove default sample data to start fresh"
-              className="text-xs h-9 gap-1.5 text-destructive hover:bg-destructive/10 hover:text-destructive"
-            >
-              <Trash2 className="h-3.5 w-3.5" />
-              Clear Default Data
-            </Button>
-          </div>
-        }
         fields={[
           { key: "name", label: "Department Name", required: true },
           { key: "code", label: "Department Code (e.g. CSE)", required: true },
@@ -116,11 +88,6 @@ export const Departments: React.FC = () => {
                 {d.status}
               </Badge>
             ),
-          },
-          {
-            header: "Created Date",
-            render: (d) =>
-              d.created_at ? new Date(d.created_at).toLocaleDateString() : "—",
           },
         ]}
       />

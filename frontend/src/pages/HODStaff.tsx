@@ -136,7 +136,6 @@ export const HODStaff: React.FC<HODStaffProps> = ({ mode }) => {
   );
 
   const [search, setSearch] = useState("");
-  const [selectedYearFilter, setSelectedYearFilter] = useState<string>("all");
   const [sortBy, setSortBy] = useState<"name" | "empid" | "role" | "exp">("name");
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("asc");
   const [editing, setEditing] = useState<Teacher | null>(null);
@@ -256,15 +255,6 @@ export const HODStaff: React.FC<HODStaffProps> = ({ mode }) => {
         ].filter(Boolean) as number[],
       ),
     );
-
-    if (selectedYearFilter === "odd") {
-      if (allSems.length > 0 && allSems.every((s) => s % 2 === 0)) return false;
-    } else if (selectedYearFilter === "even") {
-      if (allSems.length > 0 && allSems.every((s) => s % 2 !== 0)) return false;
-    } else if (selectedYearFilter !== "all") {
-      if (allYears.length > 0 && !allYears.includes(Number(selectedYearFilter)))
-        return false;
-    }
 
     const query = search.toLowerCase().trim();
     return (
@@ -1160,21 +1150,18 @@ export const HODStaff: React.FC<HODStaffProps> = ({ mode }) => {
                   <div className="flex items-center gap-2 text-emerald-700 dark:text-emerald-400 font-semibold text-xs">
                     <Layers className="h-4 w-4" />
                     <span>
-                      Class Coordinator (CC) Multi-Class & Multi-Semester
-                      Assignment
+                      Class Coordinator (CC) Year & Division Assignment
                     </span>
                   </div>
                   <Badge
                     variant="secondary"
                     className="bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border-emerald-500/20 text-[10px] w-fit font-bold"
                   >
-                    Multi-Class Concurrent
+                    Annual Year Scope
                   </Badge>
                 </div>
                 <p className="text-xs text-muted-foreground">
-                  Select one or more classes/divisions for this coordinator. A
-                  single coordinator can now be assigned to multiple
-                  combinations of Year, Semester, and Division concurrently.
+                  Assign coordinator to a particular year and class/division (e.g. SY A, TY B, FY A, BE B). Coordinators manage their assigned year and classes across the full academic year.
                 </p>
 
                 {/* Quick Selection Buttons */}
@@ -1236,6 +1223,14 @@ export const HODStaff: React.FC<HODStaffProps> = ({ mode }) => {
                       const clsYear =
                         cls.year ||
                         getEngineeringYearFromSemester(cls.semester);
+                      const yrCode =
+                        clsYear === 1
+                          ? "FY"
+                          : clsYear === 2
+                          ? "SY"
+                          : clsYear === 3
+                          ? "TY"
+                          : "BE";
                       const isOtherCoordinator =
                         cls.coordinator_teacher_id &&
                         cls.coordinator_teacher_id !== editing?.id;
@@ -1284,13 +1279,13 @@ export const HODStaff: React.FC<HODStaffProps> = ({ mode }) => {
                               </span>
                               <Badge
                                 variant="outline"
-                                className="text-[9px] px-1 py-0 font-mono"
+                                className="text-[9px] px-1 py-0 font-semibold text-emerald-700 dark:text-emerald-400 bg-emerald-500/10 border-emerald-500/20"
                               >
-                                Year {clsYear} · Sem {cls.semester}
+                                {yrCode}
                               </Badge>
                             </div>
                             <p className="text-[10px] text-muted-foreground truncate mt-0.5">
-                              {getSemesterEngineeringLabel(cls.semester)}
+                              {ENGINEERING_YEARS.find((y) => y.year === clsYear)?.name || `Year ${clsYear}`}
                               {otherTeacher
                                 ? ` • Current: ${otherTeacher.full_name}`
                                 : ""}
@@ -1307,11 +1302,11 @@ export const HODStaff: React.FC<HODStaffProps> = ({ mode }) => {
                   </p>
                 )}
 
-                {/* Cohort Fallback Selector */}
-                <div className="pt-2 border-t border-emerald-500/20 grid gap-3 sm:grid-cols-2">
-                  <div>
+                {/* Cohort Year Selector */}
+                <div className="pt-2 border-t border-emerald-500/20">
+                  <div className="max-w-xs">
                     <label className="text-xs font-semibold text-foreground mb-1 block">
-                      Primary Engineering Year (1–4)
+                      Assigned Engineering Year (FY / SY / TY / BE)
                     </label>
                     <Select
                       value={form.assigned_year}
@@ -1330,25 +1325,9 @@ export const HODStaff: React.FC<HODStaffProps> = ({ mode }) => {
                         label: `${y.shortName} · ${y.name}`,
                       }))}
                     />
-                  </div>
-                  <div>
-                    <label className="text-xs font-semibold text-foreground mb-1 block">
-                      Primary Assigned Semester
-                    </label>
-                    <Select
-                      value={form.assigned_semester}
-                      onChange={(e) =>
-                        setForm({ ...form, assigned_semester: e.target.value })
-                      }
-                      options={(
-                        ENGINEERING_YEARS.find(
-                          (y) => y.year === Number(form.assigned_year),
-                        )?.semesters || [1, 2]
-                      ).map((sem) => ({
-                        value: String(sem),
-                        label: `Semester ${sem} (${getSemesterEngineeringLabel(sem)})`,
-                      }))}
-                    />
+                    <p className="text-[10px] text-muted-foreground mt-1">
+                      Covers both odd and even semester tracks for this academic year.
+                    </p>
                   </div>
                 </div>
 
@@ -1737,59 +1716,6 @@ export const HODStaff: React.FC<HODStaffProps> = ({ mode }) => {
               </Button>
             </div>
           </div>
-
-          {/* Track Filter & Roster Summary Pill */}
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pt-2 border-t border-border/60">
-            {/* 4-Year Engineering & Parallel Track Filters */}
-            <div className="flex flex-wrap items-center gap-1.5 text-xs">
-              <span className="text-muted-foreground font-medium mr-1 flex items-center gap-1">
-                <Filter className="h-3 w-3" /> Track:
-              </span>
-              <button
-                onClick={() => setSelectedYearFilter("all")}
-                className={`px-2.5 py-1 rounded-md font-medium transition-colors ${
-                  selectedYearFilter === "all"
-                    ? "bg-primary text-primary-foreground shadow-xs"
-                    : "bg-muted text-muted-foreground hover:text-foreground"
-                }`}
-              >
-                All Years (1–4)
-              </button>
-              <button
-                onClick={() => setSelectedYearFilter("odd")}
-                className={`px-2.5 py-1 rounded-md font-medium transition-colors ${
-                  selectedYearFilter === "odd"
-                    ? "bg-emerald-600 text-white shadow-xs"
-                    : "bg-muted text-muted-foreground hover:text-foreground"
-                }`}
-              >
-                Odd Track (1, 3, 5, 7)
-              </button>
-              <button
-                onClick={() => setSelectedYearFilter("even")}
-                className={`px-2.5 py-1 rounded-md font-medium transition-colors ${
-                  selectedYearFilter === "even"
-                    ? "bg-emerald-600 text-white shadow-xs"
-                    : "bg-muted text-muted-foreground hover:text-foreground"
-                }`}
-              >
-                Even Track (2, 4, 6, 8)
-              </button>
-              {ENGINEERING_YEARS.map((y) => (
-                <button
-                  key={y.year}
-                  onClick={() => setSelectedYearFilter(String(y.year))}
-                  className={`px-2.5 py-1 rounded-md font-medium transition-colors ${
-                    selectedYearFilter === String(y.year)
-                      ? "bg-primary text-primary-foreground shadow-xs"
-                      : "bg-muted text-muted-foreground hover:text-foreground"
-                  }`}
-                >
-                  {y.shortName}
-                </button>
-              ))}
-            </div>
-          </div>
         </div>
 
         {/* ========================================================================= */}
@@ -1950,9 +1876,9 @@ export const HODStaff: React.FC<HODStaffProps> = ({ mode }) => {
                                     <Badge
                                       key={c.id}
                                       variant="outline"
-                                      className="text-[10px] bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border-emerald-500/30"
+                                      className="text-[10px] bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border-emerald-500/30 font-medium"
                                     >
-                                      {c.name} (Sem {c.semester})
+                                      {c.name}
                                     </Badge>
                                   ))
                                 ) : teacherCcas.length > 0 ? (
@@ -1960,17 +1886,25 @@ export const HODStaff: React.FC<HODStaffProps> = ({ mode }) => {
                                     <Badge
                                       key={i}
                                       variant="outline"
-                                      className="text-[10px] bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border-emerald-500/30"
+                                      className="text-[10px] bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border-emerald-500/30 font-medium"
                                     >
-                                      {a.class_name || `Sem ${a.semester}`}
+                                      {a.class_name || (a.year ? (a.year === 1 ? "FY" : a.year === 2 ? "SY" : a.year === 3 ? "TY" : "BE") : "Coordinator")}
                                     </Badge>
                                   ))
                                 ) : (
                                   <Badge
                                     variant="outline"
-                                    className="text-[10px] bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border-emerald-500/30"
+                                    className="text-[10px] bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border-emerald-500/30 font-medium"
                                   >
-                                    Sem {teacher.assigned_semester || 3}
+                                    {teacher.assigned_year === 1
+                                      ? "FY Coordinator"
+                                      : teacher.assigned_year === 2
+                                      ? "SY Coordinator"
+                                      : teacher.assigned_year === 3
+                                      ? "TY Coordinator"
+                                      : teacher.assigned_year === 4
+                                      ? "BE Coordinator"
+                                      : "Class Coordinator"}
                                   </Badge>
                                 )}
                               </div>
@@ -2007,8 +1941,15 @@ export const HODStaff: React.FC<HODStaffProps> = ({ mode }) => {
                                 variant="outline"
                                 className="text-[10px] font-mono text-muted-foreground bg-muted/30"
                               >
-                                Year {teacher.assigned_year || 2} · Sem{" "}
-                                {teacher.assigned_semester || 3}
+                                {teacher.assigned_year === 1
+                                  ? "FY Faculty"
+                                  : teacher.assigned_year === 2
+                                  ? "SY Faculty"
+                                  : teacher.assigned_year === 3
+                                  ? "TY Faculty"
+                                  : teacher.assigned_year === 4
+                                  ? "BE Faculty"
+                                  : "Faculty"}
                               </Badge>
                             )}
                           </TableCell>

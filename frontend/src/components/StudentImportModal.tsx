@@ -405,8 +405,7 @@ export const StudentImportModal: React.FC<StudentImportModalProps> = ({
                 (Unique key used as default portal password),{" "}
                 <span className="font-semibold text-primary">
                   Student Full Name
-                </span>
-                , <span className="font-semibold text-primary">PRN Number</span>{" "}
+                </span>{" "}
                 and{" "}
                 <span className="font-semibold text-primary">
                   Parent Mobile
@@ -415,8 +414,7 @@ export const StudentImportModal: React.FC<StudentImportModalProps> = ({
               </div>
               <div>
                 <span className="font-medium text-foreground">Optional:</span>{" "}
-                Semester, Parent Name, Student Mobile, Student Email, Date of
-                Birth (YYYY-MM-DD), Gender, Address.
+                Semester, Parent Name, Student Mobile, Student Email, Gender, Address.
               </div>
             </div>
           </div>
@@ -640,9 +638,6 @@ export const StudentImportModal: React.FC<StudentImportModalProps> = ({
                       <th className="py-2 px-2.5 font-semibold text-foreground min-w-[130px]">
                         Enrollment / Roll No*
                       </th>
-                      <th className="py-2 px-2.5 font-semibold text-foreground min-w-[130px]">
-                        PRN No*
-                      </th>
                       <th className="py-2 px-2.5 font-semibold text-foreground min-w-[160px]">
                         Student Full Name*
                       </th>
@@ -738,26 +733,6 @@ export const StudentImportModal: React.FC<StudentImportModalProps> = ({
                                 )}
                               </p>
                             )}
-                          </td>
-
-                          {/* Full Name */}
-                          <td className="py-1.5 px-2">
-                            <Input
-                              value={row.prn_number}
-                              onChange={(e) =>
-                                handleCellChange(
-                                  originalIndex,
-                                  "prn_number",
-                                  e.target.value,
-                                )
-                              }
-                              placeholder="PRN Number"
-                              className={`h-7 text-xs font-mono px-2 ${
-                                !row.prn_number.trim()
-                                  ? "border-destructive focus-visible:ring-destructive"
-                                  : ""
-                              }`}
-                            />
                           </td>
 
                           {/* Full Name */}

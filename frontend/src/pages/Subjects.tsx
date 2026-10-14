@@ -84,12 +84,6 @@ export const Subjects: React.FC = () => {
           })),
         },
         {
-          key: "credits",
-          label: "Course Credits",
-          type: "number",
-          defaultValue: "3",
-        },
-        {
           key: "teacher_id",
           label: "Assigned Faculty (Imported by HOD / Department)",
           type: "select",
@@ -98,7 +92,7 @@ export const Subjects: React.FC = () => {
             { value: "", label: "Unassigned (Assign later)" },
             ...relevantTeachers.map((t) => ({
               value: t.id,
-              label: `${t.full_name} (${t.employee_id} • ${t.designation || (t.role === "hod" ? "HOD & Lecturer" : "Faculty")})`,
+              label: `${t.full_name} • ${t.designation || (t.role === "hod" ? "HOD & Lecturer" : "Faculty")}`,
             })),
           ],
         },
@@ -129,7 +123,6 @@ export const Subjects: React.FC = () => {
             </Badge>
           ),
         },
-        { header: "Credits", render: (s) => s.credits },
         {
           header: "Assigned Faculty (HOD Imported)",
           render: (s) => {
@@ -181,7 +174,7 @@ export const Subjects: React.FC = () => {
                       variant="secondary"
                       className="text-[11px] font-medium"
                     >
-                      {t.full_name} ({t.employee_id})
+                      {t.full_name}
                       {classes.length > 0 ? ` [${classes.join(", ")}]` : ""}
                     </Badge>
                   ))}

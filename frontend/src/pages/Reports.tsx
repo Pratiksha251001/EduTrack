@@ -2,7 +2,6 @@ import React, { useState, useMemo, useEffect } from "react";
 import {
   FileSpreadsheet,
   FileText,
-  Calendar,
   Filter,
   Search,
   AlertTriangle,
@@ -18,6 +17,10 @@ import {
   Bell,
   Send,
   ExternalLink,
+  Calendar,
+  Building2,
+  Lock,
+  RotateCcw,
 } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import { localDb } from "../lib/supabase";
@@ -123,12 +126,10 @@ export const Reports: React.FC = () => {
     return Array.from(names);
   }, [teacherId, user]);
 
-  // Date range state
-  const thirtyDaysAgo = new Date(Date.now() - 30 * 86400000).toISOString().split("T")[0];
+  // Date range state (Empty by default: user selects date to access report)
   const todayStr = new Date().toISOString().split("T")[0];
-
-  const [startDate, setStartDate] = useState(thirtyDaysAgo);
-  const [endDate, setEndDate] = useState(todayStr);
+  const [startDate, setStartDate] = useState("");
+  const [endDate, setEndDate] = useState("");
 
   // Filter states
   const initialDept =
@@ -255,7 +256,47 @@ export const Reports: React.FC = () => {
     });
 
     // Provide standard batch/division options if missing
-    if (selectedYear !== "__all" && filtered.length === 0) {
+    if (selectedDept !== "__all" && filtered.length === 0) {
+      const dept = allDepartments.find((d) => d.id === selectedDept);
+      const code = dept?.code || "DIV";
+      return [
+        {
+          id: `${code}-FY-A`,
+          name: `FY ${code}-A`,
+          department_id: selectedDept,
+          year: 1,
+          semester: 1,
+        },
+        {
+          id: `${code}-SY-A`,
+          name: `SY ${code}-A`,
+          department_id: selectedDept,
+          year: 2,
+          semester: 3,
+        },
+        {
+          id: `${code}-SY-B`,
+          name: `SY ${code}-B`,
+          department_id: selectedDept,
+          year: 2,
+          semester: 3,
+        },
+        {
+          id: `${code}-TY-A`,
+          name: `TY ${code}-A`,
+          department_id: selectedDept,
+          year: 3,
+          semester: 5,
+        },
+        {
+          id: `${code}-BE-A`,
+          name: `BE ${code}-A`,
+          department_id: selectedDept,
+          year: 4,
+          semester: 7,
+        },
+      ];
+    } else if (selectedYear !== "__all" && filtered.length === 0) {
       const yrCode = getEngineeringYearCode(Number(selectedYear));
       return [
         {
@@ -282,6 +323,7 @@ export const Reports: React.FC = () => {
     allAcademicClasses,
     selectedDept,
     selectedYear,
+    allDepartments,
   ]);
 
   // Students scoped for role
@@ -380,6 +422,9 @@ export const Reports: React.FC = () => {
 
   // Generate Report Rows
   const reportRows: AttendanceReportRow[] = useMemo(() => {
+    // Show list only when a date filter is selected by the user
+    if (!startDate && !endDate) return [];
+
     const list: AttendanceReportRow[] = [];
 
     const activeSubjects = permittedSubjects.filter(
@@ -393,13 +438,12 @@ export const Reports: React.FC = () => {
         if (sub.department_id && st.department_id && sub.department_id !== st.department_id)
           return;
 
-        const records = attendance.filter(
-          (a) =>
-            a.student_id === st.id &&
-            a.subject_id === sub.id &&
-            a.date >= startDate &&
-            a.date <= endDate
-        );
+        const records = attendance.filter((a) => {
+          if (a.student_id !== st.id || a.subject_id !== sub.id) return false;
+          if (startDate && a.date < startDate) return false;
+          if (endDate && a.date > endDate) return false;
+          return true;
+        });
 
         if (records.length > 0) {
           const total = records.length;
@@ -574,9 +618,17 @@ export const Reports: React.FC = () => {
   // Export handlers
   const handleDownloadPdf = () => {
     const isDefaulterReport = studentCategory === "defaulters";
+    const dateRangeLabel =
+      startDate && endDate
+        ? `${startDate} to ${endDate}`
+        : startDate
+        ? `From ${startDate}`
+        : endDate
+        ? `Up to ${endDate}`
+        : "All Dates";
     exportAttendancePdf({
       rows: displayedRows,
-      periodLabel: `${startDate} to ${endDate}`,
+      periodLabel: dateRangeLabel,
       scopeLabel: `${currentDeptLabel} · ${currentYearLabel} · ${currentClassLabel}`,
       departmentLabel: currentDeptLabel,
       yearLabel: currentYearLabel,
@@ -589,15 +641,23 @@ export const Reports: React.FC = () => {
         : reportViewType === "student_summary"
         ? "CONSOLIDATED STUDENT ATTENDANCE REPORT"
         : "OFFICIAL ATTENDANCE REPORT",
-      fileName: `${isDefaulterReport ? "Defaulters" : "Attendance"}_Report_${startDate}_to_${endDate}.pdf`,
+      fileName: `${isDefaulterReport ? "Defaulters" : "Attendance"}_Report_${startDate || "all"}_to_${endDate || "latest"}.pdf`,
     });
   };
 
   const handleDownloadExcel = () => {
     const isDefaulterReport = studentCategory === "defaulters";
+    const dateRangeLabel =
+      startDate && endDate
+        ? `${startDate} to ${endDate}`
+        : startDate
+        ? `From ${startDate}`
+        : endDate
+        ? `Up to ${endDate}`
+        : "All Dates";
     exportAttendanceExcel({
       rows: displayedRows,
-      periodLabel: `${startDate} to ${endDate}`,
+      periodLabel: dateRangeLabel,
       scopeLabel: `${currentDeptLabel} · ${currentYearLabel} · ${currentClassLabel}`,
       departmentLabel: currentDeptLabel,
       yearLabel: currentYearLabel,
@@ -605,7 +665,7 @@ export const Reports: React.FC = () => {
       subjectLabel: currentSubjectLabel,
       roleLabel: roleScopeLabel,
       isDefaulterReport,
-      fileName: `${isDefaulterReport ? "Defaulters" : "Attendance"}_Report_${startDate}_to_${endDate}.xlsx`,
+      fileName: `${isDefaulterReport ? "Defaulters" : "Attendance"}_Report_${startDate || "all"}_to_${endDate || "latest"}.xlsx`,
     });
   };
 
@@ -736,124 +796,56 @@ export const Reports: React.FC = () => {
       </div>
 
       {/* Filter Bar */}
-      <div className="rounded-xl border border-border bg-card p-4 space-y-3.5 shadow-xs">
-        {/* Quick Date Presets */}
-        <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border/60 pb-3">
-          <div className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
-            <Calendar className="h-3.5 w-3.5 text-primary" />
-            <span>Select Date:</span>
-          </div>
-
-          <div className="flex flex-wrap items-center gap-1.5">
-            <Button
-              variant="outline"
-              size="sm"
-              className="text-[11px] h-7 px-2.5"
-              onClick={() => {
-                setStartDate(todayStr);
-                setEndDate(todayStr);
-              }}
-            >
-              Today
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              className="text-[11px] h-7 px-2.5"
-              onClick={() => {
-                const past7 = new Date(Date.now() - 7 * 86400000).toISOString().split("T")[0];
-                setStartDate(past7);
-                setEndDate(todayStr);
-              }}
-            >
-              Last 7 Days
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              className="text-[11px] h-7 px-2.5"
-              onClick={() => {
-                const d = new Date();
-                const firstDay = new Date(d.getFullYear(), d.getMonth(), 1)
-                  .toISOString()
-                  .split("T")[0];
-                setStartDate(firstDay);
-                setEndDate(todayStr);
-              }}
-            >
-              This Month
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              className="text-[11px] h-7 px-2.5"
-              onClick={() => {
-                setStartDate(thirtyDaysAgo);
-                setEndDate(todayStr);
-              }}
-            >
-              Last 30 Days
-            </Button>
-            <Button
-              variant="secondary"
-              size="sm"
-              className="text-[11px] h-7 px-2.5 font-semibold text-primary"
-              onClick={() => {
-                const sixMonthsAgo = new Date(Date.now() - 180 * 86400000)
-                  .toISOString()
-                  .split("T")[0];
-                setStartDate(sixMonthsAgo);
-                setEndDate(todayStr);
-              }}
-            >
-              All Semester
-            </Button>
-          </div>
-        </div>
-
-        {/* Inputs & Dropdowns Row */}
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-6">
-          <div className="space-y-1">
-            <label className="text-xs font-semibold text-muted-foreground">From Date</label>
-            <DatePicker
-              value={startDate}
-              max={endDate}
-              onChange={(val) => setStartDate(val || thirtyDaysAgo)}
-            />
-          </div>
-
-          <div className="space-y-1">
-            <label className="text-xs font-semibold text-muted-foreground">To Date</label>
-            <DatePicker
-              value={endDate}
-              min={startDate}
-              max={todayStr}
-              onChange={(val) => setEndDate(val || todayStr)}
-            />
-          </div>
-
-          {/* Defaulter / Not Defaulter Categorize Dropdown */}
+      <div className="rounded-xl border border-border bg-card p-4 space-y-4 shadow-xs">
+        {/* Academic Hierarchy & Filters Row */}
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          {/* Department Filter (Admin selects, HOD/others fixed) */}
           <div className="space-y-1">
             <label className="text-xs font-semibold text-muted-foreground flex items-center justify-between">
-              <span>Category Filter</span>
-              {studentCategory !== "all" && (
-                <span className="text-[10px] text-primary font-bold">Active</span>
+              <span className="flex items-center gap-1.5">
+                <Building2 className="h-3.5 w-3.5 text-primary" />
+                <span>Department</span>
+              </span>
+              {role === "admin" ? (
+                selectedDept !== "__all" && (
+                  <span className="text-[10px] text-primary font-bold">Filtered</span>
+                )
+              ) : (
+                <span className="text-[10px] text-amber-600 dark:text-amber-400 font-semibold flex items-center gap-0.5">
+                  <Lock className="h-2.5 w-2.5" /> Fixed
+                </span>
               )}
             </label>
-            <Select
-              value={studentCategory}
-              onChange={(e) => setStudentCategory(e.target.value as StudentCategoryFilter)}
-              options={[
-                { value: "all", label: "All Students" },
-                { value: "defaulters", label: `Defaulters (< ${college.minAttendance}%)` },
-                { value: "eligible", label: `Not Defaulter (≥ ${college.minAttendance}%)` },
-              ]}
-            />
+            {role === "admin" ? (
+              <Select
+                value={selectedDept}
+                onChange={(e) => {
+                  setSelectedDept(e.target.value);
+                  setSelectedClass("__all");
+                  setSelectedSubject("__all");
+                }}
+                options={[
+                  { value: "__all", label: "All Departments" },
+                  ...allDepartments.map((d) => ({
+                    value: d.id,
+                    label: `${d.code} - ${d.name}`,
+                  })),
+                ]}
+              />
+            ) : (
+              <div className="flex items-center gap-2 h-9 px-3 rounded-md border border-border bg-muted/60 text-xs font-semibold text-foreground">
+                <Lock className="h-3.5 w-3.5 text-amber-600 dark:text-amber-400 shrink-0" />
+                <span className="truncate">{currentDeptLabel}</span>
+              </div>
+            )}
           </div>
 
-          {/* Class / Division Filter */}
+          {/* Class / Division Filter (Scoped dynamically to selected Department) */}
           <div className="space-y-1">
-            <label className="text-xs font-semibold text-muted-foreground">Class / Division</label>
+            <label className="text-xs font-semibold text-muted-foreground flex items-center gap-1.5">
+              <Users className="h-3.5 w-3.5 text-primary" />
+              <span>Class / Division</span>
+            </label>
             <Select
               value={selectedClass}
               onChange={(e) => {
@@ -861,7 +853,13 @@ export const Reports: React.FC = () => {
                 setSelectedSubject("__all");
               }}
               options={[
-                { value: "__all", label: "All Classes / Divisions" },
+                {
+                  value: "__all",
+                  label:
+                    selectedDept === "__all"
+                      ? "All Classes / Divisions"
+                      : `All ${departments.find((d) => d.id === selectedDept)?.code || ""} Divisions`,
+                },
                 ...permittedClasses.map((c) => ({
                   value: c.id,
                   label: c.name,
@@ -872,7 +870,10 @@ export const Reports: React.FC = () => {
 
           {/* Subject Filter */}
           <div className="space-y-1">
-            <label className="text-xs font-semibold text-muted-foreground">Subject</label>
+            <label className="text-xs font-semibold text-muted-foreground flex items-center gap-1.5">
+              <BookOpen className="h-3.5 w-3.5 text-primary" />
+              <span>Subject</span>
+            </label>
             <Select
               value={selectedSubject}
               onChange={(e) => setSelectedSubject(e.target.value)}
@@ -891,7 +892,10 @@ export const Reports: React.FC = () => {
 
           {/* Report Format */}
           <div className="space-y-1">
-            <label className="text-xs font-semibold text-muted-foreground">Format</label>
+            <label className="text-xs font-semibold text-muted-foreground flex items-center gap-1.5">
+              <FileText className="h-3.5 w-3.5 text-primary" />
+              <span>Format</span>
+            </label>
             <Select
               value={reportViewType}
               onChange={(e) => setReportViewType(e.target.value as ReportViewType)}
@@ -903,32 +907,82 @@ export const Reports: React.FC = () => {
           </div>
         </div>
 
-        {/* Search bar & active count */}
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2.5 pt-1 border-t border-border/40">
-          <div className="relative w-full sm:w-72">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
-            <Input
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search by student name, roll no, subject..."
-              className="pl-8 text-xs h-8"
+        {/* Date Filters, Search & Action Bar */}
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4 pt-3 border-t border-border/40">
+          <div className="space-y-1">
+            <label className="text-xs font-semibold text-muted-foreground flex items-center gap-1.5">
+              <Calendar className="h-3.5 w-3.5 text-primary" />
+              <span>From Date</span>
+            </label>
+            <DatePicker
+              value={startDate}
+              max={endDate || todayStr}
+              placeholder="Select Date"
+              onChange={(val) => setStartDate(val || "")}
             />
           </div>
 
-          <div className="text-xs text-muted-foreground flex items-center gap-2">
-            <span>
-              Showing <strong className="text-foreground">{displayedRows.length}</strong> records
-            </span>
-            {studentCategory === "defaulters" && (
-              <Badge variant="outline" className="text-[10px] text-rose-600 border-rose-500/30 bg-rose-500/10">
-                Defaulters Only
-              </Badge>
-            )}
-            {studentCategory === "eligible" && (
-              <Badge variant="outline" className="text-[10px] text-emerald-600 border-emerald-500/30 bg-emerald-500/10">
-                Not Defaulters Only
-              </Badge>
-            )}
+          <div className="space-y-1">
+            <label className="text-xs font-semibold text-muted-foreground flex items-center gap-1.5">
+              <Calendar className="h-3.5 w-3.5 text-primary" />
+              <span>To Date</span>
+            </label>
+            <DatePicker
+              value={endDate}
+              min={startDate}
+              max={todayStr}
+              placeholder="Select Date"
+              onChange={(val) => setEndDate(val || "")}
+            />
+          </div>
+
+          <div className="space-y-1 lg:col-span-2">
+            <label className="text-xs font-semibold text-muted-foreground flex items-center justify-between">
+              <span className="flex items-center gap-1.5">
+                <Search className="h-3.5 w-3.5 text-primary" />
+                <span>Quick Search</span>
+              </span>
+              <span className="text-[11px] text-muted-foreground">
+                Showing <strong className="text-foreground">{displayedRows.length}</strong> records
+              </span>
+            </label>
+            <div className="flex items-center gap-2">
+              <div className="relative flex-1">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+                <Input
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder="Search by student name, roll no, subject, division..."
+                  className="pl-8 text-xs h-9"
+                />
+              </div>
+              {(selectedDept !== initialDept ||
+                selectedClass !== initialClass ||
+                selectedSubject !== "__all" ||
+                studentCategory !== "all" ||
+                searchQuery ||
+                startDate ||
+                endDate) && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    setSelectedDept(initialDept);
+                    setSelectedClass(initialClass);
+                    setSelectedSubject("__all");
+                    setStudentCategory("all");
+                    setSearchQuery("");
+                    setStartDate("");
+                    setEndDate("");
+                  }}
+                  className="h-9 px-2.5 text-xs text-muted-foreground hover:text-foreground shrink-0"
+                  title="Reset all filters to defaults"
+                >
+                  <RotateCcw className="h-3.5 w-3.5 mr-1" />
+                  Reset
+                </Button>
+              )}
+            </div>
           </div>
         </div>
       </div>
@@ -952,7 +1006,21 @@ export const Reports: React.FC = () => {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {displayedRows.length === 0 ? (
+              {!startDate && !endDate ? (
+                <TableRow>
+                  <TableCell colSpan={10} className="py-16 text-center text-muted-foreground">
+                    <div className="max-w-sm mx-auto space-y-2.5">
+                      <Calendar className="h-9 w-9 mx-auto text-primary/70" />
+                      <p className="font-semibold text-foreground text-sm">
+                        Select Date to View Attendance Report
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        Please choose a date from the date pickers above to view attendance records and filter defaulters.
+                      </p>
+                    </div>
+                  </TableCell>
+                </TableRow>
+              ) : displayedRows.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={10} className="py-12 text-center text-muted-foreground">
                     <div className="max-w-sm mx-auto space-y-2">
@@ -961,22 +1029,8 @@ export const Reports: React.FC = () => {
                         No attendance records for this period
                       </p>
                       <p className="text-xs text-muted-foreground">
-                        No sessions found between {startDate} and {endDate}.
+                        No sessions found between {startDate || "start"} and {endDate || "today"}.
                       </p>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="text-xs h-7 mt-1"
-                        onClick={() => {
-                          const sixMonths = new Date(Date.now() - 180 * 86400000)
-                            .toISOString()
-                            .split("T")[0];
-                          setStartDate(sixMonths);
-                          setEndDate(todayStr);
-                        }}
-                      >
-                        Reset to All Semester
-                      </Button>
                     </div>
                   </TableCell>
                 </TableRow>
@@ -993,9 +1047,6 @@ export const Reports: React.FC = () => {
                       </TableCell>
                       <TableCell>
                         <div className="font-semibold text-foreground text-xs">{r.name}</div>
-                        {r.reg && r.reg !== "—" && (
-                          <div className="text-[10px] text-muted-foreground font-mono">{r.reg}</div>
-                        )}
                       </TableCell>
                       <TableCell className="text-xs text-muted-foreground">
                         {r.className || "—"}

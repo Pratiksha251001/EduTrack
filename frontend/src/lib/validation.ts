@@ -135,7 +135,6 @@ export function getStudentValidationErrors(
   if (!value("roll_number")) errors.push("Enrollment / Roll Number is required.");
   if (!value("full_name")) errors.push("Student Full Name is required.");
   if (!value("parent_name")) errors.push("Parent / Guardian Name is required.");
-  if (!value("prn_number")) errors.push("PRN Number is required.");
 
   const emailError = getEmailValidationError(
     value("email"),
@@ -167,7 +166,6 @@ export function getStudentValidationErrors(
     label: string;
   }> = [
     { field: "roll_number", label: "Roll Number" },
-    { field: "prn_number", label: "PRN Number" },
     { field: "email", label: "Student Email" },
     { field: "parent_mobile", label: "Parent Mobile" },
     { field: "student_mobile", label: "Student Mobile" },
