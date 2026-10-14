@@ -1,19 +1,14 @@
 import React, { useState, useMemo } from "react";
 import {
-  AlertCircle,
   Check,
   X,
   Send,
-  Globe,
-  Copy,
-  Phone,
-  User,
-  ShieldCheck,
-  CheckCircle2,
-  AlertTriangle,
-  Search,
   MessageSquare,
-  Sparkles,
+  Users,
+  Copy,
+  ChevronDown,
+  ChevronUp,
+  AlertCircle,
 } from "lucide-react";
 import {
   Dialog,
@@ -24,20 +19,8 @@ import {
 } from "./ui/dialog";
 import { Button } from "./ui/button";
 import { Badge } from "./ui/badge";
-import { Input } from "./ui/input";
 import {
-  Table,
-  TableHeader,
-  TableBody,
-  TableRow,
-  TableHead,
-  TableCell,
-} from "./ui/table";
-import {
-  college,
-  SMS_LANGUAGES,
   generateSmsMessage,
-  getParentWhatsAppUrl,
 } from "../lib/college";
 import { SmsLanguage, Student, Subject } from "../lib/types";
 
@@ -49,7 +32,10 @@ interface AttendanceVerificationModalProps {
   eligibleStudents: Student[];
   attendanceState: Record<string, "present" | "absent">;
   onToggleStudent: (id: string, status: "present" | "absent") => void;
-  onConfirm: (language: SmsLanguage, targetMode: "absent_only" | "present_only" | "both") => Promise<void>;
+  onConfirm: (
+    language: SmsLanguage,
+    targetMode: "absent_only" | "present_only" | "both",
+  ) => Promise<void>;
   saving: boolean;
   smsLanguage: SmsLanguage;
   onLanguageChange: (lang: SmsLanguage) => void;
@@ -70,14 +56,14 @@ export const AttendanceVerificationModal: React.FC<
   smsLanguage,
   onLanguageChange,
 }) => {
-  const [activeTab, setActiveTab] = useState<"absent" | "present" | "all">(
-    "absent",
-  );
-  const [smsTargetMode, setSmsTargetMode] = useState<"absent_only" | "present_only" | "both">("absent_only");
-  const [filterSearch, setFilterSearch] = useState("");
+  const [smsTargetMode, setSmsTargetMode] = useState<
+    "absent_only" | "present_only" | "both"
+  >("absent_only");
+  const [showPresentList, setShowPresentList] = useState(false);
+  const [showSmsPreview, setShowSmsPreview] = useState(false);
   const [copiedPreview, setCopiedPreview] = useState(false);
 
-  // Categorize students based on current attendanceState
+  // Categorize students
   const { absentStudents, presentStudents } = useMemo(() => {
     const absent: Student[] = [];
     const present: Student[] = [];
@@ -94,34 +80,19 @@ export const AttendanceVerificationModal: React.FC<
     return { absentStudents: absent, presentStudents: present };
   }, [eligibleStudents, attendanceState]);
 
-  const absentWithMobile = absentStudents.filter((s) => Boolean(s.parent_mobile));
-  const absentWithoutMobile = absentStudents.filter((s) => !s.parent_mobile);
-  const presentWithMobile = presentStudents.filter((s) => Boolean(s.parent_mobile));
+  // Target count based on SMS target mode
+  const targetCount =
+    smsTargetMode === "absent_only"
+      ? absentStudents.length
+      : smsTargetMode === "present_only"
+        ? presentStudents.length
+        : eligibleStudents.length;
 
-  // Filtered lists for the active tab
-  const displayedStudents = useMemo(() => {
-    let list: Student[] = [];
-    if (activeTab === "absent") list = absentStudents;
-    else if (activeTab === "present") list = presentStudents;
-    else list = eligibleStudents;
-
-    if (!filterSearch.trim()) return list;
-
-    const q = filterSearch.toLowerCase().trim();
-    return list.filter(
-      (s) =>
-        s.full_name.toLowerCase().includes(q) ||
-        s.roll_number.toLowerCase().includes(q) ||
-        (s.parent_name && s.parent_name.toLowerCase().includes(q)) ||
-        (s.parent_mobile && s.parent_mobile.includes(q)),
-    );
-  }, [activeTab, absentStudents, presentStudents, eligibleStudents, filterSearch]);
-
-  // Sample student for live SMS preview based on target mode
+  // Sample student for live SMS preview
   const sampleStudent =
     smsTargetMode === "present_only"
-      ? (presentStudents[0] || eligibleStudents[0])
-      : (absentStudents[0] || eligibleStudents[0]);
+      ? presentStudents[0] || eligibleStudents[0]
+      : absentStudents[0] || eligibleStudents[0];
 
   const sampleStatus: "absent" | "present" =
     smsTargetMode === "present_only" ? "present" : "absent";
@@ -145,401 +116,315 @@ export const AttendanceVerificationModal: React.FC<
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-3xl max-h-[92vh] overflow-hidden flex flex-col p-0 gap-0">
-        {/* Modal Header */}
-        <DialogHeader className="p-5 pb-4 border-b border-border bg-card/70 shrink-0">
-          <div className="flex items-start justify-between gap-3">
-            <div className="flex items-start gap-3">
-              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20">
-                <AlertCircle className="h-5 w-5" />
-              </div>
-              <div>
-                <DialogTitle className="text-lg font-bold text-foreground">
-                  Check Attendance & Confirm Parent SMS Alerts
-                </DialogTitle>
-                <p className="text-xs text-muted-foreground mt-0.5">
-                  <span className="font-semibold text-foreground">
-                    {subject?.code} · {subject?.name}
-                  </span>{" "}
-                  (Semester {subject?.semester}) • Date:{" "}
-                  <span className="font-medium text-foreground">{date}</span>
-                </p>
-              </div>
-            </div>
-          </div>
-
-          {/* One-Line Verification Notice */}
-          <div className="mt-2.5 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-1.5 text-xs text-amber-900 dark:text-amber-200 flex items-center gap-2">
-            <AlertTriangle className="h-3.5 w-3.5 shrink-0 text-amber-600 dark:text-amber-400" />
-            <span className="text-[11.5px] truncate">
-              Please verify Absent ({absentStudents.length}) & Present ({presentStudents.length}) lists before clicking Confirm & Send SMS.
-            </span>
-          </div>
-
-          {/* SMS Notification Target Option: Absent, Present, or Both */}
-          <div className="mt-2 flex flex-col sm:flex-row sm:items-center justify-between gap-2 p-2 rounded-lg bg-card border border-border text-xs shadow-xs">
-            <div className="flex items-center gap-1.5 text-muted-foreground text-[11.5px]">
-              <Send className="h-3.5 w-3.5 text-primary" />
-              <span className="font-semibold text-foreground">Send SMS To:</span>
-            </div>
-            <div className="flex items-center gap-1.5 flex-wrap">
-              <button
-                type="button"
-                onClick={() => setSmsTargetMode("absent_only")}
-                className={`px-2.5 py-1 rounded-md text-xs font-semibold transition-all cursor-pointer ${
-                  smsTargetMode === "absent_only"
-                    ? "bg-rose-600 text-white shadow-xs font-bold"
-                    : "bg-secondary text-secondary-foreground hover:bg-secondary/70 border border-border/70"
-                }`}
-              >
-                🔴 Absent Only ({absentStudents.length})
-              </button>
-              <button
-                type="button"
-                onClick={() => setSmsTargetMode("present_only")}
-                className={`px-2.5 py-1 rounded-md text-xs font-semibold transition-all cursor-pointer ${
-                  smsTargetMode === "present_only"
-                    ? "bg-emerald-600 text-white shadow-xs font-bold"
-                    : "bg-secondary text-secondary-foreground hover:bg-secondary/70 border border-border/70"
-                }`}
-              >
-                🟢 Present Only ({presentStudents.length})
-              </button>
-              <button
-                type="button"
-                onClick={() => setSmsTargetMode("both")}
-                className={`px-2.5 py-1 rounded-md text-xs font-semibold transition-all cursor-pointer ${
-                  smsTargetMode === "both"
-                    ? "bg-blue-600 text-white shadow-xs font-bold"
-                    : "bg-secondary text-secondary-foreground hover:bg-secondary/70 border border-border/70"
-                }`}
-              >
-                🔵 Both ({eligibleStudents.length})
-              </button>
-            </div>
-          </div>
-
-          {/* Small Message Language Options: Marathi, Eng, Both (Default: Eng) */}
-          <div className="mt-1.5 flex items-center justify-between gap-2 px-3 py-1.5 rounded-lg bg-card border border-border text-xs shadow-xs">
-            <div className="flex items-center gap-1.5 text-muted-foreground text-[11.5px]">
-              <MessageSquare className="h-3.5 w-3.5 text-primary" />
-              <span className="font-semibold text-foreground">Language:</span>
-            </div>
-            <div className="flex items-center gap-1.5">
-              <button
-                type="button"
-                onClick={() => onLanguageChange("mr")}
-                className={`px-2.5 py-1 rounded-md text-xs font-semibold transition-all cursor-pointer ${
-                  smsLanguage === "mr"
-                    ? "bg-primary text-primary-foreground shadow-xs font-bold"
-                    : "bg-secondary text-secondary-foreground hover:bg-secondary/70 hover:text-foreground border border-border/70"
-                }`}
-              >
-                Marathi
-              </button>
-              <button
-                type="button"
-                onClick={() => onLanguageChange("en")}
-                className={`px-2.5 py-1 rounded-md text-xs font-semibold transition-all cursor-pointer ${
-                  smsLanguage === "en"
-                    ? "bg-primary text-primary-foreground shadow-xs font-bold"
-                    : "bg-secondary text-secondary-foreground hover:bg-secondary/70 hover:text-foreground border border-border/70"
-                }`}
-              >
-                Eng (Default)
-              </button>
-              <button
-                type="button"
-                onClick={() => onLanguageChange("bilingual_mr")}
-                className={`px-2.5 py-1 rounded-md text-xs font-semibold transition-all cursor-pointer ${
-                  smsLanguage === "bilingual_mr" || smsLanguage === "other" || smsLanguage === "trilingual"
-                    ? "bg-primary text-primary-foreground shadow-xs font-bold"
-                    : "bg-secondary text-secondary-foreground hover:bg-secondary/70 hover:text-foreground border border-border/70"
-                }`}
-              >
-                Both
-              </button>
-            </div>
-          </div>
-
-          {/* Quick Metrics Bar */}
-          <div className="grid grid-cols-4 gap-2 mt-3 text-center">
-            <div className="rounded-lg border border-border bg-muted/40 p-2">
-              <span className="text-[10px] uppercase font-bold text-muted-foreground block">
-                Total Students
-              </span>
-              <span className="text-base font-bold text-foreground">
-                {eligibleStudents.length}
-              </span>
-            </div>
-            <div className="rounded-lg border border-emerald-500/25 bg-emerald-500/5 p-2">
-              <span className="text-[10px] uppercase font-bold text-emerald-700 dark:text-emerald-400 block">
-                Present
-              </span>
-              <span className="text-base font-bold text-emerald-600 dark:text-emerald-400">
-                {presentStudents.length}
-              </span>
-            </div>
-            <div className="rounded-lg border border-rose-500/25 bg-rose-500/5 p-2">
-              <span className="text-[10px] uppercase font-bold text-rose-700 dark:text-rose-400 block">
-                Absent
-              </span>
-              <span className="text-base font-bold text-rose-600 dark:text-rose-400">
-                {absentStudents.length}
-              </span>
-            </div>
-            <div className="rounded-lg border border-primary/25 bg-primary/5 p-2">
-              <span className="text-[10px] uppercase font-bold text-primary block">
-                SMS Target
-              </span>
-              <span className="text-base font-bold text-primary">
-                {smsTargetMode === "absent_only"
-                  ? absentWithMobile.length
-                  : smsTargetMode === "present_only"
-                  ? presentWithMobile.length
-                  : absentWithMobile.length + presentWithMobile.length}
-              </span>
+      <DialogContent className="max-w-2xl max-h-[90vh] overflow-hidden flex flex-col p-0 gap-0">
+        {/* Clean Header */}
+        <DialogHeader className="p-5 pb-4 border-b border-border bg-card shrink-0">
+          <div className="flex items-center justify-between">
+            <div>
+              <DialogTitle className="text-lg font-bold text-foreground">
+                Confirm Attendance &amp; Send SMS
+              </DialogTitle>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                <span className="font-semibold text-foreground">
+                  {subject?.code} · {subject?.name}
+                </span>{" "}
+                (Sem {subject?.semester}) • Date:{" "}
+                <span className="font-semibold text-foreground">{date}</span>
+              </p>
             </div>
           </div>
         </DialogHeader>
 
-        {/* Scrollable Modal Content */}
+        {/* Scrollable Body */}
         <div className="overflow-y-auto flex-1 p-5 space-y-4">
-          {/* Verification Tabs & Search */}
-          <div className="space-y-2.5">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
-              {/* Tab Selector */}
-              <div className="flex items-center gap-1.5 p-1 bg-muted/50 rounded-lg border border-border w-fit">
-                <button
-                  type="button"
-                  onClick={() => setActiveTab("absent")}
-                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-semibold transition-all ${
-                    activeTab === "absent"
-                      ? "bg-rose-500 text-white shadow-xs"
-                      : "text-muted-foreground hover:text-foreground"
-                  }`}
-                >
-                  <X className="h-3.5 w-3.5" />
-                  <span>Absent List</span>
-                  <span
-                    className={`ml-1 px-1.5 py-0.2 rounded-full text-[10px] ${
-                      activeTab === "absent"
-                        ? "bg-rose-700 text-white"
-                        : "bg-rose-500/15 text-rose-600 dark:text-rose-400"
-                    }`}
-                  >
-                    {absentStudents.length}
-                  </span>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => setActiveTab("present")}
-                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-semibold transition-all ${
-                    activeTab === "present"
-                      ? "bg-emerald-600 text-white shadow-xs"
-                      : "text-muted-foreground hover:text-foreground"
-                  }`}
-                >
-                  <Check className="h-3.5 w-3.5" />
-                  <span>Present List</span>
-                  <span
-                    className={`ml-1 px-1.5 py-0.2 rounded-full text-[10px] ${
-                      activeTab === "present"
-                        ? "bg-emerald-800 text-white"
-                        : "bg-emerald-500/15 text-emerald-700 dark:text-emerald-400"
-                    }`}
-                  >
-                    {presentStudents.length}
-                  </span>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => setActiveTab("all")}
-                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-semibold transition-all ${
-                    activeTab === "all"
-                      ? "bg-primary/10 text-primary shadow-xs border border-primary/25"
-                      : "text-muted-foreground hover:text-foreground"
-                  }`}
-                >
-                  <span>All ({eligibleStudents.length})</span>
-                </button>
+          {/* Unified Compact Overview Bar */}
+          <div className="rounded-xl border border-border bg-muted/30 p-3.5 space-y-3">
+            {/* Top Stats: Total, Present, Absent */}
+            <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border/60 pb-3">
+              <div className="flex items-center gap-2">
+                <Users className="h-4 w-4 text-muted-foreground" />
+                <span className="text-xs text-muted-foreground">
+                  Total Students:{" "}
+                  <strong className="text-foreground">{eligibleStudents.length}</strong>
+                </span>
               </div>
 
-              {/* In-modal search */}
-              <div className="relative w-full sm:w-56">
-                <Search className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-muted-foreground" />
-                <Input
-                  placeholder="Filter this list..."
-                  value={filterSearch}
-                  onChange={(e) => setFilterSearch(e.target.value)}
-                  className="h-8 pl-8 text-xs"
-                />
+              <div className="flex items-center gap-2 text-xs">
+                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 font-semibold border border-emerald-500/20">
+                  <span className="h-2 w-2 rounded-full bg-emerald-500" />
+                  Present: {presentStudents.length}
+                </span>
+                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-rose-500/10 text-rose-700 dark:text-rose-400 font-semibold border border-rose-500/20">
+                  <span className="h-2 w-2 rounded-full bg-rose-500" />
+                  Absent: {absentStudents.length}
+                </span>
               </div>
             </div>
 
-            {/* Notice if absent students without phone */}
-            {activeTab === "absent" && absentWithoutMobile.length > 0 && (
-              <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-800 dark:text-amber-300 flex items-center justify-between">
-                <span>
-                  ⚠️ <strong>{absentWithoutMobile.length} student(s)</strong> have no parent mobile registered. Their absence will still be recorded in logs.
-                </span>
-                <span className="text-[11px] font-semibold underline">
-                  {absentWithoutMobile.map((s) => s.roll_number).join(", ")}
-                </span>
-              </div>
-            )}
-
-            {/* Table Container */}
-            <div className="rounded-xl border border-border/70 overflow-hidden bg-card max-h-64 overflow-y-auto">
-              {displayedStudents.length === 0 ? (
-                <div className="py-8 text-center text-xs text-muted-foreground">
-                  {activeTab === "absent" ? (
-                    <div className="space-y-1">
-                      <p className="font-semibold text-emerald-600 dark:text-emerald-400">
-                        🎉 No students are marked absent!
-                      </p>
-                      <p className="text-[11px]">
-                        All {eligibleStudents.length} students in this cohort will be recorded as Present.
-                      </p>
-                    </div>
-                  ) : activeTab === "present" ? (
-                    <p>No students currently marked present.</p>
-                  ) : (
-                    <p>No students match your filter search.</p>
-                  )}
+            {/* Quick Controls: Send SMS To & Language */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+              <div className="space-y-1">
+                <label className="text-[11px] font-semibold text-muted-foreground block">
+                  Send SMS Notification to:
+                </label>
+                <div className="flex items-center gap-1 bg-background p-1 rounded-lg border border-border">
+                  <button
+                    type="button"
+                    onClick={() => setSmsTargetMode("absent_only")}
+                    className={`flex-1 py-1 px-2 rounded-md font-semibold text-xs transition-all ${
+                      smsTargetMode === "absent_only"
+                        ? "bg-rose-600 text-white shadow-xs"
+                        : "text-muted-foreground hover:text-foreground"
+                    }`}
+                  >
+                    Absent ({absentStudents.length})
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setSmsTargetMode("present_only")}
+                    className={`flex-1 py-1 px-2 rounded-md font-semibold text-xs transition-all ${
+                      smsTargetMode === "present_only"
+                        ? "bg-emerald-600 text-white shadow-xs"
+                        : "text-muted-foreground hover:text-foreground"
+                    }`}
+                  >
+                    Present ({presentStudents.length})
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setSmsTargetMode("both")}
+                    className={`flex-1 py-1 px-2 rounded-md font-semibold text-xs transition-all ${
+                      smsTargetMode === "both"
+                        ? "bg-primary text-primary-foreground shadow-xs"
+                        : "text-muted-foreground hover:text-foreground"
+                    }`}
+                  >
+                    Both ({eligibleStudents.length})
+                  </button>
                 </div>
-              ) : (
-                <Table className="w-full text-xs">
-                  <TableHeader className="bg-muted/70 sticky top-0 z-10">
-                    <TableRow>
-                      <TableHead className="w-20 font-bold">Roll No</TableHead>
-                      <TableHead className="min-w-[150px] font-bold">Student Name</TableHead>
-                      <TableHead className="min-w-[150px] font-bold">Guardian Contact</TableHead>
-                      <TableHead className="w-24 text-center font-bold">Status</TableHead>
-                      <TableHead className="w-32 text-right font-bold pr-3">Correction</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody className="divide-y divide-border/60">
-                    {displayedStudents.map((st) => {
-                      const status = attendanceState[st.id] || "present";
-                      const isAbsent = status === "absent";
+              </div>
 
-                      return (
-                        <TableRow
-                          key={st.id}
-                          className={`transition-colors ${
-                            isAbsent
-                              ? "bg-rose-500/[0.04] hover:bg-rose-500/[0.08]"
-                              : "hover:bg-muted/40"
-                          }`}
-                        >
-                          <TableCell className="font-mono text-xs font-bold text-foreground">
-                            {st.roll_number}
-                          </TableCell>
-                          <TableCell>
-                            <span className="font-semibold text-foreground">
-                              {st.full_name}
-                            </span>
-                          </TableCell>
-                          <TableCell>
-                            <div className="text-[11px]">
-                              <span className="text-muted-foreground">{st.parent_name || "Guardian"}: </span>
-                              {st.parent_mobile ? (
-                                <span className="font-mono text-emerald-600 dark:text-emerald-400 font-medium">
-                                  {st.parent_mobile}
-                                </span>
-                              ) : (
-                                <span className="text-amber-600 dark:text-amber-400 font-medium">
-                                  No Mobile
-                                </span>
-                              )}
-                            </div>
-                          </TableCell>
-                          <TableCell className="text-center">
-                            <Badge
-                              variant={isAbsent ? "destructive" : "success"}
-                              className="text-[9px] uppercase px-1.5 py-0 font-bold"
-                            >
-                              {isAbsent ? "Absent" : "Present"}
-                            </Badge>
-                          </TableCell>
-                          <TableCell className="text-right pr-3">
-                            {isAbsent ? (
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                onClick={() => onToggleStudent(st.id, "present")}
-                                className="h-6 text-[10px] px-2 border-emerald-500/30 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-500/10"
-                                title="Change to Present"
-                              >
-                                <Check className="h-3 w-3 mr-1 text-emerald-600" />
-                                To Present
-                              </Button>
-                            ) : (
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                onClick={() => onToggleStudent(st.id, "absent")}
-                                className="h-6 text-[10px] px-2 border-rose-500/30 text-rose-700 dark:text-rose-300 hover:bg-rose-500/10"
-                                title="Change to Absent"
-                              >
-                                <X className="h-3 w-3 mr-1 text-rose-600" />
-                                To Absent
-                              </Button>
-                            )}
-                          </TableCell>
-                        </TableRow>
-                      );
-                    })}
-                  </TableBody>
-                </Table>
-              )}
+              <div className="space-y-1">
+                <label className="text-[11px] font-semibold text-muted-foreground block">
+                  Message Language:
+                </label>
+                <div className="flex items-center gap-1 bg-background p-1 rounded-lg border border-border">
+                  <button
+                    type="button"
+                    onClick={() => onLanguageChange("en")}
+                    className={`flex-1 py-1 px-2 rounded-md font-semibold text-xs transition-all ${
+                      smsLanguage === "en"
+                        ? "bg-primary text-primary-foreground shadow-xs"
+                        : "text-muted-foreground hover:text-foreground"
+                    }`}
+                  >
+                    English
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => onLanguageChange("mr")}
+                    className={`flex-1 py-1 px-2 rounded-md font-semibold text-xs transition-all ${
+                      smsLanguage === "mr"
+                        ? "bg-primary text-primary-foreground shadow-xs"
+                        : "text-muted-foreground hover:text-foreground"
+                    }`}
+                  >
+                    Marathi
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => onLanguageChange("bilingual_mr")}
+                    className={`flex-1 py-1 px-2 rounded-md font-semibold text-xs transition-all ${
+                      smsLanguage === "bilingual_mr" ||
+                      smsLanguage === "other" ||
+                      smsLanguage === "trilingual"
+                        ? "bg-primary text-primary-foreground shadow-xs"
+                        : "text-muted-foreground hover:text-foreground"
+                    }`}
+                  >
+                    Both
+                  </button>
+                </div>
+              </div>
             </div>
           </div>
 
-          {/* SMS Notification Message Preview */}
-          {((smsTargetMode === "absent_only" && absentStudents.length > 0) ||
-            (smsTargetMode === "present_only" && presentStudents.length > 0) ||
-            smsTargetMode === "both") && (
-            <div className="rounded-xl border border-border/80 bg-muted/20 p-3 space-y-1.5">
-              <div className="flex items-center justify-between">
-                <span className="text-[11px] font-semibold text-muted-foreground flex items-center gap-1.5">
-                  <Globe className="h-3.5 w-3.5 text-primary" />
-                  SMS Preview ({sampleStatus === "present" ? "Present Confirmation" : "Absent Alert"} · {smsLanguage === "mr" ? "Marathi" : smsLanguage === "en" ? "Eng" : "Both"} · Ward: {sampleStudent?.full_name}):
+          {/* Absent Students Section (Main Verification Target) */}
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <h3 className="font-display text-sm font-bold text-foreground flex items-center gap-2">
+                <span>Absent Students ({absentStudents.length})</span>
+                {absentStudents.length > 0 && (
+                  <Badge variant="destructive" className="text-[10px] py-0 px-1.5">
+                    SMS Target
+                  </Badge>
+                )}
+              </h3>
+              {absentStudents.length > 0 && (
+                <span className="text-[11px] text-muted-foreground">
+                  Click &quot;Make Present&quot; if marked by mistake
                 </span>
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  onClick={handleCopyPreview}
-                  className="h-6 px-2 text-[11px] text-muted-foreground hover:text-foreground"
-                >
-                  {copiedPreview ? (
-                    <>
-                      <Check className="h-3 w-3 mr-1 text-emerald-500" /> Copied
-                    </>
-                  ) : (
-                    <>
-                      <Copy className="h-3 w-3 mr-1" /> Copy SMS Text
-                    </>
-                  )}
-                </Button>
-              </div>
-              <div className="p-2.5 rounded-lg bg-card border border-border/80 text-xs font-sans text-foreground whitespace-pre-line leading-relaxed max-h-32 overflow-y-auto">
-                {sampleMessage}
-              </div>
+              )}
             </div>
-          )}
+
+            {absentStudents.length === 0 ? (
+              <div className="rounded-xl border border-dashed border-emerald-500/40 bg-emerald-500/5 p-4 text-center space-y-1">
+                <p className="text-sm font-bold text-emerald-700 dark:text-emerald-400">
+                  🎉 All {eligibleStudents.length} students are marked Present!
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  No absence SMS alerts will be sent.
+                </p>
+              </div>
+            ) : (
+              <div className="rounded-xl border border-border divide-y divide-border bg-card overflow-hidden">
+                {absentStudents.map((st) => (
+                  <div
+                    key={st.id}
+                    className="flex items-center justify-between p-3 hover:bg-rose-500/[0.03] transition-colors gap-3"
+                  >
+                    <div className="min-w-0 flex items-center gap-3">
+                      <span className="font-mono font-bold text-xs px-2 py-0.5 rounded bg-muted text-foreground shrink-0">
+                        {st.roll_number}
+                      </span>
+                      <div className="min-w-0">
+                        <p className="font-semibold text-sm text-foreground truncate">
+                          {st.full_name}
+                        </p>
+                        <p className="text-[11px] text-muted-foreground truncate">
+                          Parent: {st.parent_name || "Guardian"}{" "}
+                          {st.parent_mobile ? (
+                            <span className="font-mono text-emerald-600 dark:text-emerald-400 font-medium ml-1">
+                              • {st.parent_mobile}
+                            </span>
+                          ) : (
+                            <span className="text-amber-600 dark:text-amber-400 font-medium ml-1">
+                              • (No Mobile Registered)
+                            </span>
+                          )}
+                        </p>
+                      </div>
+                    </div>
+
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => onToggleStudent(st.id, "present")}
+                      className="h-7 text-xs px-2.5 shrink-0 border-emerald-500/30 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-500/10 gap-1 font-medium"
+                      title="Change to Present"
+                    >
+                      <Check className="h-3.5 w-3.5" />
+                      Make Present
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Toggleable Present Students List */}
+          <div className="border-t border-border/60 pt-2">
+            <button
+              type="button"
+              onClick={() => setShowPresentList(!showPresentList)}
+              className="w-full flex items-center justify-between py-2 text-xs text-muted-foreground hover:text-foreground font-semibold"
+            >
+              <span>View Present Students ({presentStudents.length})</span>
+              {showPresentList ? (
+                <ChevronUp className="h-4 w-4" />
+              ) : (
+                <ChevronDown className="h-4 w-4" />
+              )}
+            </button>
+
+            {showPresentList && (
+              <div className="rounded-xl border border-border divide-y divide-border bg-card overflow-hidden mt-2 max-h-48 overflow-y-auto">
+                {presentStudents.map((st) => (
+                  <div
+                    key={st.id}
+                    className="flex items-center justify-between p-2.5 hover:bg-muted/40 transition-colors gap-3"
+                  >
+                    <div className="min-w-0 flex items-center gap-2.5">
+                      <span className="font-mono font-medium text-xs text-muted-foreground shrink-0">
+                        {st.roll_number}
+                      </span>
+                      <span className="text-xs font-semibold text-foreground truncate">
+                        {st.full_name}
+                      </span>
+                    </div>
+
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => onToggleStudent(st.id, "absent")}
+                      className="h-6 text-[11px] px-2 text-rose-600 hover:bg-rose-500/10 gap-1"
+                      title="Change to Absent"
+                    >
+                      <X className="h-3 w-3" />
+                      Mark Absent
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Collapsible SMS Preview */}
+          <div className="border-t border-border/60 pt-2">
+            <button
+              type="button"
+              onClick={() => setShowSmsPreview(!showSmsPreview)}
+              className="w-full flex items-center justify-between py-2 text-xs text-muted-foreground hover:text-foreground font-semibold"
+            >
+              <span className="flex items-center gap-1.5">
+                <MessageSquare className="h-3.5 w-3.5 text-primary" />
+                Preview SMS Message Template
+              </span>
+              {showSmsPreview ? (
+                <ChevronUp className="h-4 w-4" />
+              ) : (
+                <ChevronDown className="h-4 w-4" />
+              )}
+            </button>
+
+            {showSmsPreview && (
+              <div className="rounded-xl border border-border bg-card p-3 space-y-2 mt-1">
+                <div className="flex items-center justify-between text-[11px] text-muted-foreground">
+                  <span>
+                    Template Preview ({sampleStatus === "present" ? "Present Alert" : "Absent Alert"} ·{" "}
+                    {smsLanguage === "mr" ? "Marathi" : smsLanguage === "en" ? "English" : "Both"}):
+                  </span>
+                  <button
+                    type="button"
+                    onClick={handleCopyPreview}
+                    className="flex items-center gap-1 text-primary hover:underline font-medium"
+                  >
+                    {copiedPreview ? (
+                      <>
+                        <Check className="h-3 w-3 text-emerald-500" /> Copied
+                      </>
+                    ) : (
+                      <>
+                        <Copy className="h-3 w-3" /> Copy
+                      </>
+                    )}
+                  </button>
+                </div>
+                <div className="p-2.5 rounded-lg bg-muted/40 border border-border text-xs whitespace-pre-line leading-relaxed text-foreground font-sans">
+                  {sampleMessage || "No message preview available."}
+                </div>
+              </div>
+            )}
+          </div>
         </div>
 
-        {/* Modal Footer */}
-        <DialogFooter className="p-4 border-t border-border bg-card/70 shrink-0 flex flex-col sm:flex-row items-center justify-between gap-2.5">
+        {/* Clean Footer */}
+        <DialogFooter className="p-4 border-t border-border bg-card shrink-0 flex flex-col-reverse sm:flex-row items-center justify-between gap-2.5">
           <Button
             variant="outline"
             onClick={() => onOpenChange(false)}
             disabled={saving}
-            className="w-full sm:w-auto"
+            className="w-full sm:w-auto text-xs"
           >
             Cancel / Back to Edit
           </Button>
@@ -547,40 +432,23 @@ export const AttendanceVerificationModal: React.FC<
           <Button
             onClick={() => onConfirm(smsLanguage, smsTargetMode)}
             disabled={saving || eligibleStudents.length === 0}
-            className={`w-full sm:w-auto font-semibold ${
-              smsTargetMode === "present_only"
-                ? "bg-emerald-600 hover:bg-emerald-700 text-white"
-                : smsTargetMode === "both"
-                ? "bg-blue-600 hover:bg-blue-700 text-white"
-                : absentStudents.length > 0
-                ? "bg-rose-600 hover:bg-rose-700 text-white"
-                : "bg-emerald-600 hover:bg-emerald-700 text-white"
-            }`}
+            className="w-full sm:w-auto gap-1.5 text-xs font-semibold shadow-xs"
           >
             {saving ? (
               <span className="flex items-center gap-2">
-                <span className="h-4 w-4 rounded-full border-2 border-white border-t-transparent animate-spin" />
-                Dispatching Parent Alerts...
-              </span>
-            ) : smsTargetMode === "present_only" ? (
-              <span className="flex items-center gap-1.5">
-                <Send className="h-4 w-4" />
-                Confirm & Send Present SMS ({presentStudents.length} Students)
-              </span>
-            ) : smsTargetMode === "both" ? (
-              <span className="flex items-center gap-1.5">
-                <Send className="h-4 w-4" />
-                Confirm & Send SMS to All ({absentStudents.length} Absent + {presentStudents.length} Present)
-              </span>
-            ) : absentStudents.length > 0 ? (
-              <span className="flex items-center gap-1.5">
-                <Send className="h-4 w-4" />
-                Confirm Attendance & Send SMS ({absentStudents.length} Absent)
+                <span className="h-3.5 w-3.5 rounded-full border-2 border-white border-t-transparent animate-spin" />
+                Saving &amp; Sending SMS...
               </span>
             ) : (
               <span className="flex items-center gap-1.5">
-                <Check className="h-4 w-4" />
-                Confirm Attendance (All {eligibleStudents.length} Present)
+                <Send className="h-3.5 w-3.5" />
+                {smsTargetMode === "absent_only" && absentStudents.length > 0
+                  ? `Confirm & Send SMS (${absentStudents.length} Absent)`
+                  : smsTargetMode === "present_only"
+                    ? `Confirm & Send SMS (${presentStudents.length} Present)`
+                    : smsTargetMode === "both"
+                      ? `Confirm & Send SMS to All (${eligibleStudents.length})`
+                      : `Confirm Attendance (${eligibleStudents.length} Students)`}
               </span>
             )}
           </Button>
