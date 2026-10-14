@@ -219,34 +219,21 @@ export const HODStudents: React.FC = () => {
   }, [students, studentStatsMap, smsLogs]);
 
   const filtered = useMemo(() => {
+    const query = search.toLowerCase().trim();
+    if (!query) return students;
     return students.filter((student) => {
-      if (
-        selectedSemester !== "__all" &&
-        String(student.semester) !== selectedSemester
-      ) {
-        return false;
-      }
-
-      const stat = studentStatsMap.get(student.id) || { rate: 100, total: 0 };
-      if (attendanceFilter === "defaulters") {
-        if (stat.total === 0 || stat.rate >= 75) return false;
-      } else if (attendanceFilter === "regular") {
-        if (stat.rate < 75) return false;
-      }
-
-      const query = search.toLowerCase();
       return (
-        !query ||
         student.full_name.toLowerCase().includes(query) ||
         student.roll_number.toLowerCase().includes(query) ||
         (student.prn_number &&
           student.prn_number.toLowerCase().includes(query)) ||
         (student.parent_name &&
           student.parent_name.toLowerCase().includes(query)) ||
-        (student.parent_mobile && student.parent_mobile.includes(query))
+        (student.parent_mobile && student.parent_mobile.includes(query)) ||
+        (student.class_name && student.class_name.toLowerCase().includes(query))
       );
     });
-  }, [students, search, selectedSemester, attendanceFilter, studentStatsMap]);
+  }, [students, search]);
 
   const save = async () => {
     const errs: string[] = [];
@@ -700,8 +687,8 @@ export const HODStudents: React.FC = () => {
         </Card>
       )}
 
-      {/* Filter and Search Bar */}
-      <div className="surface-panel p-4 space-y-3">
+      {/* Search Bar */}
+      <div className="surface-panel p-4">
         <div className="flex flex-col sm:flex-row gap-3 items-stretch sm:items-center justify-between">
           <div className="relative flex-1 max-w-md">
             <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
@@ -713,53 +700,9 @@ export const HODStudents: React.FC = () => {
             />
           </div>
 
-          <div className="flex flex-wrap items-center gap-2">
-            <div className="flex items-center gap-1.5">
-              <span className="text-xs font-semibold text-muted-foreground whitespace-nowrap">
-                Semester:
-              </span>
-              <Select
-                className="w-36 h-9 text-xs"
-                value={selectedSemester}
-                onChange={(event) => setSelectedSemester(event.target.value)}
-                options={[
-                  { value: "__all", label: "All Semesters" },
-                  ...[1, 2, 3, 4, 5, 6, 7, 8].map((sem) => ({
-                    value: String(sem),
-                    label: `Semester ${sem}`,
-                  })),
-                ]}
-              />
-            </div>
-
-            <div className="flex items-center gap-1.5">
-              <span className="text-xs font-semibold text-muted-foreground whitespace-nowrap">
-                Attendance:
-              </span>
-              <Select
-                className="w-40 h-9 text-xs"
-                value={attendanceFilter}
-                onChange={(event) => setAttendanceFilter(event.target.value)}
-                options={[
-                  { value: "all", label: "All Students" },
-                  { value: "defaulters", label: "Defaulters (<75%)" },
-                  { value: "regular", label: "Good (≥75%)" },
-                ]}
-              />
-            </div>
+          <div className="text-xs text-muted-foreground">
+            Total Students: <strong className="text-foreground">{filtered.length}</strong>
           </div>
-        </div>
-
-        <div className="flex items-center justify-between text-xs text-muted-foreground pt-1 border-t border-border/60">
-          <span>
-            Showing <strong className="text-foreground">{filtered.length}</strong> of{" "}
-            {students.length} students
-          </span>
-          {attendanceFilter === "defaulters" && (
-            <Badge variant="destructive" className="text-[10px] gap-1">
-              <AlertTriangle className="h-3 w-3" /> Filtered to Defaulters (&lt;75%)
-            </Badge>
-          )}
         </div>
       </div>
 

@@ -71,6 +71,10 @@ export const HODClasses: React.FC = () => {
   };
 
   useEffect(() => {
+    if (departmentId) {
+      localDb.ensureStandardEngineeringDivisions(departmentId);
+      refreshClasses();
+    }
     const handleUpdate = () => refreshClasses();
     window.addEventListener("edutrack_data_updated", handleUpdate);
     return () => window.removeEventListener("edutrack_data_updated", handleUpdate);
@@ -217,38 +221,12 @@ export const HODClasses: React.FC = () => {
           </h1>
         </div>
 
-        <div className="flex flex-wrap items-center gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={handleSetupStandardDivisions}
-            className="gap-1.5 border-border hover:border-primary/50 text-xs h-9"
-            title="Automatically ensure Division A and Division B for 2nd, 3rd, and 4th years"
-          >
-            <Layers className="h-4 w-4 text-emerald-600" />
-            <span>Setup Standard Divisions (A &amp; B)</span>
-          </Button>
-
+        <div className="flex items-center gap-2">
           <Button size="sm" onClick={openAdd} className="gap-1.5 text-xs h-9">
             <Plus className="h-4 w-4" /> Add Class
           </Button>
         </div>
       </div>
-
-      {divisionNotice && (
-        <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-3.5 text-xs font-semibold text-emerald-800 dark:text-emerald-300 flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <Sparkles className="h-4 w-4 text-emerald-600" />
-            <span>{divisionNotice}</span>
-          </div>
-          <button
-            onClick={() => setDivisionNotice(null)}
-            className="text-muted-foreground hover:text-foreground font-bold"
-          >
-            ✕
-          </button>
-        </div>
-      )}
 
       {/* Add / Edit Class Dialog */}
       {open && (
@@ -382,14 +360,8 @@ export const HODClasses: React.FC = () => {
               onChange={(event) => setSearch(event.target.value)}
             />
           </div>
-          <div className="text-xs text-muted-foreground flex items-center gap-2">
-            <span>
-              Total Classes: <strong className="text-foreground">{filtered.length}</strong>
-            </span>
-            <span className="text-border">|</span>
-            <span className="text-[11px] text-muted-foreground">
-              Structure: 1st Year (Single) · 2nd, 3rd, 4th Year (Div A &amp; B)
-            </span>
+          <div className="text-xs text-muted-foreground">
+            Total Classes: <strong className="text-foreground">{filtered.length}</strong>
           </div>
         </div>
       </div>
