@@ -33,6 +33,7 @@ import {
   cleanSmsMessage,
 } from "../lib/college";
 import { dispatchSmsViaGateway } from "../lib/smsService";
+import { sendEmailAlert } from "../lib/emailService";
 
 export interface DefaulterStudentItem {
   student: Student;
@@ -191,7 +192,7 @@ export const DefaulterDirectAlertModal: React.FC<
     const newLogs: SmsLog[] = [];
     const smsGatewayBatch: any[] = [];
 
-    targets.forEach((t) => {
+    for (const t of targets) {
       // 1. Channel: Email
       if (selectedChannels.includes("email")) {
         const emailContent = generateEmailAlertContent(
@@ -207,6 +208,17 @@ export const DefaulterDirectAlertModal: React.FC<
           body += `\n\nAdministrative Note: ${customNote.trim()}`;
         }
 
+        const emailResult = await sendEmailAlert({
+          to_email: t.parentEmail,
+          subject: emailContent.subject,
+          message: body,
+          student_name: t.name,
+          parent_name: t.student.parent_name || undefined,
+          attendance_rate: t.percentage,
+          college_name: "SMIT College of Engineering",
+        });
+
+        const isLive = !emailResult.isSimulated && emailResult.success;
         newLogs.push({
           id: `email-defaulter-${Date.now()}-${t.student.id}-${Math.random().toString(36).substring(2, 6)}`,
           student_id: t.student.id,
@@ -218,12 +230,14 @@ export const DefaulterDirectAlertModal: React.FC<
           attendance_rate: t.percentage,
           email_subject: emailContent.subject,
           message: body,
-          status: "sent",
+          status: emailResult.success ? "sent" : "failed",
           attendance_date: todayStr,
           sent_at: timestamp,
           language: "en",
-          gateway: "Email Notification Service",
-          gateway_response: `Defaulter (<75%) Warning Email sent to ${t.parentEmail}`,
+          gateway: isLive ? "EmailJS Live Service" : "Email Notification Service",
+          gateway_response: isLive
+            ? `Live email delivered via EmailJS to ${t.parentEmail}`
+            : `Defaulter (<75%) Warning Email sent to ${t.parentEmail}`,
           created_at: timestamp,
         });
       }
@@ -290,7 +304,7 @@ export const DefaulterDirectAlertModal: React.FC<
           created_at: timestamp,
         });
       }
-    });
+    }
 
     if (newLogs.length > 0) {
       await localDb.insert("sms_logs", newLogs);

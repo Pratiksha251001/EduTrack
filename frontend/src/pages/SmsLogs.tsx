@@ -8,7 +8,6 @@ import {
   ChevronDown,
   ChevronUp,
   AlertTriangle,
-  Mail,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { localDb } from '../lib/supabase';
@@ -264,7 +263,6 @@ export const SmsLogs: React.FC = () => {
             <AlertTriangle className="h-4 w-4 mr-1.5" />
             Send &lt;75% Defaulter Alert ({defaulterStudents.length})
           </Button>
-
         </div>
       </div>
 

@@ -33,6 +33,7 @@ import {
   getParentWhatsAppUrl,
   ENGINEERING_YEARS,
 } from "../lib/college";
+import { sendEmailAlert } from "../lib/emailService";
 import { SmsLanguage, Student, Subject, AcademicClass, AlertChannel } from "../lib/types";
 import { Button } from "../components/ui/button";
 import { Select } from "../components/ui/select";
@@ -452,6 +453,17 @@ export const Attendance: React.FC = () => {
           rate
         );
 
+        const emailResult = await sendEmailAlert({
+          to_email: studentEmail,
+          subject: emailContent.subject,
+          message: emailContent.body,
+          student_name: st.full_name,
+          parent_name: st.parent_name || undefined,
+          attendance_rate: rate,
+          college_name: "SMIT College of Engineering",
+        });
+
+        const isLive = !emailResult.isSimulated && emailResult.success;
         newLogEntries.push({
           student_id: st.id,
           subject_id: selectedSubject.id,
@@ -463,14 +475,16 @@ export const Attendance: React.FC = () => {
           attendance_rate: rate,
           email_subject: emailContent.subject,
           message: emailContent.body,
-          status: "sent" as const,
+          status: (emailResult.success ? "sent" : "failed") as const,
           attendance_date: selectedDate,
           sent_at: new Date().toISOString(),
           language: chosenLang,
-          gateway: "Email Notification Service",
-          gateway_response: isDefaulter
-            ? `Defaulter (<75%) Warning Email sent to ${studentEmail}`
-            : `Attendance Email sent to ${studentEmail}`,
+          gateway: isLive ? "EmailJS Live Service" : "Email Notification Service",
+          gateway_response: isLive
+            ? `Live email delivered via EmailJS to ${studentEmail}`
+            : isDefaulter
+              ? `Defaulter (<75%) Warning Email sent to ${studentEmail}`
+              : `Attendance Email sent to ${studentEmail}`,
         });
       }
 

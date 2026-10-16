@@ -1248,6 +1248,108 @@ async function startServer() {
     }
   });
 
+  // API 8: Backend Email Dispatch (EmailJS via environment variables)
+  app.post("/api/email/send", async (req, res) => {
+    const {
+      to_email,
+      subject,
+      message,
+      student_name,
+      attendance_rate,
+      parent_name,
+      college_name,
+    } = req.body || {};
+
+    if (!to_email) {
+      return res
+        .status(400)
+        .json({ success: false, message: "Recipient email is required." });
+    }
+
+    const serviceId = (
+      process.env.EMAILJS_SERVICE_ID ||
+      process.env.VITE_EMAILJS_SERVICE_ID ||
+      ""
+    ).trim();
+    const templateId = (
+      process.env.EMAILJS_TEMPLATE_ID ||
+      process.env.VITE_EMAILJS_TEMPLATE_ID ||
+      ""
+    ).trim();
+    const publicKey = (
+      process.env.EMAILJS_PUBLIC_KEY ||
+      process.env.VITE_EMAILJS_PUBLIC_KEY ||
+      process.env.EMAILJS_USER_ID ||
+      ""
+    ).trim();
+
+    if (!serviceId || !templateId || !publicKey) {
+      addLog(
+        "info",
+        `[Email Gateway] Simulation mode for ${to_email} (EmailJS env vars not set).`,
+      );
+      return res.json({
+        success: true,
+        simulated: true,
+        message: `Simulation Mode: EmailJS environment variables not set. (Set EMAILJS_SERVICE_ID, EMAILJS_TEMPLATE_ID, EMAILJS_PUBLIC_KEY in .env)`,
+        to_email,
+      });
+    }
+
+    try {
+      addLog(
+        "info",
+        `[Email Gateway] Dispatching live email to ${to_email} via EmailJS service ${serviceId}...`,
+      );
+      const emailRes = await fetch("https://api.emailjs.com/api/v1.0/email/send", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          service_id: serviceId,
+          template_id: templateId,
+          user_id: publicKey,
+          template_params: {
+            to_email: to_email.trim(),
+            to_name: parent_name || student_name || "Parent/Guardian",
+            subject: subject || "College Attendance Alert",
+            message: message || "",
+            student_name: student_name || "Student",
+            attendance_rate: String(attendance_rate || ""),
+            college_name: college_name || "SMIT College of Engineering",
+            reply_to: "noreply@college.edu",
+          },
+        }),
+      });
+
+      if (emailRes.ok) {
+        addLog(
+          "success",
+          `[Email Gateway] Live email successfully dispatched to ${to_email}`,
+        );
+        return res.json({
+          success: true,
+          simulated: false,
+          message: `Live email successfully delivered to ${to_email}`,
+        });
+      } else {
+        const errTxt = await emailRes.text();
+        addLog("warn", `[Email Gateway] EmailJS dispatch error: ${errTxt}`);
+        return res.status(200).json({
+          success: false,
+          simulated: false,
+          message: `EmailJS error: ${errTxt}`,
+        });
+      }
+    } catch (err: any) {
+      addLog("error", `[Email Gateway] Network error: ${err?.message}`);
+      return res.status(500).json({
+        success: false,
+        simulated: false,
+        message: `Failed to connect to EmailJS: ${err?.message}`,
+      });
+    }
+  });
+
   // Check database connection in background
   checkDatabaseConnection().catch((err) => {
     console.warn("Initial DB handshake warning:", err?.message || err);
