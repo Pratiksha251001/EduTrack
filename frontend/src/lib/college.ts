@@ -336,3 +336,87 @@ export function getMonthlyLowAttendanceMessage({
   return `${enMsg} ${mrMsg}`;
 }
 
+/**
+ * Generate official Email content for attendance and <75% defaulter warning
+ */
+export function generateEmailAlertContent(
+  studentName: string,
+  date: string,
+  subjectName: string,
+  status: "absent" | "present" = "absent",
+  currentRate?: number,
+): { subject: string; body: string } {
+  const shortSub = getSubjectShortName(subjectName);
+  const isDefaulter = typeof currentRate === "number" && currentRate < 75;
+
+  if (status === "absent" && isDefaulter) {
+    const subject = `⚠️ Low Attendance Warning (<75%): ${studentName} - ${shortSub}`;
+    const body = `Dear Parent / Guardian,
+
+This is an official attendance notice from EduTrack Academic Portal.
+
+Your ward ${studentName} was marked ABSENT today (${date}) for ${subjectName}.
+
+CRITICAL DEFICIT NOTICE:
+Current Overall Attendance: ${currentRate}% (Below the mandatory 75% university minimum requirement).
+
+Students maintaining less than 75% aggregate attendance face debarment from appearing in university semester examinations. Please ensure regular attendance immediately and consult the Class Coordinator.
+
+Best regards,
+Head of Department & Academic Cell
+EduTrack Engineering Portal`;
+    return { subject, body };
+  }
+
+  if (status === "absent") {
+    const subject = `Attendance Notice: ${studentName} marked Absent for ${shortSub}`;
+    const body = `Dear Parent / Guardian,
+
+This is to inform you that your ward ${studentName} was marked ABSENT today (${date}) for ${subjectName}.
+${typeof currentRate === "number" ? `Current Cumulative Attendance: ${currentRate}%` : ""}
+
+Please ensure regular presence in subsequent scheduled lectures.
+
+Regards,
+Faculty & Department Administration
+EduTrack Portal`;
+    return { subject, body };
+  }
+
+  const subject = `Attendance Update: ${studentName} marked Present for ${shortSub}`;
+  const body = `Dear Parent / Guardian,
+
+Your ward ${studentName} was marked PRESENT today (${date}) for ${subjectName}.
+${typeof currentRate === "number" ? `Current Cumulative Attendance: ${currentRate}%` : ""}
+
+Regards,
+EduTrack Portal`;
+  return { subject, body };
+}
+
+/**
+ * Generate formatted WhatsApp message for attendance alerts
+ */
+export function generateWhatsAppMessage(
+  studentName: string,
+  date: string,
+  subjectName: string,
+  status: "absent" | "present" = "absent",
+  _lang: SmsLanguage = "en",
+  currentRate?: number,
+): string {
+  const shortSub = getSubjectShortName(subjectName);
+  const isDefaulter = typeof currentRate === "number" && currentRate < 75;
+
+  if (status === "absent") {
+    let msg = `*EduTrack Attendance Alert*\nDear Parent, your ward *${studentName}* is marked *ABSENT* for *${shortSub}* today (${date}).`;
+    if (isDefaulter) {
+      msg += `\n\n⚠️ *CRITICAL DEFICIT WARNING:*\nOverall attendance has fallen to *${currentRate}%* (below mandatory 75% minimum). Please contact the Class Coordinator immediately.`;
+    }
+    msg += `\n\n— EduTrack College Portal`;
+    return msg;
+  }
+
+  return `*EduTrack Attendance Update*\nDear Parent, your ward *${studentName}* is marked *PRESENT* for *${shortSub}* today (${date}).\n\n— EduTrack College Portal`;
+}
+

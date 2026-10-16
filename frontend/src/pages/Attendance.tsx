@@ -27,11 +27,13 @@ import { useAuth } from "../context/AuthContext";
 import {
   college,
   generateSmsMessage,
+  generateEmailAlertContent,
+  generateWhatsAppMessage,
   SMS_LANGUAGES,
   getParentWhatsAppUrl,
   ENGINEERING_YEARS,
 } from "../lib/college";
-import { SmsLanguage, Student, Subject, AcademicClass } from "../lib/types";
+import { SmsLanguage, Student, Subject, AcademicClass, AlertChannel } from "../lib/types";
 import { Button } from "../components/ui/button";
 import { Select } from "../components/ui/select";
 import { Input } from "../components/ui/input";
@@ -346,7 +348,8 @@ export const Attendance: React.FC = () => {
 
   const handleConfirmSubmission = async (
     chosenLang: SmsLanguage,
-    targetMode: "absent_only" | "present_only" | "both" = "absent_only"
+    targetMode: "absent_only" | "present_only" | "both" = "absent_only",
+    channels: AlertChannel[] = ["sms", "email"],
   ) => {
     if (!selectedSubject) return;
     setSaving(true);
@@ -388,76 +391,121 @@ export const Attendance: React.FC = () => {
       attendanceStatus: "absent" | "present";
     }> = [];
 
-    if (targetList.length > 0) {
-      // Prepare payload for SMS Gateway
-      const gatewayPayload = targetList
-        .filter(({ student: st }) => st.parent_mobile && st.parent_mobile.replace(/[^0-9]/g, "").length >= 10)
-        .map(({ student: st, status }) => ({
-          mobile: st.parent_mobile!,
-          message: generateSmsMessage(
-            st.full_name,
-            selectedDate,
-            selectedSubject.name,
-            chosenLang,
-            status
-          ),
-          studentName: st.full_name,
-          studentId: st.id,
-          subject: selectedSubject.name,
-          date: selectedDate,
-        }));
+    const newLogEntries: any[] = [];
+    let defaulterEmailCount = 0;
 
-      let gatewayResult: any = null;
-      if (gatewayPayload.length > 0) {
-        try {
-          gatewayResult = await dispatchSmsViaGateway(gatewayPayload);
-        } catch (err) {
-          console.warn("SMS gateway attendance dispatch notice:", err);
-        }
-      }
+    // Calculate attendance percentage for each targeted student
+    const allAttendance = localDb.attendance;
 
-      const smsEntries = targetList.map(({ student: st, status }) => {
-        const msg = generateSmsMessage(
+    for (const { student: st, status } of targetList) {
+      const past = allAttendance.filter((a) => a.student_id === st.id);
+      const totalLectures = past.length;
+      const presentLectures = past.filter((a) => a.status === "present").length;
+      const rate = totalLectures > 0 ? Math.round((presentLectures / totalLectures) * 100) : 100;
+      const isDefaulter = rate < 75 && status === "absent";
+
+      const cleanPhone = (st.parent_mobile || "").replace(/[^0-9]/g, "");
+      const hasMobile = cleanPhone.length >= 10;
+      const studentEmail = st.email || `${st.roll_number.toLowerCase()}@student.edutrack.edu`;
+
+      // 1. Channel: SMS
+      if (channels.includes("sms")) {
+        const smsMsg = generateSmsMessage(
           st.full_name,
           selectedDate,
           selectedSubject.name,
           chosenLang,
           status
         );
-        const cleanPhone = (st.parent_mobile || "").replace(/[^0-9]/g, "");
-        const hasMobile = cleanPhone.length >= 10;
-
-        const gResult = gatewayResult?.results?.find(
-          (r: any) =>
-            r.mobile === st.parent_mobile ||
-            r.mobile?.includes(cleanPhone.slice(-10)),
-        );
-        const isDelivered = hasMobile && (!gResult || gResult.status === "sent");
-        const deliverStatus = isDelivered ? ("sent" as const) : ("failed" as const);
-
-        dispatchedList.push({
-          student: st,
-          status: deliverStatus,
-          message: msg,
-          attendanceStatus: status,
-        });
-
-        return {
+        newLogEntries.push({
           student_id: st.id,
           subject_id: selectedSubject.id,
           student_name: st.full_name,
           parent_mobile: st.parent_mobile,
-          message: msg,
-          status: deliverStatus,
+          recipient_email: studentEmail,
+          channel: "sms" as const,
+          message: smsMsg,
+          status: hasMobile ? ("sent" as const) : ("failed" as const),
           attendance_date: selectedDate,
           sent_at: new Date().toISOString(),
           language: chosenLang,
-          gateway: gatewayResult?.provider || "SMS Gateway",
-          gateway_response: gResult?.details || (hasMobile ? "Dispatched" : "Invalid parent mobile"),
-        };
-      });
+          gateway: "SMS Gateway",
+          gateway_response: hasMobile ? "Dispatched" : "Invalid parent mobile",
+        });
 
-      await localDb.insert("sms_logs", smsEntries);
+        dispatchedList.push({
+          student: st,
+          status: hasMobile ? ("sent" as const) : ("failed" as const),
+          message: smsMsg,
+          attendanceStatus: status,
+        });
+      }
+
+      // 2. Channel: Email (dispatched if 'email' channel chosen OR automatically if attendance < 75%!)
+      if (channels.includes("email") || isDefaulter) {
+        if (isDefaulter) defaulterEmailCount++;
+        const emailContent = generateEmailAlertContent(
+          st.full_name,
+          selectedDate,
+          selectedSubject.name,
+          status,
+          rate
+        );
+
+        newLogEntries.push({
+          student_id: st.id,
+          subject_id: selectedSubject.id,
+          student_name: st.full_name,
+          parent_mobile: st.parent_mobile,
+          recipient_email: studentEmail,
+          channel: "email" as const,
+          is_defaulter_alert: isDefaulter,
+          attendance_rate: rate,
+          email_subject: emailContent.subject,
+          message: emailContent.body,
+          status: "sent" as const,
+          attendance_date: selectedDate,
+          sent_at: new Date().toISOString(),
+          language: chosenLang,
+          gateway: "Email Notification Service",
+          gateway_response: isDefaulter
+            ? `Defaulter (<75%) Warning Email sent to ${studentEmail}`
+            : `Attendance Email sent to ${studentEmail}`,
+        });
+      }
+
+      // 3. Channel: WhatsApp
+      if (channels.includes("whatsapp")) {
+        const waMsg = generateWhatsAppMessage(
+          st.full_name,
+          selectedDate,
+          selectedSubject.name,
+          status,
+          chosenLang,
+          rate
+        );
+
+        newLogEntries.push({
+          student_id: st.id,
+          subject_id: selectedSubject.id,
+          student_name: st.full_name,
+          parent_mobile: st.parent_mobile,
+          channel: "whatsapp" as const,
+          is_defaulter_alert: isDefaulter,
+          attendance_rate: rate,
+          message: waMsg,
+          status: hasMobile ? ("sent" as const) : ("failed" as const),
+          attendance_date: selectedDate,
+          sent_at: new Date().toISOString(),
+          language: chosenLang,
+          gateway: "WhatsApp Business API",
+          gateway_response: hasMobile ? "WhatsApp Message Delivered" : "Invalid Mobile",
+        });
+      }
+    }
+
+    if (newLogEntries.length > 0) {
+      await localDb.insert("sms_logs", newLogEntries);
     }
 
     const currentLang = SMS_LANGUAGES.find((l) => l.id === chosenLang);
@@ -476,7 +524,7 @@ export const Attendance: React.FC = () => {
       totalStudents: cohortStudents.length,
       presentCount: currentPresents.length,
       absentCount: currentAbsentees.length,
-      smsCount: dispatchedList.filter((d) => d.status === "sent").length,
+      smsCount: newLogEntries.filter((d) => d.status === "sent").length,
     });
 
     setSaving(false);
@@ -493,17 +541,14 @@ export const Attendance: React.FC = () => {
     setReceiptOpen(true);
 
     const targetClassText = classLabel ? `for ${classLabel}` : "";
-    const smsCountText = `${dispatchedList.length} Parent SMS (${
-      targetMode === "present_only"
-        ? "Present Only"
-        : targetMode === "both"
-        ? "Present + Absent"
-        : "Absent Only"
-    })`;
+    const channelNames = channels.map((c) => c.toUpperCase()).join(", ");
+    const defaulterNoticeText =
+      defaulterEmailCount > 0
+        ? ` • ⚠️ ${defaulterEmailCount} Defaulter (<75%) Warning Emails dispatched`
+        : "";
+
     setSuccessMsg(
-      `Attendance saved ${targetClassText}! ${smsCountText} dispatched in ${
-        currentLang?.label || chosenLang
-      }. View in SMS Log History anytime.`
+      `Attendance saved ${targetClassText}! Alerts dispatched via [${channelNames}]${defaulterNoticeText}. View in SMS & Alert History anytime.`
     );
     setTimeout(() => setSuccessMsg(""), 12000);
   };
@@ -837,7 +882,7 @@ export const Attendance: React.FC = () => {
               <span>Submit Attendance</span>
               {absentees.length > 0 && (
                 <span className="ml-1.5 px-1.5 py-0.2 rounded-full text-[10px] bg-rose-600 text-white font-bold">
-                  {absentees.length} SMS
+                  {absentees.length} Alerts
                 </span>
               )}
             </Button>

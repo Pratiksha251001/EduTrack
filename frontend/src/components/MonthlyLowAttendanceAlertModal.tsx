@@ -37,6 +37,7 @@ import {
   getMonthlyLowAttendanceMessage,
   cleanSmsMessage,
   getParentWhatsAppUrl,
+  generateEmailAlertContent,
 } from "../lib/college";
 import { localDb } from "../lib/supabase";
 import { SmsLanguage, Student, Subject, SmsLog } from "../lib/types";
@@ -460,6 +461,40 @@ export const MonthlyLowAttendanceAlertModal: React.FC<
           attendance_date: monthDateRange.monthLabel,
           sent_at: timestamp,
           language: selectedLang,
+          created_at: timestamp,
+        });
+
+        // Dispatch Email warning automatically for <75% attendance
+        const studentEmail =
+          t.student.email ||
+          `${t.name.toLowerCase().replace(/\s+/g, ".")}@engg.college.edu`;
+        const emailContent = generateEmailAlertContent(
+          t.name,
+          monthDateRange.monthLabel,
+          t.className || "All Subjects",
+          "absent",
+          t.percentage
+        );
+
+        logsToInsert.push({
+          id: `email-monthly-${Date.now()}-${t.student.id}-${Math.random()
+            .toString(36)
+            .substring(2, 6)}`,
+          student_id: t.student.id,
+          student_name: t.name,
+          parent_mobile: t.parentMobile,
+          recipient_email: studentEmail,
+          channel: "email",
+          is_defaulter_alert: true,
+          attendance_rate: t.percentage,
+          email_subject: emailContent.subject,
+          message: emailContent.body,
+          status: "sent",
+          attendance_date: monthDateRange.monthLabel,
+          sent_at: timestamp,
+          language: selectedLang,
+          gateway: "Email Notification Service",
+          gateway_response: `Defaulter (<75%) Warning Email dispatched to ${studentEmail}`,
           created_at: timestamp,
         });
       });

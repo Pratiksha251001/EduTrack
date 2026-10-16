@@ -138,7 +138,7 @@ export const AttendanceDispatchReceiptModal: React.FC<
               </div>
 
               <div className="rounded-xl border border-border divide-y divide-border/60 max-h-64 overflow-y-auto bg-card">
-                {absentRecipients.map(({ student, status, message }) => {
+                {absentRecipients.map(({ student, status, message, attendanceStatus }) => {
                   const waUrl = student.parent_mobile
                     ? getParentWhatsAppUrl(student.parent_mobile, message)
                     : null;
@@ -169,7 +169,7 @@ export const AttendanceDispatchReceiptModal: React.FC<
                             variant={status === "sent" ? "success" : "destructive"}
                             className="text-[9px] uppercase px-1.5 py-0 shrink-0"
                           >
-                            {status === "sent" ? "SMS Sent" : "Missing Phone"}
+                            {status === "sent" ? "Alert Dispatched" : "No Phone"}
                           </Badge>
                         </div>
                         <div className="text-[11px] text-muted-foreground flex items-center gap-2 mt-0.5">
@@ -184,16 +184,46 @@ export const AttendanceDispatchReceiptModal: React.FC<
                               No mobile provided
                             </span>
                           )}
+                          {student.email && (
+                            <>
+                              <span>•</span>
+                              <span className="font-mono text-muted-foreground">
+                                ✉️ {student.email}
+                              </span>
+                            </>
+                          )}
                         </div>
                       </div>
 
-                      {/* Simple Phone SMS Status Indicator */}
-                      <span
-                        className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-[11px] font-medium bg-primary/10 text-primary border border-primary/20 shrink-0"
-                        title="Dispatched via Simple Mobile SMS Gateway"
-                      >
-                        <span>📱 Phone SMS</span>
-                      </span>
+                      {/* Multi-Channel indicators */}
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        <span
+                          className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-medium bg-primary/10 text-primary border border-primary/20"
+                          title="Alert via SMS / Email"
+                        >
+                          <span>📱 SMS</span>
+                        </span>
+                        {student.email && (
+                          <span
+                            className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-medium bg-blue-500/10 text-blue-700 dark:text-blue-400 border border-blue-500/20"
+                            title="Alert via Email (<75% Defaulter Warning)"
+                          >
+                            <span>✉️ Email</span>
+                          </span>
+                        )}
+                        {waUrl && (
+                          <a
+                            href={waUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-medium bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border border-emerald-500/30 hover:bg-emerald-500/25 transition-colors"
+                            title="Direct WhatsApp"
+                          >
+                            <span>💬 WA</span>
+                            <ExternalLink className="h-2.5 w-2.5" />
+                          </a>
+                        )}
+                      </div>
                     </div>
                   );
                 })}

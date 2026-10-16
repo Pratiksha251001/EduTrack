@@ -38,7 +38,7 @@ export const Subjects: React.FC = () => {
   const coordinatorSem = coordinatorTeacher?.assigned_semester || 5;
 
   const relevantTeachers =
-    role === "class_coordinator" && coordinatorDeptId
+    (role === "class_coordinator" || role === "hod") && coordinatorDeptId
       ? teachers.filter((t) => !t.department_id || t.department_id === coordinatorDeptId)
       : teachers;
 

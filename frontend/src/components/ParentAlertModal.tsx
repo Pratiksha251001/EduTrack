@@ -19,6 +19,7 @@ import {
   Play,
   FileText,
   ShieldAlert,
+  Mail,
 } from "lucide-react";
 import {
   Dialog,
@@ -34,6 +35,7 @@ import {
   cleanSmsMessage,
   getParentWhatsAppUrl,
   formatParentPhoneForWhatsApp,
+  generateEmailAlertContent,
 } from "../lib/college";
 import { localDb } from "../lib/supabase";
 import { isValid10DigitMobile } from "../lib/validation";
@@ -78,17 +80,36 @@ export const ParentAlertModal: React.FC<ParentAlertModalProps> = ({
     return "en"; // Default is English
   });
 
+  const [selectedChannel, setSelectedChannel] = useState<"sms" | "email" | "whatsapp">("sms");
   const [customSubject, setCustomSubject] = useState(subjectName);
   const [messageText, setMessageText] = useState<string>("");
+  const [emailSubject, setEmailSubject] = useState("");
+  const [emailBody, setEmailBody] = useState("");
+  const [studentEmail, setStudentEmail] = useState("");
   const [copied, setCopied] = useState(false);
   const [dispatching, setDispatching] = useState(false);
 
   // Sent success state & auto-close timer
   const [sentSuccess, setSentSuccess] = useState(false);
-  const [sentChannel, setSentChannel] = useState<"whatsapp" | "sms">("sms");
+  const [sentChannel, setSentChannel] = useState<"whatsapp" | "sms" | "email">("sms");
   const [sentStatus, setSentStatus] = useState<"sent" | "failed">("sent");
   const [autoCloseSeconds, setAutoCloseSeconds] = useState(5);
   const [isPaused, setIsPaused] = useState(false);
+
+  const student = useMemo(() => {
+    if (!studentId) return null;
+    return localDb.students.find((s) => s.id === studentId) || null;
+  }, [studentId]);
+
+  const studentAttendanceRate = useMemo(() => {
+    if (!studentId) return 68;
+    const history = localDb.attendance.filter((a) => a.student_id === studentId);
+    if (history.length === 0) return 68;
+    const presentCount = history.filter((a) => a.status === "present").length;
+    return Math.round((presentCount / history.length) * 100);
+  }, [studentId]);
+
+  const isDefaulter = studentAttendanceRate < 75;
 
   const handleCloseModal = () => {
     setSentSuccess(false);
@@ -129,6 +150,21 @@ export const ParentAlertModal: React.FC<ParentAlertModalProps> = ({
       setAutoCloseSeconds(5);
       setIsPaused(false);
 
+      const email =
+        student?.email ||
+        `${studentName.toLowerCase().replace(/\s+/g, ".")}@engg.college.edu`;
+      setStudentEmail(email);
+
+      const emailContent = generateEmailAlertContent(
+        studentName,
+        date,
+        subjectName,
+        "absent",
+        studentAttendanceRate
+      );
+      setEmailSubject(emailContent.subject);
+      setEmailBody(emailContent.body);
+
       if (existingMessage) {
         setMessageText(cleanSmsMessage(existingMessage));
       } else {
@@ -140,7 +176,7 @@ export const ParentAlertModal: React.FC<ParentAlertModalProps> = ({
         );
       }
     }
-  }, [open, subjectName, studentName, date, existingMessage, initialLanguage]);
+  }, [open, subjectName, studentName, date, existingMessage, initialLanguage, student, studentAttendanceRate]);
 
   // Handle user switching between the 3 options: Eng, Marathi, Other
   const handleSelectOption = (option: MessageOption) => {
@@ -163,7 +199,9 @@ export const ParentAlertModal: React.FC<ParentAlertModalProps> = ({
   };
 
   const handleCopy = () => {
-    navigator.clipboard.writeText(messageText);
+    navigator.clipboard.writeText(
+      selectedChannel === "email" ? `${emailSubject}\n\n${emailBody}` : messageText
+    );
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   };
@@ -183,11 +221,13 @@ export const ParentAlertModal: React.FC<ParentAlertModalProps> = ({
       subject_id: subjectId || null,
       student_name: studentName,
       parent_mobile: parentMobile,
+      channel: "whatsapp",
       message: messageText,
       status: "sent",
       attendance_date: date,
       sent_at: new Date().toISOString(),
       language: selectedOption,
+      gateway: "WhatsApp Business API",
     };
     localDb.insert("sms_logs", [logEntry]);
     window.dispatchEvent(
@@ -200,6 +240,48 @@ export const ParentAlertModal: React.FC<ParentAlertModalProps> = ({
     setAutoCloseSeconds(5);
     setIsPaused(false);
     onSuccess?.(`WhatsApp message opened and logged for ${studentName}'s parent.`);
+  };
+
+  const handleSendViaEmail = async () => {
+    setDispatching(true);
+    await new Promise((r) => setTimeout(r, 450));
+
+    const logEntry: SmsLog = {
+      id: `sms-email-${Date.now()}`,
+      student_id: studentId || null,
+      subject_id: subjectId || null,
+      student_name: studentName,
+      parent_mobile: parentMobile,
+      recipient_email: studentEmail,
+      channel: "email",
+      is_defaulter_alert: isDefaulter,
+      attendance_rate: studentAttendanceRate,
+      email_subject: emailSubject,
+      message: emailBody,
+      status: "sent",
+      attendance_date: date,
+      sent_at: new Date().toISOString(),
+      language: selectedOption,
+      gateway: "Email Notification Service",
+      gateway_response: isDefaulter
+        ? `Defaulter (<75%) Warning Email sent to ${studentEmail}`
+        : `Absence Email sent to ${studentEmail}`,
+    };
+
+    await localDb.insert("sms_logs", [logEntry]);
+    window.dispatchEvent(
+      new CustomEvent("edutrack_sms_logs_updated", { detail: [logEntry] })
+    );
+
+    setDispatching(false);
+    setSentChannel("email");
+    setSentStatus("sent");
+    setSentSuccess(true);
+    setAutoCloseSeconds(5);
+    setIsPaused(false);
+    onSuccess?.(
+      `Official ${isDefaulter ? "Defaulter (<75%) " : ""}Email dispatched to ${studentEmail}!`
+    );
   };
 
   const handleSimulateSmsDispatch = async () => {
@@ -234,6 +316,7 @@ export const ParentAlertModal: React.FC<ParentAlertModalProps> = ({
       subject_id: subjectId || null,
       student_name: studentName,
       parent_mobile: parentMobile,
+      channel: "sms",
       message: messageText,
       status,
       attendance_date: date,
@@ -458,10 +541,22 @@ export const ParentAlertModal: React.FC<ParentAlertModalProps> = ({
                       {studentName.slice(0, 2).toUpperCase()}
                     </div>
                     <div>
-                      <h4 className="font-bold text-sm text-foreground">
-                        {studentName}
-                      </h4>
-                      <p className="text-[11px] text-muted-foreground">
+                      <div className="flex items-center gap-2">
+                        <h4 className="font-bold text-sm text-foreground">
+                          {studentName}
+                        </h4>
+                        <Badge
+                          variant="outline"
+                          className={`text-[10px] font-bold ${
+                            isDefaulter
+                              ? "bg-amber-500/15 text-amber-700 dark:text-amber-400 border-amber-500/30"
+                              : "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400"
+                          }`}
+                        >
+                          {studentAttendanceRate}% Attendance
+                        </Badge>
+                      </div>
+                      <p className="text-[11px] text-muted-foreground mt-0.5">
                         Absence on <strong>{date}</strong> · {customSubject}
                       </p>
                     </div>
@@ -475,184 +570,129 @@ export const ParentAlertModal: React.FC<ParentAlertModalProps> = ({
                   </Badge>
                 </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
-                  <div className="flex items-center justify-between p-2.5 rounded-lg bg-muted/40">
-                    <span className="text-muted-foreground">Parent / Guardian:</span>
-                    <span className="font-semibold text-foreground">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 text-xs">
+                  <div className="p-2.5 rounded-lg bg-muted/40 space-y-0.5">
+                    <span className="text-[10.5px] text-muted-foreground block">Parent / Guardian:</span>
+                    <span className="font-semibold text-foreground truncate block">
                       {parentName || "Parent"}
                     </span>
                   </div>
 
-                  <div className="flex items-center justify-between p-2.5 rounded-lg bg-muted/40">
-                    <span className="text-muted-foreground">Mobile Contact:</span>
+                  <div className="p-2.5 rounded-lg bg-muted/40 space-y-0.5">
+                    <span className="text-[10.5px] text-muted-foreground block">Parent Mobile:</span>
                     {parentMobile ? (
                       isPhoneValid ? (
-                        <span className="font-mono font-bold text-emerald-600 dark:text-emerald-400">
-                          {parentMobile}
+                        <span className="font-mono font-bold text-emerald-600 dark:text-emerald-400 block truncate">
+                          📱 {parentMobile}
                         </span>
                       ) : (
-                        <Badge
-                          variant="destructive"
-                          className="text-[10px]"
-                          title="Must be 10 digits"
-                        >
+                        <span className="text-[10px] text-amber-600 dark:text-amber-400 font-bold block truncate">
                           Invalid ({parentMobile})
-                        </Badge>
+                        </span>
                       )
                     ) : (
-                      <Badge variant="destructive" className="text-[10px]">
+                      <span className="text-[10px] text-rose-600 font-bold block truncate">
                         Missing Number
-                      </Badge>
+                      </span>
                     )}
+                  </div>
+
+                  <div className="p-2.5 rounded-lg bg-muted/40 space-y-0.5">
+                    <span className="text-[10.5px] text-muted-foreground block">Email Address:</span>
+                    <span className="font-mono text-muted-foreground text-[11px] truncate block">
+                      ✉️ {studentEmail || "None"}
+                    </span>
                   </div>
                 </div>
               </div>
 
-              {/* 3 Message Options: English (Default), Marathi, Both */}
+              {/* 3 Alert Channel Options: SMS, Email, WhatsApp */}
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
                   <label className="text-xs font-bold text-foreground flex items-center gap-1.5">
-                    <MessageSquare className="h-3.5 w-3.5 text-primary" />
-                    <span>Choose Message Language / Type:</span>
+                    <Send className="h-3.5 w-3.5 text-primary" />
+                    <span>Select Alert Channel (Choose from 3 Options):</span>
                   </label>
-                  <span className="text-[11px] text-muted-foreground">
-                    Default is <strong className="text-primary font-semibold">English (Eng)</strong>
-                  </span>
+                  {isDefaulter && (
+                    <span className="text-[10px] text-amber-600 dark:text-amber-400 font-bold bg-amber-500/10 px-1.5 py-0.5 rounded border border-amber-500/30">
+                      ⚠️ &lt;75% Attendance Defaulter
+                    </span>
+                  )}
                 </div>
 
                 <div className="grid grid-cols-3 gap-2">
-                  {/* Option 1: English (Default) */}
+                  {/* Channel 1: SMS */}
                   <button
                     type="button"
-                    onClick={() => handleSelectOption("en")}
-                    className={`relative flex flex-col items-center justify-center p-3 rounded-xl border text-xs font-semibold transition-all cursor-pointer ${
-                      selectedOption === "en"
-                        ? "border-primary bg-primary/10 text-primary shadow-xs ring-2 ring-primary/40"
+                    onClick={() => setSelectedChannel("sms")}
+                    className={`flex items-center justify-center gap-1.5 p-2.5 rounded-xl border text-xs font-semibold transition-all ${
+                      selectedChannel === "sms"
+                        ? "border-primary bg-primary text-primary-foreground shadow-xs"
                         : "border-border bg-card text-muted-foreground hover:text-foreground hover:bg-muted/40"
                     }`}
                   >
-                    <div className="flex items-center gap-1.5">
-                      <span className="text-base">🇬🇧</span>
-                      <span className="font-bold">Eng</span>
-                    </div>
-                    <span className="text-[10.5px] mt-0.5 opacity-80 font-normal">
-                      Standard English
-                    </span>
-                    <span className="absolute -top-2 right-2 text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-primary text-primary-foreground shadow-xs">
-                      Default
-                    </span>
+                    <Phone className="h-4 w-4" />
+                    <span>SMS Alert</span>
                   </button>
 
-                  {/* Option 2: Marathi */}
+                  {/* Channel 2: Email (<75% Auto Warning) */}
                   <button
                     type="button"
-                    onClick={() => handleSelectOption("mr")}
-                    className={`flex flex-col items-center justify-center p-3 rounded-xl border text-xs font-semibold transition-all cursor-pointer ${
-                      selectedOption === "mr"
-                        ? "border-primary bg-primary/10 text-primary shadow-xs ring-2 ring-primary/40"
+                    onClick={() => setSelectedChannel("email")}
+                    className={`flex items-center justify-center gap-1.5 p-2.5 rounded-xl border text-xs font-semibold transition-all relative ${
+                      selectedChannel === "email"
+                        ? "border-primary bg-primary text-primary-foreground shadow-xs"
                         : "border-border bg-card text-muted-foreground hover:text-foreground hover:bg-muted/40"
                     }`}
                   >
-                    <div className="flex items-center gap-1.5">
-                      <span className="text-base">🚩</span>
-                      <span className="font-bold">Marathi</span>
-                    </div>
-                    <span className="text-[10.5px] mt-0.5 opacity-80 font-normal">
-                      स्थानिक मराठी संदेश
-                    </span>
+                    <Mail className="h-4 w-4" />
+                    <span>Email Alert</span>
+                    {isDefaulter && (
+                      <span className="absolute -top-1.5 -right-1 px-1 py-0.2 rounded text-[8.5px] bg-amber-500 text-amber-950 font-bold border border-amber-600/30">
+                        &lt;75% Warning
+                      </span>
+                    )}
                   </button>
 
-                  {/* Option 3: Both (Eng + Marathi) */}
+                  {/* Channel 3: WhatsApp */}
                   <button
                     type="button"
-                    onClick={() => handleSelectOption("other")}
-                    className={`flex flex-col items-center justify-center p-3 rounded-xl border text-xs font-semibold transition-all cursor-pointer ${
-                      selectedOption === "other"
-                        ? "border-primary bg-primary/10 text-primary shadow-xs ring-2 ring-primary/40"
+                    onClick={() => setSelectedChannel("whatsapp")}
+                    className={`flex items-center justify-center gap-1.5 p-2.5 rounded-xl border text-xs font-semibold transition-all ${
+                      selectedChannel === "whatsapp"
+                        ? "border-emerald-600 bg-emerald-600 text-white shadow-xs"
                         : "border-border bg-card text-muted-foreground hover:text-foreground hover:bg-muted/40"
                     }`}
                   >
-                    <div className="flex items-center gap-1.5">
-                      <span className="text-base">🌐</span>
-                      <span className="font-bold">Both</span>
-                    </div>
-                    <span className="text-[10.5px] mt-0.5 opacity-80 font-normal">
-                      Eng + मराठी (Ot Msg)
-                    </span>
+                    <MessageSquare className="h-4 w-4" />
+                    <span>WhatsApp</span>
                   </button>
                 </div>
 
-                {/* Quick Presets (Especially helpful for Other Msg) */}
-                {selectedOption === "other" && (
-                  <div className="p-2.5 rounded-lg bg-muted/40 border border-border/70 space-y-1.5">
-                    <span className="text-[11px] font-semibold text-muted-foreground block">
-                      Quick Templates for Other Message (click to insert):
+                {/* Email Defaulter Rule Banner */}
+                {isDefaulter && (
+                  <div className="flex items-center gap-2 text-xs text-amber-800 dark:text-amber-300 bg-amber-500/10 border border-amber-500/20 rounded-xl p-2.5">
+                    <AlertTriangle className="h-4 w-4 text-amber-600 dark:text-amber-400 shrink-0" />
+                    <span className="text-[11px] leading-tight">
+                      <strong>Defaulter Policy:</strong> This student has <strong>{studentAttendanceRate}%</strong> attendance (below 75%). An official Warning Email notice will be issued with deficit details.
                     </span>
-                    <div className="flex flex-wrap gap-1.5">
-                      <button
-                        type="button"
-                        onClick={() =>
-                          handleApplyPreset(
-                            `Dear Parent, ${studentName} is absent for ${customSubject} today. ${studentName} आज ${customSubject} साठी गैरहजर आहे. - EduTrack`
-                          )
-                        }
-                        className="px-2 py-1 text-[11px] rounded-md bg-card border border-border hover:border-primary/50 text-foreground transition-all"
-                      >
-                        🌐 Bilingual (Eng + मराठी)
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() =>
-                          handleApplyPreset(
-                            `Dear Parent, ${studentName} was absent for ${customSubject} today. Please contact class teacher immediately. - EduTrack`
-                          )
-                        }
-                        className="px-2 py-1 text-[11px] rounded-md bg-card border border-border hover:border-primary/50 text-foreground transition-all"
-                      >
-                        📞 Contact Teacher Notice
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() =>
-                          handleApplyPreset(
-                            `Dear Parent, ${studentName}'s attendance is critically low for ${customSubject}. Kindly visit college. - EduTrack`
-                          )
-                        }
-                        className="px-2 py-1 text-[11px] rounded-md bg-card border border-border hover:border-primary/50 text-foreground transition-all"
-                      >
-                        ⚠️ Low Attendance Warning
-                      </button>
-                    </div>
                   </div>
                 )}
               </div>
 
-              {/* Message Editor / Preview Box */}
-              <div className="space-y-1.5">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs font-bold text-foreground">
-                      Message Content:
+              {/* Channel-Specific Configuration */}
+              {selectedChannel === "email" ? (
+                <div className="space-y-3 p-3.5 rounded-xl border border-border bg-card">
+                  <div className="flex items-center justify-between pb-1 border-b border-border/60">
+                    <span className="text-xs font-bold text-foreground flex items-center gap-1.5">
+                      <Mail className="h-3.5 w-3.5 text-primary" />
+                      Email Notification Details
                     </span>
-                    <Badge variant="outline" className="text-[10px] font-mono">
-                      {messageText.length} chars · {Math.max(1, Math.ceil(messageText.length / 160))} SMS credit
-                    </Badge>
-                  </div>
-                  <div className="flex items-center gap-1">
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      onClick={handleResetToTemplate}
-                      className="h-7 px-2 text-xs text-muted-foreground hover:text-foreground"
-                      title="Reset text to selected option template"
-                    >
-                      <RotateCcw className="h-3 w-3 mr-1" /> Reset
-                    </Button>
                     <Button
                       size="sm"
                       variant="ghost"
                       onClick={handleCopy}
-                      className="h-7 px-2 text-xs text-muted-foreground hover:text-foreground"
+                      className="h-6 px-2 text-xs text-muted-foreground hover:text-foreground"
                     >
                       {copied ? (
                         <>
@@ -660,25 +700,150 @@ export const ParentAlertModal: React.FC<ParentAlertModalProps> = ({
                         </>
                       ) : (
                         <>
-                          <Copy className="h-3 w-3 mr-1" /> Copy
+                          <Copy className="h-3 w-3 mr-1" /> Copy Text
                         </>
                       )}
                     </Button>
                   </div>
-                </div>
 
-                <textarea
-                  value={messageText}
-                  onChange={(e) => setMessageText(e.target.value)}
-                  rows={4}
-                  className="w-full rounded-xl border border-input bg-background p-3 text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary leading-relaxed resize-y font-sans shadow-inner"
-                  placeholder="Type message to send to parent..."
-                />
-                <div className="flex items-center justify-between text-[10.5px] text-muted-foreground">
-                  <span>Direct Mobile SMS (Phone Text Message - Carrier Dispatch)</span>
-                  <span className="font-medium text-emerald-600 dark:text-emerald-400">Standard SMS Route</span>
+                  <div className="space-y-1">
+                    <label className="text-[11px] font-semibold text-muted-foreground">Recipient Email Address:</label>
+                    <input
+                      type="email"
+                      value={studentEmail}
+                      onChange={(e) => setStudentEmail(e.target.value)}
+                      className="w-full rounded-lg border border-input bg-background px-3 py-1.5 text-xs text-foreground font-mono"
+                      placeholder="student@engg.college.edu"
+                    />
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="text-[11px] font-semibold text-muted-foreground">Subject Line:</label>
+                    <input
+                      type="text"
+                      value={emailSubject}
+                      onChange={(e) => setEmailSubject(e.target.value)}
+                      className="w-full rounded-lg border border-input bg-background px-3 py-1.5 text-xs text-foreground font-medium"
+                    />
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="text-[11px] font-semibold text-muted-foreground">Email Notice Body:</label>
+                    <textarea
+                      value={emailBody}
+                      onChange={(e) => setEmailBody(e.target.value)}
+                      rows={6}
+                      className="w-full rounded-lg border border-input bg-background p-3 text-xs text-foreground font-sans leading-relaxed resize-y shadow-inner"
+                    />
+                  </div>
                 </div>
-              </div>
+              ) : (
+                /* SMS or WhatsApp Content Options */
+                <div className="space-y-3">
+                  {/* Message Language / Type: Eng, Marathi, Both */}
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <label className="text-xs font-bold text-foreground flex items-center gap-1.5">
+                        <MessageSquare className="h-3.5 w-3.5 text-primary" />
+                        <span>Message Language:</span>
+                      </label>
+                      <span className="text-[11px] text-muted-foreground">
+                        Default is <strong className="text-primary font-semibold">English (Eng)</strong>
+                      </span>
+                    </div>
+
+                    <div className="grid grid-cols-3 gap-2">
+                      <button
+                        type="button"
+                        onClick={() => handleSelectOption("en")}
+                        className={`relative flex flex-col items-center justify-center p-2.5 rounded-xl border text-xs font-semibold transition-all cursor-pointer ${
+                          selectedOption === "en"
+                            ? "border-primary bg-primary/10 text-primary shadow-xs ring-2 ring-primary/40"
+                            : "border-border bg-card text-muted-foreground hover:text-foreground hover:bg-muted/40"
+                        }`}
+                      >
+                        <span className="font-bold">English (Eng)</span>
+                        <span className="text-[10px] mt-0.5 opacity-80 font-normal">Standard</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => handleSelectOption("mr")}
+                        className={`flex flex-col items-center justify-center p-2.5 rounded-xl border text-xs font-semibold transition-all cursor-pointer ${
+                          selectedOption === "mr"
+                            ? "border-primary bg-primary/10 text-primary shadow-xs ring-2 ring-primary/40"
+                            : "border-border bg-card text-muted-foreground hover:text-foreground hover:bg-muted/40"
+                        }`}
+                      >
+                        <span className="font-bold">Marathi (मराठी)</span>
+                        <span className="text-[10px] mt-0.5 opacity-80 font-normal">स्थानिक संदेश</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => handleSelectOption("other")}
+                        className={`flex flex-col items-center justify-center p-2.5 rounded-xl border text-xs font-semibold transition-all cursor-pointer ${
+                          selectedOption === "other"
+                            ? "border-primary bg-primary/10 text-primary shadow-xs ring-2 ring-primary/40"
+                            : "border-border bg-card text-muted-foreground hover:text-foreground hover:bg-muted/40"
+                        }`}
+                      >
+                        <span className="font-bold">Both (Bilingual)</span>
+                        <span className="text-[10px] mt-0.5 opacity-80 font-normal">Eng + मराठी</span>
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Message Editor */}
+                  <div className="space-y-1.5">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs font-bold text-foreground">
+                          {selectedChannel === "whatsapp" ? "WhatsApp Text:" : "SMS Message Content:"}
+                        </span>
+                        <Badge variant="outline" className="text-[10px] font-mono">
+                          {messageText.length} chars · {Math.max(1, Math.ceil(messageText.length / 160))} SMS credit
+                        </Badge>
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={handleResetToTemplate}
+                          className="h-7 px-2 text-xs text-muted-foreground hover:text-foreground"
+                          title="Reset to default"
+                        >
+                          <RotateCcw className="h-3 w-3 mr-1" /> Reset
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={handleCopy}
+                          className="h-7 px-2 text-xs text-muted-foreground hover:text-foreground"
+                        >
+                          {copied ? (
+                            <>
+                              <Check className="h-3 w-3 mr-1 text-emerald-500" /> Copied
+                            </>
+                          ) : (
+                            <>
+                              <Copy className="h-3 w-3 mr-1" /> Copy
+                            </>
+                          )}
+                        </Button>
+                      </div>
+                    </div>
+
+                    <textarea
+                      value={messageText}
+                      onChange={(e) => setMessageText(e.target.value)}
+                      rows={4}
+                      className="w-full rounded-xl border border-input bg-background p-3 text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary leading-relaxed resize-y font-sans shadow-inner"
+                      placeholder="Type message to send to parent..."
+                    />
+                  </div>
+                </div>
+              )}
             </div>
           )}
         </div>
@@ -689,7 +854,7 @@ export const ParentAlertModal: React.FC<ParentAlertModalProps> = ({
             <Link to="/sms-logs" onClick={handleCloseModal} className="w-full sm:w-auto">
               <Button variant="outline" size="sm" className="w-full text-xs h-9">
                 <FileText className="mr-1.5 h-3.5 w-3.5 text-primary" />
-                View in Official SMS Logs
+                View in Alert History Logs
               </Button>
             </Link>
 
@@ -727,27 +892,56 @@ export const ParentAlertModal: React.FC<ParentAlertModalProps> = ({
             </Button>
 
             <div className="flex items-center gap-2 w-full sm:w-auto">
-              <div className="hidden sm:flex items-center text-[11px] text-muted-foreground mr-1">
-                <span className="inline-block w-2 h-2 rounded-full bg-emerald-500 mr-1.5 animate-pulse" />
-                Simple Mobile SMS
-              </div>
+              {selectedChannel === "sms" && (
+                <Button
+                  type="button"
+                  size="sm"
+                  onClick={handleSimulateSmsDispatch}
+                  disabled={dispatching || !parentMobile}
+                  className="w-full sm:w-auto text-xs font-semibold h-9 shadow-xs bg-primary text-primary-foreground hover:bg-primary/90"
+                >
+                  {dispatching ? (
+                    <>Sending Mobile SMS...</>
+                  ) : (
+                    <>
+                      <Send className="h-3.5 w-3.5 mr-1.5" />
+                      Send Mobile SMS
+                    </>
+                  )}
+                </Button>
+              )}
 
-              <Button
-                type="button"
-                size="sm"
-                onClick={handleSimulateSmsDispatch}
-                disabled={dispatching || !parentMobile}
-                className="w-full sm:w-auto text-xs font-semibold h-9 shadow-xs bg-primary text-primary-foreground hover:bg-primary/90"
-              >
-                {dispatching ? (
-                  <>Sending Simple SMS...</>
-                ) : (
-                  <>
-                    <Send className="h-3.5 w-3.5 mr-1.5" />
-                    Send Simple Mobile SMS
-                  </>
-                )}
-              </Button>
+              {selectedChannel === "email" && (
+                <Button
+                  type="button"
+                  size="sm"
+                  onClick={handleSendViaEmail}
+                  disabled={dispatching || !studentEmail}
+                  className="w-full sm:w-auto text-xs font-semibold h-9 shadow-xs bg-primary text-primary-foreground hover:bg-primary/90"
+                >
+                  {dispatching ? (
+                    <>Dispatching Email Notice...</>
+                  ) : (
+                    <>
+                      <Mail className="h-3.5 w-3.5 mr-1.5" />
+                      Send Email Notice {isDefaulter ? "(<75% Defaulter Warning)" : ""}
+                    </>
+                  )}
+                </Button>
+              )}
+
+              {selectedChannel === "whatsapp" && (
+                <Button
+                  type="button"
+                  size="sm"
+                  onClick={handleSendViaWhatsApp}
+                  disabled={dispatching || !parentMobile}
+                  className="w-full sm:w-auto text-xs font-semibold h-9 shadow-xs bg-emerald-600 hover:bg-emerald-700 text-white"
+                >
+                  <MessageSquare className="h-3.5 w-3.5 mr-1.5" />
+                  Open in WhatsApp Web / App
+                </Button>
+              )}
             </div>
           </DialogFooter>
         )}

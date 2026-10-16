@@ -3,47 +3,40 @@ import {
   Search,
   CheckCircle,
   XCircle,
-  MessageSquare,
-  Copy,
   Check,
-  Plus,
-  RefreshCw,
   Clock,
-  Sparkles,
   ChevronDown,
   ChevronUp,
-  Minimize2,
-  Maximize2,
-  Eye,
+  AlertTriangle,
+  Mail,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { localDb } from '../lib/supabase';
 import { Input } from '../components/ui/input';
-import { Select } from '../components/ui/select';
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '../components/ui/table';
 import { Badge } from '../components/ui/badge';
 import { Button } from '../components/ui/button';
 import {
-  getParentWhatsAppUrl,
   cleanSmsMessage,
+  generateEmailAlertContent,
 } from '../lib/college';
 import { ParentAlertModal } from '../components/ParentAlertModal';
 import { Msg91SetupModal } from '../components/Msg91SetupModal';
+import { DefaulterDirectAlertModal } from '../components/DefaulterDirectAlertModal';
 import { getSmsGatewayStatus, SmsGatewayStatus } from '../lib/smsService';
 
 export const SmsLogs: React.FC = () => {
   const { user, role } = useAuth();
   const [logs, setLogs] = useState<any[]>(() => localDb.getSmsLogs());
-  const [dateScope, setDateScope] = useState<'all' | 'today'>('all');
+  const [activeLogTab, setActiveLogTab] = useState<'daily' | 'defaulter'>('daily');
   const [search, setSearch] = useState('');
-  const [statusFilter, setStatusFilter] = useState<'__all' | 'sent' | 'failed'>('__all');
-  const [copiedId, setCopiedId] = useState<string | null>(null);
   const [toastMsg, setToastMsg] = useState<string | null>(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
 
   // Modal state
   const [alertModalOpen, setAlertModalOpen] = useState(false);
+  const [defaulterModalOpen, setDefaulterModalOpen] = useState(false);
   const [msg91ModalOpen, setMsg91ModalOpen] = useState(false);
   const [gatewayStatus, setGatewayStatus] = useState<SmsGatewayStatus | null>(null);
   const [modalStudentName, setModalStudentName] = useState('');
@@ -146,42 +139,66 @@ export const SmsLogs: React.FC = () => {
 
   const todayStr = new Date().toISOString().split('T')[0];
 
-  const todayLogs = useMemo(() => {
-    return scopedLogs.filter((log) => {
-      const isDateToday = log.attendance_date === todayStr;
-      const isSentToday = log.sent_at && log.sent_at.startsWith(todayStr);
-      return isDateToday || isSentToday;
-    });
-  }, [scopedLogs, todayStr]);
+  // 1. Daily attendance alert logs (normal attendance notifications)
+  const dailyLogs = useMemo(() => {
+    return scopedLogs.filter(
+      (l) => !l.is_defaulter_alert && !(typeof l.attendance_rate === 'number' && l.attendance_rate < 75)
+    );
+  }, [scopedLogs]);
 
-  const deliveredCount = useMemo(() => scopedLogs.filter((l) => l.status === 'sent').length, [scopedLogs]);
-  const failedCount = useMemo(() => scopedLogs.filter((l) => l.status === 'failed').length, [scopedLogs]);
+  // 2. <75% Low attendance defaulter alert logs (monthly / deficit warnings)
+  const defaulterLogs = useMemo(() => {
+    return scopedLogs.filter(
+      (l) => l.is_defaulter_alert || (typeof l.attendance_rate === 'number' && l.attendance_rate < 75)
+    );
+  }, [scopedLogs]);
 
+  // Current active students with <75% attendance with rich details
+  const defaulterDetails = useMemo(() => {
+    const allAttendance = localDb.attendance;
+    const allStudents = localDb.students.filter((s) => s.status === 'active');
+    return allStudents
+      .map((st) => {
+        const records = allAttendance.filter((a) => a.student_id === st.id);
+        const total = records.length;
+        const present = records.filter((a) => a.status === 'present').length;
+        const rate = total > 0 ? Math.round((present / total) * 100) : 65;
+        return {
+          student: st,
+          id: st.id,
+          roll_number: st.roll_number,
+          student_name: st.full_name,
+          rate,
+          total,
+          present,
+          parentName: st.parent_name || 'Parent',
+          parentMobile: st.parent_mobile || '',
+          parentEmail:
+            st.email ||
+            `${st.full_name.toLowerCase().replace(/\s+/g, '.')}@engg.college.edu`,
+        };
+      })
+      .filter((item) => item.rate < 75)
+      .sort((a, b) => a.rate - b.rate);
+  }, []);
+
+  const defaulterStudents = useMemo(
+    () => defaulterDetails.map((d) => d.student),
+    [defaulterDetails]
+  );
+
+  // Filter based on active tab and search query only
   const filteredLogs = useMemo(() => {
-    return scopedLogs.filter((log) => {
-      if (dateScope === 'today') {
-        const isDateToday = log.attendance_date === todayStr;
-        const isSentToday = log.sent_at && log.sent_at.startsWith(todayStr);
-        if (!isDateToday && !isSentToday) return false;
-      }
-      if (statusFilter !== '__all' && log.status !== statusFilter) return false;
-      if (search.trim()) {
-        const q = search.toLowerCase();
-        return (
-          log.student_name.toLowerCase().includes(q) ||
-          (log.parent_mobile && log.parent_mobile.toLowerCase().includes(q)) ||
-          log.message.toLowerCase().includes(q)
-        );
-      }
-      return true;
-    });
-  }, [scopedLogs, dateScope, search, statusFilter, todayStr]);
-
-  const handleCopy = (id: string, text: string) => {
-    navigator.clipboard.writeText(text);
-    setCopiedId(id);
-    setTimeout(() => setCopiedId(null), 2000);
-  };
+    const list = activeLogTab === 'daily' ? dailyLogs : defaulterLogs;
+    if (!search.trim()) return list;
+    const q = search.toLowerCase();
+    return list.filter(
+      (log) =>
+        log.student_name.toLowerCase().includes(q) ||
+        (log.parent_mobile && log.parent_mobile.toLowerCase().includes(q)) ||
+        (log.message && log.message.toLowerCase().includes(q))
+    );
+  }, [activeLogTab, dailyLogs, defaulterLogs, search]);
 
   const toggleExpand = (id: string) => {
     setExpandedIds((prev) => {
@@ -193,14 +210,6 @@ export const SmsLogs: React.FC = () => {
       }
       return next;
     });
-  };
-
-  const toggleExpandAll = () => {
-    if (expandedIds.size > 0) {
-      setExpandedIds(new Set());
-    } else {
-      setExpandedIds(new Set(filteredLogs.map((l) => l.id)));
-    }
   };
 
   const openViewModal = (log: (typeof logs)[0]) => {
@@ -239,28 +248,23 @@ export const SmsLogs: React.FC = () => {
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <div>
-          <h2 className="font-display text-2xl font-bold">Parent Absentee SMS Logs</h2>
+          <h2 className="font-display text-2xl font-bold">Parent Alert &amp; Communication Logs</h2>
+          <p className="text-xs text-muted-foreground mt-0.5">
+            Automated SMS, Email &amp; WhatsApp logs with direct &lt;75% Defaulter Notice dispatch
+          </p>
         </div>
 
         <div className="flex items-center gap-2 self-start sm:self-auto flex-wrap">
+          {/* Direct <75% Defaulter Alert Modal Button */}
           <Button
-            variant="outline"
+            onClick={() => setDefaulterModalOpen(true)}
             size="sm"
-            onClick={() => {
-              refreshLogs();
-              setToastMsg("Log history refreshed successfully");
-              setTimeout(() => setToastMsg(null), 3000);
-            }}
-            className="text-xs font-semibold"
+            className="font-semibold text-xs bg-amber-600 hover:bg-amber-700 text-white shadow-xs"
           >
-            <RefreshCw className={`h-3.5 w-3.5 mr-1.5 ${isRefreshing ? 'animate-spin text-primary' : ''}`} />
-            Refresh
+            <AlertTriangle className="h-4 w-4 mr-1.5" />
+            Send &lt;75% Defaulter Alert ({defaulterStudents.length})
           </Button>
 
-          <Button onClick={openNewAlertModal} size="sm" className="font-semibold text-xs">
-            <Plus className="h-4 w-4 mr-1.5" />
-            Send Parent Alert
-          </Button>
         </div>
       </div>
 
@@ -274,105 +278,66 @@ export const SmsLogs: React.FC = () => {
         </div>
       )}
 
-      {/* Quick Filter Metrics & Chips */}
-      <div className="flex items-center justify-between gap-2 flex-wrap">
-        <div className="flex items-center gap-2 flex-wrap">
-          <Button
-            size="sm"
-            variant={dateScope === 'all' && statusFilter === '__all' ? 'default' : 'outline'}
-            onClick={() => {
-              setDateScope('all');
-              setStatusFilter('__all');
-            }}
-            className="text-xs h-8"
-          >
-            All Logs ({logs.length})
-          </Button>
-
-          <Button
-            size="sm"
-            variant={dateScope === 'today' ? 'default' : 'outline'}
-            onClick={() => {
-              setDateScope('today');
-            }}
-            className="text-xs h-8"
-          >
-            <Sparkles className="h-3.5 w-3.5 mr-1 text-amber-500" />
-            Today's Alerts ({todayLogs.length})
-          </Button>
-
-          <Button
-            size="sm"
-            variant={statusFilter === 'sent' && dateScope === 'all' ? 'default' : 'outline'}
-            onClick={() => {
-              setDateScope('all');
-              setStatusFilter('sent');
-            }}
-            className="text-xs h-8"
-          >
-            <CheckCircle className="h-3 w-3 mr-1 text-emerald-500" />
-            Delivered ({deliveredCount})
-          </Button>
-
-          <Button
-            size="sm"
-            variant={statusFilter === 'failed' && dateScope === 'all' ? 'default' : 'outline'}
-            onClick={() => {
-              setDateScope('all');
-              setStatusFilter('failed');
-            }}
-            className="text-xs h-8"
-          >
-            <XCircle className="h-3 w-3 mr-1 text-rose-500" />
-            Failed ({failedCount})
-          </Button>
-        </div>
-
-        {/* Global Expand / Minimize Toggle */}
-        <Button
-          size="sm"
-          variant="outline"
-          onClick={toggleExpandAll}
-          className="text-xs h-8 text-muted-foreground hover:text-foreground"
+      {/* 2 Main Log Sections: 1. Daily Attendance Alerts, 2. <75% Defaulter Alerts (Monthly) */}
+      <div className="flex items-center gap-2 border-b border-border pb-3 flex-wrap">
+        <button
+          type="button"
+          onClick={() => setActiveLogTab('daily')}
+          className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs sm:text-sm font-semibold transition-all ${
+            activeLogTab === 'daily'
+              ? 'bg-primary text-primary-foreground shadow-xs'
+              : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'
+          }`}
         >
-          {expandedIds.size > 0 ? (
-            <>
-              <Minimize2 className="h-3.5 w-3.5 mr-1" />
-              Minimize All Messages
-            </>
-          ) : (
-            <>
-              <Maximize2 className="h-3.5 w-3.5 mr-1" />
-              Expand All Messages
-            </>
-          )}
-        </Button>
+          <Clock className="h-4 w-4" />
+          <span>Daily Attendance Alerts</span>
+          <span
+            className={`text-xs px-2 py-0.5 rounded-full font-bold ${
+              activeLogTab === 'daily'
+                ? 'bg-primary-foreground/20 text-primary-foreground'
+                : 'bg-muted text-muted-foreground'
+            }`}
+          >
+            {dailyLogs.length}
+          </span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setActiveLogTab('defaulter')}
+          className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs sm:text-sm font-semibold transition-all ${
+            activeLogTab === 'defaulter'
+              ? 'bg-amber-600 text-white shadow-xs'
+              : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'
+          }`}
+        >
+          <AlertTriangle className="h-4 w-4" />
+          <span>&lt;75% Defaulter Alerts (Monthly)</span>
+          <span
+            className={`text-xs px-2 py-0.5 rounded-full font-bold ${
+              activeLogTab === 'defaulter'
+                ? 'bg-white/20 text-white'
+                : 'bg-muted text-muted-foreground'
+            }`}
+          >
+            {defaulterLogs.length}
+          </span>
+        </button>
       </div>
 
-      <div className="surface-panel grid gap-4 sm:grid-cols-2">
-        <div className="space-y-1.5">
-          <label className="text-xs font-semibold text-muted-foreground">Search Log</label>
-          <div className="relative">
-            <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
-            <Input
-              className="pl-9"
-              placeholder="Search by student, mobile, or message text..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-            />
-          </div>
-        </div>
-
-        <div className="space-y-1.5">
-          <label className="text-xs font-semibold text-muted-foreground">Status Filter</label>
-          <Select
-            value={statusFilter}
-            onChange={(e: any) => setStatusFilter(e.target.value)}
-            options={[
-              { value: '__all', label: 'All Statuses (Sent & Failed)' },
-              { value: 'sent', label: 'Delivered / Sent' },
-              { value: 'failed', label: 'Failed (No Parent Number)' },
-            ]}
+      {/* Only Search Bar */}
+      <div className="surface-panel p-3">
+        <div className="relative">
+          <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
+          <Input
+            className="pl-9 h-9"
+            placeholder={
+              activeLogTab === 'daily'
+                ? 'Search daily attendance alerts by student, parent mobile, or message...'
+                : 'Search <75% defaulter notices by student, parent mobile, or message...'
+            }
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
           />
         </div>
       </div>
@@ -385,30 +350,21 @@ export const SmsLogs: React.FC = () => {
               <TableHead>Parent Mobile</TableHead>
               <TableHead>Absence Date & Time</TableHead>
               <TableHead>Status</TableHead>
-              <TableHead className="min-w-[320px]">
-                <div className="flex items-center justify-between">
-                  <span>SMS Message Content</span>
-                  <span className="text-[10px] text-muted-foreground font-normal">
-                    {expandedIds.size > 0 ? 'Expanded' : 'Minimized'}
-                  </span>
-                </div>
+              <TableHead className="min-w-[300px]">
+                <span>Message Content</span>
               </TableHead>
-              <TableHead className="text-right">Actions</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {filteredLogs.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={6} className="py-12 text-center text-muted-foreground">
-                  No SMS alert logs found matching criteria.
+                <TableCell colSpan={5} className="py-12 text-center text-muted-foreground">
+                  No {activeLogTab === 'daily' ? 'daily attendance' : '<75% defaulter'} alert logs found.
                 </TableCell>
               </TableRow>
             ) : (
               filteredLogs.map((log) => {
                 const cleanMsg = cleanSmsMessage(log.message || "");
-                const waUrl = log.parent_mobile
-                  ? getParentWhatsAppUrl(log.parent_mobile, cleanMsg)
-                  : null;
 
                 const isToday =
                   log.attendance_date === todayStr ||
@@ -417,14 +373,28 @@ export const SmsLogs: React.FC = () => {
                 const sentTime = formatSentTime(log.attendance_date, log.sent_at);
                 const isExpanded = expandedIds.has(log.id);
 
+                const matchedStudent = localDb.students.find(
+                  (s) => s.id === log.student_id || s.full_name === log.student_name
+                );
+                const studentRecords = localDb.attendance.filter(
+                  (a) => a.student_id === (matchedStudent?.id || log.student_id)
+                );
+                const totalRecs = studentRecords.length;
+                const presentRecs = studentRecords.filter((a) => a.status === 'present').length;
+                const realRate =
+                  totalRecs > 0
+                    ? Math.round((presentRecs / totalRecs) * 100)
+                    : (log.attendance_rate ?? 65);
+                const isDefaulter = log.is_defaulter_alert || realRate < 75;
+
                 return (
                   <TableRow key={log.id} className={isToday ? "bg-primary/[0.02]" : ""}>
                     <TableCell className="font-semibold text-foreground whitespace-nowrap align-top py-3">
-                      <div className="flex items-center gap-2">
-                        {log.student_name}
-                        {isToday && (
-                          <Badge className="text-[9px] font-bold bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border-emerald-500/30 px-1.5 py-0">
-                            NEW
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <span>{log.student_name}</span>
+                        {isDefaulter && (
+                          <Badge className="text-[9px] font-bold bg-amber-500/15 text-amber-700 dark:text-amber-300 border-amber-500/30 px-1.5 py-0">
+                            &lt;75% ({realRate}%)
                           </Badge>
                         )}
                       </div>
@@ -459,29 +429,36 @@ export const SmsLogs: React.FC = () => {
                           )}
                           {log.status === 'sent' ? 'Delivered' : 'Failed'}
                         </Badge>
+                        {log.channel && (
+                          <span className="text-[10px] text-muted-foreground uppercase font-mono">
+                            via {log.channel}
+                          </span>
+                        )}
                       </div>
                     </TableCell>
 
-                    {/* Minimized Message Cell */}
+                    {/* Message Cell with only Arrow Icon */}
                     <TableCell className="text-xs max-w-md align-top py-3">
                       {isExpanded ? (
-                        <div className="space-y-1.5">
+                        <div className="space-y-1">
                           <div className="whitespace-pre-line text-foreground/90 bg-muted/20 p-2.5 rounded-lg border border-border/40 font-sans leading-relaxed text-xs">
                             {cleanMsg}
                           </div>
                           <button
                             type="button"
                             onClick={() => toggleExpand(log.id)}
-                            className="text-[11px] font-semibold text-muted-foreground hover:text-foreground inline-flex items-center gap-1"
+                            className="p-1 rounded text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors inline-flex items-center"
+                            title="Collapse message"
+                            aria-label="Collapse message"
                           >
-                            <ChevronUp className="h-3 w-3" /> Minimize message
+                            <ChevronUp className="h-4 w-4" />
                           </button>
                         </div>
                       ) : (
-                        <div className="space-y-1">
+                        <div className="flex items-center gap-1.5">
                           <p
                             onClick={() => toggleExpand(log.id)}
-                            className="line-clamp-1 text-muted-foreground hover:text-foreground cursor-pointer font-sans text-xs bg-muted/10 px-2 py-1 rounded border border-border/30 transition-colors"
+                            className="line-clamp-1 text-muted-foreground hover:text-foreground cursor-pointer font-sans text-xs bg-muted/10 px-2.5 py-1 rounded border border-border/30 transition-colors flex-1"
                             title="Click to view full message"
                           >
                             {cleanMsg.replace(/\s+/g, ' ')}
@@ -489,54 +466,14 @@ export const SmsLogs: React.FC = () => {
                           <button
                             type="button"
                             onClick={() => toggleExpand(log.id)}
-                            className="text-[11px] font-semibold text-primary hover:underline inline-flex items-center gap-1"
+                            className="p-1 rounded text-primary hover:text-primary/80 hover:bg-muted/50 transition-colors shrink-0 inline-flex items-center"
+                            title="Expand message"
+                            aria-label="Expand message"
                           >
-                            <ChevronDown className="h-3 w-3" /> Show full message
+                            <ChevronDown className="h-4 w-4" />
                           </button>
                         </div>
                       )}
-                    </TableCell>
-
-                    <TableCell className="text-right whitespace-nowrap align-top py-3">
-                      <div className="flex items-center justify-end gap-1.5">
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          onClick={() => handleCopy(log.id, cleanMsg)}
-                          className="h-7 w-7 p-0 text-muted-foreground hover:text-foreground"
-                          title="Copy SMS text"
-                        >
-                          {copiedId === log.id ? (
-                            <Check className="h-3.5 w-3.5 text-emerald-500" />
-                          ) : (
-                            <Copy className="h-3.5 w-3.5" />
-                          )}
-                        </Button>
-
-                        {waUrl && (
-                          <a
-                            href={waUrl}
-                            target="_blank"
-                            rel="noreferrer"
-                            className="inline-flex h-7 items-center gap-1 rounded-md px-2 text-xs font-semibold bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-500/20 transition-colors"
-                            title="Send via WhatsApp to parent"
-                          >
-                            <MessageSquare className="h-3.5 w-3.5" />
-                            <span className="hidden lg:inline">WhatsApp</span>
-                          </a>
-                        )}
-
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => openViewModal(log)}
-                          className="h-7 px-2 text-xs font-medium"
-                          title="View complete message"
-                        >
-                          <Eye className="h-3.5 w-3.5 mr-1 text-primary" />
-                          View
-                        </Button>
-                      </div>
                     </TableCell>
                   </TableRow>
                 );
@@ -557,6 +494,17 @@ export const SmsLogs: React.FC = () => {
         onSuccess={(msg) => {
           setToastMsg(msg);
           refreshLogs();
+        }}
+      />
+
+      <DefaulterDirectAlertModal
+        open={defaulterModalOpen}
+        onOpenChange={setDefaulterModalOpen}
+        onAlertsSent={(count) => {
+          refreshLogs();
+          setToastMsg(
+            `Sent <75% Defaulter Notice to ${count} student(s) via Email. Logged in Parent Logs.`
+          );
         }}
       />
 

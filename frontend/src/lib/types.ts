@@ -122,12 +122,19 @@ export type SmsLanguage =
   | "bilingual_mr"
   | "bilingual_hi";
 
+export type AlertChannel = "sms" | "email" | "whatsapp";
+
 export interface SmsLog {
   id: string;
   student_id?: string | null;
   subject_id?: string | null;
   student_name: string;
   parent_mobile?: string | null;
+  recipient_email?: string | null;
+  channel?: AlertChannel;
+  is_defaulter_alert?: boolean;
+  attendance_rate?: number;
+  email_subject?: string;
   message: string;
   status: "sent" | "failed";
   attendance_date: string;

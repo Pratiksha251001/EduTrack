@@ -93,6 +93,7 @@ export const AppShell: React.FC = () => {
           { label: "Teachers", path: "/hod/teachers", icon: Users },
           { label: "Coordinators", path: "/hod/coordinators", icon: UserCog },
           { label: "Classes", path: "/hod/classes", icon: Building2 },
+          { label: "Subjects", path: "/subjects", icon: BookOpen },
           { label: "Students", path: "/hod/students", icon: GraduationCap },
         ]
       : []),

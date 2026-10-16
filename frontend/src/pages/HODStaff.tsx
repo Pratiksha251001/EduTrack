@@ -130,7 +130,7 @@ export const HODStaff: React.FC<HODStaffProps> = ({ mode }) => {
   const departmentSubjects = useMemo(
     () =>
       (localDb.subjects || []).filter(
-        (s: any) => !departmentId || s.department_id === departmentId,
+        (s: any) => !departmentId || !s.department_id || s.department_id === departmentId,
       ) as Subject[],
     [departmentId, version],
   );

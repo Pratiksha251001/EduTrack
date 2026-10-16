@@ -1,4 +1,4 @@
-import React, { useMemo } from "react";
+import React, { useMemo, useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import {
   Building2,
@@ -11,6 +11,9 @@ import {
   Check,
   ArrowRight,
   TrendingUp,
+  Search,
+  ExternalLink,
+  Sparkles,
 } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import { localDb } from "../lib/supabase";
@@ -19,10 +22,13 @@ import {
   CURRENT_ACADEMIC_YEAR,
   ENGINEERING_YEARS,
   getEngineeringYearFromSemester,
+  getSemesterEngineeringLabel,
 } from "../lib/college";
 import { Button } from "../components/ui/button";
 import { Card } from "../components/ui/card";
 import { Badge } from "../components/ui/badge";
+import { Input } from "../components/ui/input";
+import { Select } from "../components/ui/select";
 import {
   CartesianGrid,
   Line,
@@ -35,6 +41,19 @@ import {
 
 export const HODDashboard: React.FC = () => {
   const { user } = useAuth();
+  const [version, setVersion] = useState(0);
+  const [subjectSearch, setSubjectSearch] = useState("");
+  const [subjectSemFilter, setSubjectSemFilter] = useState("all");
+
+  useEffect(() => {
+    const handleUpdate = () => {
+      setVersion((v) => v + 1);
+    };
+    window.addEventListener("edutrack_data_updated", handleUpdate);
+    return () => {
+      window.removeEventListener("edutrack_data_updated", handleUpdate);
+    };
+  }, []);
 
   const departments = localDb.departments;
   const teachers = localDb.teachers;
@@ -58,7 +77,7 @@ export const HODDashboard: React.FC = () => {
         teacher.department_id === assignedDepartmentId &&
         teacher.status === "active",
     );
-  }, [teachers, assignedDepartmentId]);
+  }, [teachers, assignedDepartmentId, version]);
 
   const deptStudents = useMemo(() => {
     if (!assignedDepartmentId) return [];
@@ -67,14 +86,14 @@ export const HODDashboard: React.FC = () => {
         student.department_id === assignedDepartmentId &&
         student.status === "active",
     );
-  }, [students, assignedDepartmentId]);
+  }, [students, assignedDepartmentId, version]);
 
   const deptClasses = useMemo(() => {
     if (!assignedDepartmentId) return [];
     return academicClasses.filter(
       (c) => c.department_id === assignedDepartmentId && c.status === "active",
     );
-  }, [academicClasses, assignedDepartmentId]);
+  }, [academicClasses, assignedDepartmentId, version]);
 
   const deptAssignments = useMemo(() => {
     if (!assignedDepartmentId) return [];
@@ -82,7 +101,41 @@ export const HODDashboard: React.FC = () => {
       const teacher = teachers.find((t) => t.id === a.teacher_id);
       return teacher?.department_id === assignedDepartmentId;
     });
-  }, [assignments, teachers, assignedDepartmentId]);
+  }, [assignments, teachers, assignedDepartmentId, version]);
+
+  // ALL subjects belonging to HOD's department, including all subjects added by Class Coordinators
+  const allDeptSubjects = useMemo(() => {
+    return subjects.filter((s) => {
+      if (!assignedDepartmentId) return true;
+      return !s.department_id || s.department_id === assignedDepartmentId;
+    });
+  }, [subjects, assignedDepartmentId, version]);
+
+  // Filtered department subjects for search & semester filter
+  const filteredDeptSubjects = useMemo(() => {
+    let list = allDeptSubjects;
+    if (subjectSemFilter !== "all") {
+      list = list.filter((s) => s.semester === Number(subjectSemFilter));
+    }
+    if (subjectSearch.trim()) {
+      const q = subjectSearch.toLowerCase().trim();
+      list = list.filter((s) => {
+        const assignedT = teachers.find((t) => t.id === (s as any).teacher_id);
+        const tsList = teacherSubjects.filter((ts) => ts.subject_id === s.id);
+        const mappedTeachers = tsList
+          .map((ts) => teachers.find((t) => t.id === ts.teacher_id)?.full_name || "")
+          .join(" ")
+          .toLowerCase();
+        return (
+          s.code.toLowerCase().includes(q) ||
+          s.name.toLowerCase().includes(q) ||
+          (assignedT && assignedT.full_name.toLowerCase().includes(q)) ||
+          mappedTeachers.includes(q)
+        );
+      });
+    }
+    return list;
+  }, [allDeptSubjects, subjectSemFilter, subjectSearch, teachers, teacherSubjects, version]);
 
   // Subjects taught directly by this HOD
   const myTeachingSubjects = useMemo(() => {
@@ -93,7 +146,7 @@ export const HODDashboard: React.FC = () => {
       );
       return isAssigned || (s as any).teacher_id === linkedTeacher.id;
     });
-  }, [subjects, teacherSubjects, linkedTeacher]);
+  }, [subjects, teacherSubjects, linkedTeacher, version]);
 
   const deptAttendance = localDb.attendance.filter((record) =>
     deptStudents.some((student) => student.id === record.student_id),
@@ -166,6 +219,12 @@ export const HODDashboard: React.FC = () => {
       color: "from-blue-500/20 to-blue-500/5 text-blue-600 dark:text-blue-400 border-blue-500/20",
     },
     {
+      label: "Curriculum Subjects",
+      value: String(allDeptSubjects.length),
+      icon: BookOpen,
+      color: "from-teal-500/20 to-teal-500/5 text-teal-600 dark:text-teal-400 border-teal-500/20",
+    },
+    {
       label: "Enrolled Students",
       value: String(deptStudents.length),
       icon: GraduationCap,
@@ -207,7 +266,7 @@ export const HODDashboard: React.FC = () => {
       </div>
 
       {/* Primary Stat Cards */}
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
         {statCards.map((s, i) => {
           const Icon = s.icon;
           return (
@@ -232,7 +291,7 @@ export const HODDashboard: React.FC = () => {
       </div>
 
       {/* Quick Navigation Hub */}
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
         <Link
           to="/hod/classes"
           className="group block rounded-xl border border-border bg-card p-3.5 shadow-xs hover:border-primary/50 hover:bg-muted/40 transition-all"
@@ -252,7 +311,7 @@ export const HODDashboard: React.FC = () => {
         </Link>
 
         <Link
-          to="/hod/staff"
+          to="/hod/teachers"
           className="group block rounded-xl border border-border bg-card p-3.5 shadow-xs hover:border-primary/50 hover:bg-muted/40 transition-all"
         >
           <div className="flex items-center justify-between">
@@ -284,6 +343,24 @@ export const HODDashboard: React.FC = () => {
           </h3>
           <p className="text-[11px] text-muted-foreground mt-0.5">
             {deptAssignments.length} assigned CCs
+          </p>
+        </Link>
+
+        <Link
+          to="/subjects"
+          className="group block rounded-xl border border-border bg-card p-3.5 shadow-xs hover:border-primary/50 hover:bg-muted/40 transition-all"
+        >
+          <div className="flex items-center justify-between">
+            <span className="p-2 rounded-lg bg-teal-500/10 text-teal-600 dark:text-teal-400">
+              <BookOpen className="h-4 w-4" />
+            </span>
+            <ArrowRight className="h-3.5 w-3.5 text-muted-foreground group-hover:text-primary group-hover:translate-x-0.5 transition-all" />
+          </div>
+          <h3 className="font-display font-bold text-sm text-foreground mt-3">
+            Department Subjects
+          </h3>
+          <p className="text-[11px] text-muted-foreground mt-0.5">
+            {allDeptSubjects.length} subjects (CC &amp; Dept)
           </p>
         </Link>
 
@@ -514,6 +591,184 @@ export const HODDashboard: React.FC = () => {
             </div>
           )}
         </div>
+      </Card>
+
+      {/* Department Subjects & Curriculum (Added by Class Coordinators & Department) */}
+      <Card className="border-border p-5 space-y-4 shadow-xs">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 border-b border-border/60 pb-4">
+          <div className="space-y-1">
+            <div className="flex items-center gap-2">
+              <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-teal-500/15 text-teal-600 dark:text-teal-400">
+                <BookOpen className="h-4 w-4" />
+              </span>
+              <h2 className="font-display text-lg font-bold text-foreground">
+                Department Subjects &amp; Curriculum
+              </h2>
+              <Badge className="bg-teal-500/10 text-teal-700 dark:text-teal-400 border border-teal-500/20 text-xs font-bold">
+                {allDeptSubjects.length} Total Subjects (CC &amp; Dept)
+              </Badge>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              All subjects and curriculum courses added by Class Coordinators (CC) and Department across Engineering Semesters.
+            </p>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-2">
+            <Link to="/subjects">
+              <Button size="sm" variant="outline" className="gap-1.5 text-xs shadow-xs">
+                <BookOpen className="h-3.5 w-3.5" />
+                Manage in Curriculum Portal
+              </Button>
+            </Link>
+            <Link to="/hod/teachers">
+              <Button size="sm" variant="outline" className="gap-1.5 text-xs shadow-xs">
+                <Users className="h-3.5 w-3.5" />
+                Assign Faculty
+              </Button>
+            </Link>
+          </div>
+        </div>
+
+        {/* Search & Semester Filters */}
+        <div className="flex flex-col sm:flex-row items-center gap-3">
+          <div className="relative flex-1 w-full">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+            <Input
+              placeholder="Search by code, subject name, or assigned faculty..."
+              value={subjectSearch}
+              onChange={(e) => setSubjectSearch(e.target.value)}
+              className="pl-9 h-9 text-xs"
+            />
+          </div>
+
+          <div className="w-full sm:w-56 shrink-0">
+            <Select
+              value={subjectSemFilter}
+              onChange={(e) => setSubjectSemFilter(e.target.value)}
+              className="h-9 text-xs"
+              options={[
+                { value: "all", label: "All Semesters (1–8)" },
+                { value: "1", label: "Semester 1 (FY Engg)" },
+                { value: "2", label: "Semester 2 (FY Engg)" },
+                { value: "3", label: "Semester 3 (SY Engg)" },
+                { value: "4", label: "Semester 4 (SY Engg)" },
+                { value: "5", label: "Semester 5 (TY Engg)" },
+                { value: "6", label: "Semester 6 (TY Engg)" },
+                { value: "7", label: "Semester 7 (BE Engg)" },
+                { value: "8", label: "Semester 8 (BE Engg)" },
+              ]}
+            />
+          </div>
+        </div>
+
+        {/* Subjects Grid */}
+        {filteredDeptSubjects.length > 0 ? (
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            {filteredDeptSubjects.map((sub) => {
+              const engYear = getEngineeringYearFromSemester(sub.semester);
+              const semLabel = getSemesterEngineeringLabel(sub.semester);
+
+              // Faculty assignments
+              const directTeacher = teachers.find(
+                (t) => t.id === (sub as any).teacher_id,
+              );
+              const mappedTs = teacherSubjects.filter((ts) => ts.subject_id === sub.id);
+              const assignedTeachers = Array.from(
+                new Set(
+                  [
+                    directTeacher?.full_name,
+                    ...mappedTs.map((ts) => teachers.find((t) => t.id === ts.teacher_id)?.full_name),
+                  ].filter(Boolean),
+                ),
+              );
+
+              return (
+                <div
+                  key={sub.id}
+                  className="rounded-xl border border-border bg-card p-4 space-y-3 shadow-xs hover:border-primary/40 transition-all flex flex-col justify-between"
+                >
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between gap-1.5">
+                      <span className="font-mono text-xs font-bold px-2 py-0.5 rounded bg-muted text-foreground border border-border/60">
+                        {sub.code}
+                      </span>
+                      <div className="flex items-center gap-1">
+                        <Badge
+                          className={`text-[10px] font-bold ${
+                            engYear === 1
+                              ? "bg-amber-500/15 text-amber-700 dark:text-amber-400 border-amber-500/25"
+                              : engYear === 2
+                                ? "bg-blue-500/15 text-blue-700 dark:text-blue-400 border-blue-500/25"
+                                : engYear === 3
+                                  ? "bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border-emerald-500/25"
+                                  : "bg-purple-500/15 text-purple-700 dark:text-purple-400 border-purple-500/25"
+                          }`}
+                        >
+                          Sem {sub.semester} · {semLabel.split(" ")[0]}
+                        </Badge>
+                        <span className="text-[10px] text-muted-foreground font-mono">
+                          {sub.credits || 3} Credits
+                        </span>
+                      </div>
+                    </div>
+
+                    <h4 className="font-display font-semibold text-sm text-foreground leading-snug">
+                      {sub.name}
+                    </h4>
+                  </div>
+
+                  <div className="pt-2.5 border-t border-border/60 flex items-center justify-between gap-2 text-xs">
+                    <div className="min-w-0 flex-1">
+                      <span className="text-[10px] uppercase font-semibold text-muted-foreground block">
+                        Assigned Lecturer
+                      </span>
+                      {assignedTeachers.length > 0 ? (
+                        <span
+                          className="font-medium text-foreground truncate block text-xs"
+                          title={assignedTeachers.join(", ")}
+                        >
+                          👨‍🏫 {assignedTeachers.join(", ")}
+                        </span>
+                      ) : (
+                        <span className="text-amber-600 dark:text-amber-400 text-xs font-medium inline-flex items-center gap-1">
+                          ⚠️ Unassigned
+                        </span>
+                      )}
+                    </div>
+
+                    <Link to="/attendance">
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className="h-7 text-[11px] px-2 text-primary hover:bg-primary/10"
+                        title="Conduct Lecture"
+                      >
+                        <ClipboardCheck className="h-3.5 w-3.5 mr-1" />
+                        Lecture
+                      </Button>
+                    </Link>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        ) : (
+          <div className="text-center py-8 px-4 rounded-xl border border-dashed border-border bg-muted/20">
+            <BookOpen className="h-8 w-8 mx-auto text-muted-foreground/60 mb-2" />
+            <p className="text-sm font-semibold text-foreground">
+              {subjectSearch ? "No matching subjects found" : "No subjects added yet for this filter"}
+            </p>
+            <p className="text-xs text-muted-foreground mt-1 max-w-sm mx-auto">
+              Class Coordinators can add subjects from their dashboard, or you can import curriculum directly.
+            </p>
+            <Link to="/subjects" className="inline-block mt-3">
+              <Button size="sm" variant="outline" className="gap-1.5 text-xs">
+                <BookOpen className="h-3.5 w-3.5" />
+                Go to Subjects &amp; Curriculum Portal
+              </Button>
+            </Link>
+          </div>
+        )}
       </Card>
 
       {/* Attendance Trend Chart */}
