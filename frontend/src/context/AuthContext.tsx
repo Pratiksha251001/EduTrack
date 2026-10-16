@@ -219,7 +219,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
 
     const defaultAdminEmail =
       import.meta.env.VITE_DEFAULT_ADMIN_EMAIL?.trim().toLowerCase() ||
-      "admin@edutrack.edu";
+      "edtrack.work@gmail.com";
     const defaultAdminName =
       import.meta.env.VITE_DEFAULT_ADMIN_NAME?.trim() ||
       "Institutional Administrator";
@@ -539,12 +539,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     const defaultAdminPassword =
       import.meta.env.VITE_DEFAULT_ADMIN_PASSWORD || "Admin@1234";
     const isBootstrapAdmin =
-      (cleanId === defaultAdminEmail &&
-        password === defaultAdminPassword) ||
-      ((cleanId === "admin@edutrack.com" ||
-        cleanId === "admin@edutrack.edu" ||
-        cleanId === "admin") &&
-        (password === "Admin@1234" || password === "Admin@123"));
+      cleanId === defaultAdminEmail && password === defaultAdminPassword;
     if (
       targetRole === "admin" &&
       isBootstrapAdmin
@@ -792,15 +787,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
       }
 
       // 1.3 Check default admin credentials fallback
-      if (
-        (cleanId === "admin@edutrack.edu" ||
-          cleanId === "admin@edutrack.com" ||
-          cleanId === "admin") &&
-        (password === "Admin@123" || password === "Admin@1234")
-      ) {
+      if (cleanId === "edtrack.work@gmail.com" && password === "Admin@1234") {
         const adminUser = {
           id: "admin-default",
-          email: cleanId.includes("@") ? cleanId : "admin@edutrack.com",
+          email: cleanId,
           full_name: envName,
         };
         setUser(adminUser);

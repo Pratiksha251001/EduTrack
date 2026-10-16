@@ -80,7 +80,8 @@ export const AccessHub: React.FC = () => {
   }, [authLoading, navigate, user]);
 
   const defaultAdminEmail =
-    import.meta.env.VITE_DEFAULT_ADMIN_EMAIL?.trim() || "admin@edutrack.edu";
+    import.meta.env.VITE_DEFAULT_ADMIN_EMAIL?.trim() ||
+    "edtrack.work@gmail.com";
   const defaultAdminPassword =
     import.meta.env.VITE_DEFAULT_ADMIN_PASSWORD || "Admin@123";
 
