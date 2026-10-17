@@ -6,9 +6,9 @@ export const normalizeId = (str: string | null | undefined): string =>
  */
 export const saveCredential = (
   identifiers: (string | null | undefined)[],
-  password: string
+  password: string,
 ) => {
-  if (!password) return;
+  if (import.meta.env.PROD || !password) return;
   identifiers
     .filter(Boolean)
     .map((id) => normalizeId(id))
@@ -25,6 +25,7 @@ export const saveCredential = (
 export const getCredential = (
   ...identifiers: (string | null | undefined)[]
 ): string | null => {
+  if (import.meta.env.PROD) return null;
   for (const id of identifiers) {
     if (!id) continue;
     const key = normalizeId(id);
@@ -85,7 +86,7 @@ export const isDefaultPassword = (
     reg_number?: string | null;
     email?: string | null;
     id?: string | null;
-  }
+  },
 ): boolean => {
   if (!password || role === "admin") return false;
 
@@ -133,7 +134,13 @@ export const isDefaultPassword = (
   }
 
   if (role === "class_coordinator") {
-    const ccDefaults = ["cc@123", "cc123", "teacher@123", "teacher123", "123456"];
+    const ccDefaults = [
+      "cc@123",
+      "cc123",
+      "teacher@123",
+      "teacher123",
+      "123456",
+    ];
     if (ccDefaults.includes(lower)) return true;
   }
 
@@ -154,7 +161,7 @@ export const isDefaultPassword = (
  * Mark that a custom password has been set for these identifiers
  */
 export const markCustomPasswordSet = (
-  identifiers: (string | null | undefined)[]
+  identifiers: (string | null | undefined)[],
 ) => {
   identifiers
     .filter(Boolean)

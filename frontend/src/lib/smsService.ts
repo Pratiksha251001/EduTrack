@@ -1,6 +1,7 @@
 import { apiFetch } from "./api";
 
-export type SmsProviderType = "fast2sms" | "msg91" | "twilio" | "textlocal" | "custom";
+export type SmsProviderType =
+  "fast2sms" | "msg91" | "twilio" | "textlocal" | "custom";
 export interface SmsGatewayStatus {
   provider: SmsProviderType | string;
   activeProvider?: SmsProviderType | string;
@@ -66,7 +67,7 @@ export interface SmsDispatchResponse {
   provider: string;
   results: Array<{
     mobile: string;
-    status: "sent" | "failed";
+    status: "queued" | "accepted" | "delivered" | "failed" | "simulated";
     messageId?: string;
     details?: string;
     raw?: any;
@@ -86,7 +87,10 @@ export async function getSmsGatewayStatus(): Promise<SmsGatewayStatus> {
     const data = await res.json();
     return data;
   } catch (err) {
-    console.warn("Could not reach /api/sms/status, defaulting to simulation status:", err);
+    console.warn(
+      "Could not reach /api/sms/status, defaulting to simulation status:",
+      err,
+    );
     return {
       provider: "fast2sms",
       isConfigured: false,
@@ -97,7 +101,14 @@ export async function getSmsGatewayStatus(): Promise<SmsGatewayStatus> {
       totalDispatched: 0,
       lastDispatchedAt: null,
       fast2sms: { apiKey: "", route: "q", isConfigured: false },
-      msg91: { authKey: "", senderId: "EDUTRK", templateId: "", route: "4", dltTeId: "", isConfigured: false },
+      msg91: {
+        authKey: "",
+        senderId: "EDUTRK",
+        templateId: "",
+        route: "4",
+        dltTeId: "",
+        isConfigured: false,
+      },
     };
   }
 }
@@ -112,7 +123,7 @@ export async function dispatchSmsViaGateway(
     senderId?: string;
     templateId?: string;
     dltTeId?: string;
-  }
+  },
 ): Promise<SmsDispatchResponse> {
   if (!recipients || recipients.length === 0) {
     return {
@@ -147,20 +158,22 @@ export async function dispatchSmsViaGateway(
     const errData = await res.json().catch(() => ({}));
     throw new Error(errData.message || `Server responded with ${res.status}`);
   } catch (err: any) {
-    console.warn("SMS API error, falling back to local simulation logging:", err);
-    // Graceful fallback so local operation is never blocked
+    console.error(
+      "SMS API request failed; no local delivery result was fabricated:",
+      err,
+    );
     return {
-      success: true,
-      dispatchedCount: recipients.filter((r) => r.mobile && r.mobile.length >= 10).length,
-      failedCount: recipients.filter((r) => !r.mobile || r.mobile.length < 10).length,
-      simulated: true,
-      provider: "Simulation Fallback",
+      success: false,
+      dispatchedCount: 0,
+      failedCount: recipients.length,
+      simulated: false,
+      provider: "SMS Gateway",
       results: recipients.map((r) => ({
         mobile: r.mobile,
-        status: r.mobile && r.mobile.length >= 10 ? "sent" : "failed",
-        details: "Dispatched in fallback simulation mode",
+        status: "failed" as const,
+        details: "No carrier delivery was attempted or confirmed.",
       })),
-      message: err.message || "Simulated local dispatch fallback",
+      message: err.message || "Failed to reach SMS server.",
     };
   }
 }
@@ -174,7 +187,7 @@ export async function sendTestSmsViaGateway(
   options?: {
     provider?: string;
     testConfig?: any;
-  }
+  },
 ): Promise<{
   success: boolean;
   message: string;
@@ -250,7 +263,12 @@ export async function updateSmsGatewayConfig(config: {
   templateId?: string;
   route?: string;
   dltTeId?: string;
-}): Promise<{ success: boolean; message: string; isConfigured: boolean; provider?: string }> {
+}): Promise<{
+  success: boolean;
+  message: string;
+  isConfigured: boolean;
+  provider?: string;
+}> {
   try {
     const res = await apiFetch("/api/sms/config", {
       method: "POST",
