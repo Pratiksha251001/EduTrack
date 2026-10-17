@@ -219,7 +219,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
 
     const defaultAdminEmail =
       import.meta.env.VITE_DEFAULT_ADMIN_EMAIL?.trim().toLowerCase() ||
-      "edtrack.work@gmail.com";
+      "edutrack.work@gmail.com";
     const defaultAdminName =
       import.meta.env.VITE_DEFAULT_ADMIN_NAME?.trim() ||
       "Institutional Administrator";
@@ -283,7 +283,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     ) {
       setStorageItem(`password_${demoUser.id}`, "123");
     }
-    const defaultPath = targetRole === "teacher" ? "/teacher/dashboard" : "/dashboard";
+    const defaultPath =
+      targetRole === "teacher" ? "/teacher/dashboard" : "/dashboard";
     localStorage.setItem("edutrack_last_active_path", defaultPath);
     setLoading(false);
   };
@@ -531,33 +532,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
       return { ok: false, message };
     };
 
-    // Allow the documented bootstrap accounts to work before Supabase Auth
-    // provisioning is completed for a new deployment.
-    const defaultAdminEmail =
-      import.meta.env.VITE_DEFAULT_ADMIN_EMAIL?.trim().toLowerCase() ||
-      "admin@edutrack.com";
-    const defaultAdminPassword =
-      import.meta.env.VITE_DEFAULT_ADMIN_PASSWORD || "Admin@1234";
-    const isBootstrapAdmin =
-      cleanId === defaultAdminEmail && password === defaultAdminPassword;
-    if (
-      targetRole === "admin" &&
-      isBootstrapAdmin
-    ) {
-      const adminUser = {
-        id: "admin-default",
-        email: defaultAdminEmail,
-        full_name:
-          import.meta.env.VITE_DEFAULT_ADMIN_NAME?.trim() ||
-          "System Administrator",
-      };
-      setUser(adminUser);
-      setRole("admin");
-      setStorageItem("user", JSON.stringify(adminUser));
-      setStorageItem("role", "admin");
-      return { ok: true };
-    }
-
     const bootstrapAccess: Record<
       "hod" | "class_coordinator" | "teacher",
       {
@@ -623,7 +597,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     if (
       targetRole === "student" &&
       (cleanId === "student@gmail.com" || cleanId === "101") &&
-      (password === "student@123" || password === "Student@123" || password === "101")
+      (password === "student@123" ||
+        password === "Student@123" ||
+        password === "101")
     ) {
       const studentUser = {
         id: "student-default",
@@ -737,30 +713,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     // 1. ADMIN LOGIN
     // ==========================================
     if (targetRole === "admin") {
-      const envEmail =
-        import.meta.env.VITE_DEFAULT_ADMIN_EMAIL?.trim().toLowerCase();
-      const envPassword = import.meta.env.VITE_DEFAULT_ADMIN_PASSWORD;
       const envName =
         import.meta.env.VITE_DEFAULT_ADMIN_NAME?.trim() ||
         "Institutional Administrator";
 
-      // 1.1 Check environment-configured credentials
-      if (envEmail && envPassword) {
-        if (cleanId === envEmail && password === envPassword) {
-          const adminUser = {
-            id: "admin-env",
-            email: envEmail,
-            full_name: envName,
-          };
-          setUser(adminUser);
-          setRole("admin");
-          setStorageItem("user", JSON.stringify(adminUser));
-          setStorageItem("role", "admin");
-          return { ok: true };
-        }
-      }
-
-      // 1.2 Check locally registered admin account
+      // Check locally registered admin account
       const saved = getStorageItem("admin_account");
       if (saved) {
         const account = JSON.parse(saved) as {
@@ -784,20 +741,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
           setStorageItem("role", "admin");
           return { ok: true };
         }
-      }
-
-      // 1.3 Check default admin credentials fallback
-      if (cleanId === "edtrack.work@gmail.com" && password === "Admin@1234") {
-        const adminUser = {
-          id: "admin-default",
-          email: cleanId,
-          full_name: envName,
-        };
-        setUser(adminUser);
-        setRole("admin");
-        setStorageItem("user", JSON.stringify(adminUser));
-        setStorageItem("role", "admin");
-        return { ok: true };
       }
 
       return failLogin("Invalid Admin email or password.");

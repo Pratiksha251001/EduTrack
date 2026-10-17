@@ -79,11 +79,7 @@ export const AccessHub: React.FC = () => {
     }
   }, [authLoading, navigate, user]);
 
-  const defaultAdminEmail =
-    import.meta.env.VITE_DEFAULT_ADMIN_EMAIL?.trim() ||
-    "edtrack.work@gmail.com";
-  const defaultAdminPassword =
-    import.meta.env.VITE_DEFAULT_ADMIN_PASSWORD || "Admin@123";
+  const defaultAdminEmail = "edutrack.work@gmail.com";
 
   const portalCards: PortalCard[] = [
     {
@@ -569,35 +565,6 @@ export const AccessHub: React.FC = () => {
                 >
                   First-Time Setup
                 </button>
-              </div>
-            )}
-
-            {selectedRole === "admin" && adminMode === "login" && (
-              <div className="mb-4 rounded-xl border border-primary/20 bg-primary/5 p-3 text-xs flex items-center justify-between gap-2">
-                <div className="text-left">
-                  <p className="font-semibold text-foreground flex items-center gap-1.5">
-                    <KeyRound className="h-3.5 w-3.5 text-primary" />
-                    Default .env Admin Credentials
-                  </p>
-                  <p className="text-[11px] text-muted-foreground mt-0.5">
-                    Email:{" "}
-                    <span className="font-mono text-foreground font-medium">
-                      {defaultAdminEmail}
-                    </span>
-                  </p>
-                </div>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  className="text-xs h-7 px-2.5 shrink-0 hover:bg-primary hover:text-primary-foreground transition-colors"
-                  onClick={() => {
-                    setEmail(defaultAdminEmail);
-                    setPassword(defaultAdminPassword);
-                  }}
-                >
-                  Fill Default
-                </Button>
               </div>
             )}
 

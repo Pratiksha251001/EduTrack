@@ -1,12 +1,12 @@
-const rawApiUrl = (import.meta.env.VITE_API_URL || "").trim().replace(/\/+$/, "");
+import { supabase } from "./supabase";
 
-// When running in the browser, always use relative URLs if VITE_API_URL points to localhost
-// or is empty, ensuring requests go to the same origin through the secure proxy without mixed-content errors.
+const rawApiUrl = (import.meta.env.VITE_API_URL || "")
+  .trim()
+  .replace(/\/+$/, "");
 const isLocalhost =
   rawApiUrl.includes("localhost") ||
   rawApiUrl.includes("127.0.0.1") ||
   rawApiUrl.includes("0.0.0.0");
-
 const apiBaseUrl =
   typeof window !== "undefined" && isLocalhost
     ? ""
@@ -18,9 +18,14 @@ export function apiUrl(path: string): string {
   return `${apiBaseUrl}${cleanPath}`;
 }
 
-export function apiFetch(
+export async function apiFetch(
   path: string,
-  init?: RequestInit,
+  init: RequestInit = {},
 ): Promise<Response> {
-  return fetch(apiUrl(path), init);
+  const { data } = await supabase.auth.getSession();
+  const headers = new Headers(init.headers);
+  if (data.session?.access_token && !headers.has("Authorization")) {
+    headers.set("Authorization", `Bearer ${data.session.access_token}`);
+  }
+  return fetch(apiUrl(path), { ...init, headers });
 }
