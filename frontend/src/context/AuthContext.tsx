@@ -67,6 +67,30 @@ const removeStorageItem = (key: string) => {
   localStorage.removeItem(`edutrack_${key}`);
   localStorage.removeItem(`smit_${key}`);
 };
+interface StudentAccountLink {
+  id: string;
+  roll_number: string;
+  department_id: string | null;
+  email: string | null;
+  full_name: string;
+}
+const resolveStudentAccountLink = async (
+  authUserId: string,
+  accountRole: UserRoleType,
+): Promise<StudentAccountLink | null> => {
+  if (accountRole !== "student") return null;
+  const { data, error } = await supabase
+    .from("students")
+    .select("id,roll_number,department_id,email,full_name")
+    .eq("user_id", authUserId)
+    .maybeSingle();
+  if (error) {
+    throw new Error(
+      `Could not load the linked student profile: ${error.message}`,
+    );
+  }
+  return data as StudentAccountLink | null;
+};
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
   children,
@@ -89,12 +113,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
   const [mustChangePassword, setMustChangePassword] = useState<boolean>(() => {
     return getStorageItem("must_change_password") === "true";
   });
-  const [loading, setLoading] = useState<boolean>(() => {
-    const savedUser = getStorageItem("user");
-    const savedRole = getStorageItem("role");
-    // If we already have a saved session, we are ready immediately (no loading spinner flash)
-    return !(savedUser && savedRole);
-  });
+  const [loading, setLoading] = useState<boolean>(true);
   const [isLogoutConfirmOpen, setIsLogoutConfirmOpen] = useState(false);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
 
@@ -118,7 +137,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     const savedRole = getStorageItem("role") as UserRoleType | null;
     const savedMustChange = getStorageItem("must_change_password") === "true";
 
-    if (savedUser && savedRole) {
+    if (!isSupabaseConfigured && savedUser && savedRole) {
       try {
         const parsedUser = JSON.parse(savedUser);
         if (!savedIsDemo && savedRole !== "admin") {
@@ -159,17 +178,34 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
             .select("full_name, must_change_password")
             .eq("id", authUser.id)
             .maybeSingle();
+          const restoredRole = roleRecord.role as UserRoleType;
+          await localDb.waitUntilReady();
+          if (!mounted) return;
+          const studentRecord = await resolveStudentAccountLink(
+            authUser.id,
+            restoredRole,
+          );
+          if (restoredRole === "student" && !studentRecord) {
+            console.warn(
+              "The authenticated student account has no linked student record.",
+            );
+            return;
+          }
           const restoredUser = {
             id: authUser.id,
-            email: authUser.email || "",
+            email: studentRecord?.email || authUser.email || "",
             full_name:
+              studentRecord?.full_name ||
               profile?.full_name ||
               authUser.user_metadata?.full_name ||
               "Portal User",
-            department_id: roleRecord.department_id,
+            department_id:
+              studentRecord?.department_id || roleRecord.department_id,
+            student_id: studentRecord?.id,
+            roll_number: studentRecord?.roll_number,
           };
           setUser(restoredUser);
-          setRole(roleRecord.role as UserRoleType);
+          setRole(restoredRole);
           setStorageItem("user", JSON.stringify(restoredUser));
           setStorageItem("role", roleRecord.role as string);
           setMustChangePassword(profile?.must_change_password === true);
@@ -177,7 +213,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
           console.warn("Could not restore Supabase session:", err);
         }
       };
-      void restoreSupabaseSession?.();
+      const initializeSupabaseSession = async () => {
+        await restoreSupabaseSession?.();
+        if (mounted) setLoading(false);
+      };
+      void initializeSupabaseSession();
 
       try {
         const { data: listener } = supabase.auth.onAuthStateChange(
@@ -201,9 +241,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
       } catch (err) {
         console.warn("Could not attach Supabase auth listener:", err);
       }
+    } else {
+      // Local/demo authentication has no remote session to restore.
+      setLoading(false);
     }
-    // Finished background check
-    setLoading(false);
 
     return () => {
       mounted = false;
@@ -541,18 +582,35 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
       .select("full_name,must_change_password")
       .eq("id", authData.user.id)
       .maybeSingle();
-    const studentRecord =
-      targetRole === "student"
-        ? localDb.students.find((item) => item.user_id === authData.user.id)
-        : undefined;
+    let studentRecord: StudentAccountLink | null = null;
+    try {
+      studentRecord = await resolveStudentAccountLink(
+        authData.user.id,
+        targetRole,
+      );
+    } catch (error) {
+      await supabase.auth.signOut();
+      return failLogin(
+        error instanceof Error
+          ? error.message
+          : "The linked student profile could not be loaded.",
+      );
+    }
+    if (targetRole === "student" && !studentRecord) {
+      await supabase.auth.signOut();
+      return failLogin(
+        "This student account is not linked to a student profile. Ask an administrator to repair the account link.",
+      );
+    }
     const authenticatedUser = {
       id: authData.user.id,
-      email: authData.user.email || email,
+      email: studentRecord?.email || authData.user.email || email,
       full_name:
+        studentRecord?.full_name ||
         profile?.full_name ||
         authData.user.user_metadata?.full_name ||
         "Portal User",
-      department_id: roleRecord.department_id,
+      department_id: studentRecord?.department_id || roleRecord.department_id,
       student_id: studentRecord?.id,
       roll_number: studentRecord?.roll_number,
     };

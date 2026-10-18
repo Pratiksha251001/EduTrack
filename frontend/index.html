@@ -5,15 +5,39 @@
     <link rel="icon" type="image/svg+xml" href="/logo.svg" />
     <link rel="alternate icon" type="image/png" href="/logo.png" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <script id="edutrack-theme-init">
+      (() => {
+        const currentTheme = localStorage.getItem("edutrack_theme");
+        const legacyTheme = localStorage.getItem("smit_theme");
+        const savedTheme = currentTheme || legacyTheme;
+        const theme =
+          savedTheme === "light" || savedTheme === "dark" ? savedTheme : "dark";
+        const root = document.documentElement;
+        root.classList.add(theme);
+        root.style.colorScheme = theme;
+        root.style.backgroundColor = theme === "dark" ? "#0b0f12" : "#f2f8f4";
+      })();
+    </script>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
     <title>EduTrack - Smart Attendance System</title>
-    <meta name="description" content="Smart Attendance & Parent Alert System for college management — Manage Attendance, Alert Parents, Build Trust." />
+    <meta
+      name="description"
+      content="Smart Attendance & Parent Alert System for college management — Manage Attendance, Alert Parents, Build Trust."
+    />
     <meta property="og:title" content="EduTrack - Smart Attendance System" />
-    <meta property="og:description" content="Smart Attendance & Parent Alert System for college management — Manage Attendance, Alert Parents, Build Trust." />
+    <meta
+      property="og:description"
+      content="Smart Attendance & Parent Alert System for college management — Manage Attendance, Alert Parents, Build Trust."
+    />
   </head>
-  <body class="min-h-screen bg-background text-foreground antialiased selection:bg-primary/20">
+  <body
+    class="min-h-screen bg-background text-foreground antialiased selection:bg-primary/20"
+  >
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>

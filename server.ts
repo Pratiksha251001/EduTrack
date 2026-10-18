@@ -978,6 +978,287 @@ async function startServer() {
   );
 
   app.post(
+    "/api/admin/accounts/update",
+    requireAccountManager,
+    async (req: AuthorizedRequest, res) => {
+      if (!supabaseAdmin)
+        return res.status(503).json({
+          success: false,
+          message: "SUPABASE_SERVICE_ROLE_KEY is not configured.",
+        });
+      const {
+        teacherId,
+        studentId,
+        email,
+        fullName,
+        role,
+        departmentId,
+        password,
+        previousRollNumber,
+        currentRollNumber,
+        replaceDepartmentHod,
+      } = req.body || {};
+      const isStudent = Boolean(studentId);
+      const managedRoles = ["hod", "teacher", "class_coordinator", "student"];
+      if (
+        Boolean(teacherId) === Boolean(studentId) ||
+        !email ||
+        !fullName ||
+        !managedRoles.includes(role) ||
+        (isStudent && role !== "student") ||
+        (!isStudent && role === "student")
+      )
+        return res.status(400).json({
+          success: false,
+          message:
+            "A single linked record, email, full name, and matching managed role are required.",
+        });
+      const normalizedPreviousRollNumber = String(
+        previousRollNumber || "",
+      ).trim();
+      const normalizedCurrentRollNumber = String(
+        currentRollNumber || "",
+      ).trim();
+      if (
+        isStudent &&
+        ((normalizedPreviousRollNumber && !normalizedCurrentRollNumber) ||
+          (!normalizedPreviousRollNumber && normalizedCurrentRollNumber))
+      )
+        return res.status(400).json({
+          success: false,
+          message:
+            "Both previous and current roll numbers are required when synchronizing a student account.",
+        });
+      if (password && String(password).length < 8)
+        return res.status(400).json({
+          success: false,
+          message: "Passwords must contain at least 8 characters.",
+        });
+      const actor = req.actor;
+      if (!actor)
+        return res
+          .status(401)
+          .json({ success: false, message: "Authentication required." });
+      if (actor.role === "class_coordinator" && !isStudent)
+        return res.status(403).json({
+          success: false,
+          message: "Class Coordinators may update student accounts only.",
+        });
+      if (role === "hod" && actor.role !== "admin")
+        return res.status(403).json({
+          success: false,
+          message: "Only an administrator may assign the HOD role.",
+        });
+      const table = isStudent ? "students" : "teachers";
+      const entityId = studentId || teacherId;
+      const { data: entity, error: entityError } = await supabaseAdmin
+        .from(table)
+        .select("id,user_id,department_id")
+        .eq("id", entityId)
+        .single();
+      if (entityError || !entity?.user_id)
+        return res.status(404).json({
+          success: false,
+          message: "No linked Supabase Auth account exists for this record.",
+        });
+      if (actor.role !== "admin" && entity.department_id !== actor.departmentId)
+        return res.status(403).json({
+          success: false,
+          message: "You may update accounts only in your department.",
+        });
+      const targetDepartmentId = departmentId || entity.department_id || null;
+      const normalizedEmail = String(email).trim().toLowerCase();
+      const normalizedName = String(fullName).trim();
+      const { data: authBefore, error: authReadError } =
+        await supabaseAdmin.auth.admin.getUserById(entity.user_id);
+      if (authReadError || !authBefore.user)
+        return res.status(404).json({
+          success: false,
+          message: authReadError?.message || "Linked Auth user not found.",
+        });
+      const { data: rolesBefore, error: rolesReadError } = await supabaseAdmin
+        .from("user_roles")
+        .select("role,department_id")
+        .eq("user_id", entity.user_id);
+      if (rolesReadError)
+        return res
+          .status(500)
+          .json({ success: false, message: rolesReadError.message });
+      const { data: profileBefore } = await supabaseAdmin
+        .from("profiles")
+        .select("full_name,email,must_change_password")
+        .eq("id", entity.user_id)
+        .maybeSingle();
+      const shouldSyncTemporaryStudentPassword =
+        isStudent &&
+        !password &&
+        profileBefore?.must_change_password === true &&
+        Boolean(normalizedPreviousRollNumber) &&
+        normalizedPreviousRollNumber !== normalizedCurrentRollNumber;
+      if (
+        shouldSyncTemporaryStudentPassword &&
+        normalizedCurrentRollNumber.length < 8
+      )
+        return res.status(400).json({
+          success: false,
+          message:
+            "The new roll number must contain at least 8 characters before it can become the temporary password.",
+        });
+      const effectivePassword = password
+        ? String(password)
+        : shouldSyncTemporaryStudentPassword
+          ? normalizedCurrentRollNumber
+          : undefined;
+      let previousHod: any = null;
+      let previousHodTeacher: any = null;
+      try {
+        if (role === "hod") {
+          const { data: existingHod, error: hodError } = await supabaseAdmin
+            .from("user_roles")
+            .select("user_id,department_id")
+            .eq("role", "hod")
+            .eq("department_id", targetDepartmentId)
+            .neq("user_id", entity.user_id)
+            .maybeSingle();
+          if (hodError) throw new Error(hodError.message);
+          if (existingHod && !replaceDepartmentHod)
+            return res.status(409).json({
+              success: false,
+              message: "This department already has an HOD.",
+            });
+          if (existingHod) {
+            previousHod = existingHod;
+            const { data: oldTeacher } = await supabaseAdmin
+              .from("teachers")
+              .select("id,role")
+              .eq("user_id", existingHod.user_id)
+              .maybeSingle();
+            previousHodTeacher = oldTeacher;
+            const { error: removeError } = await supabaseAdmin
+              .from("user_roles")
+              .delete()
+              .eq("user_id", existingHod.user_id)
+              .eq("role", "hod");
+            if (removeError) throw new Error(removeError.message);
+            const { error: addTeacherError } = await supabaseAdmin
+              .from("user_roles")
+              .upsert(
+                {
+                  user_id: existingHod.user_id,
+                  role: "teacher",
+                  department_id: existingHod.department_id,
+                },
+                { onConflict: "user_id,role" },
+              );
+            if (addTeacherError) throw new Error(addTeacherError.message);
+            if (oldTeacher) {
+              const { error: oldTeacherError } = await supabaseAdmin
+                .from("teachers")
+                .update({ role: "lecturer" })
+                .eq("id", oldTeacher.id);
+              if (oldTeacherError) throw new Error(oldTeacherError.message);
+            }
+          }
+        }
+        const { error: profileError } = await supabaseAdmin
+          .from("profiles")
+          .upsert({
+            id: entity.user_id,
+            full_name: normalizedName,
+            email: normalizedEmail,
+            must_change_password: effectivePassword
+              ? true
+              : profileBefore?.must_change_password === true,
+          });
+        if (profileError) throw new Error(profileError.message);
+        const { error: clearError } = await supabaseAdmin
+          .from("user_roles")
+          .delete()
+          .eq("user_id", entity.user_id)
+          .in("role", managedRoles);
+        if (clearError) throw new Error(clearError.message);
+        const { error: roleError } = await supabaseAdmin
+          .from("user_roles")
+          .insert({
+            user_id: entity.user_id,
+            role,
+            department_id: targetDepartmentId,
+          });
+        if (roleError) throw new Error(roleError.message);
+        if (role === "hod") {
+          const { error: departmentError } = await supabaseAdmin
+            .from("departments")
+            .update({ hod_id: teacherId })
+            .eq("id", targetDepartmentId);
+          if (departmentError) throw new Error(departmentError.message);
+        }
+        const authUpdate: any = {
+          email: normalizedEmail,
+          user_metadata: { full_name: normalizedName },
+        };
+        if (effectivePassword) authUpdate.password = effectivePassword;
+        const { error: authError } =
+          await supabaseAdmin.auth.admin.updateUserById(
+            entity.user_id,
+            authUpdate,
+          );
+        if (authError) throw new Error(authError.message);
+        return res.json({
+          success: true,
+          userId: entity.user_id,
+          role,
+          email: normalizedEmail,
+        });
+      } catch (error: any) {
+        await supabaseAdmin.auth.admin.updateUserById(entity.user_id, {
+          email: authBefore.user.email,
+          user_metadata: authBefore.user.user_metadata,
+        });
+        if (profileBefore)
+          await supabaseAdmin
+            .from("profiles")
+            .upsert({ id: entity.user_id, ...profileBefore });
+        await supabaseAdmin
+          .from("user_roles")
+          .delete()
+          .eq("user_id", entity.user_id)
+          .in("role", managedRoles);
+        if (rolesBefore?.length)
+          await supabaseAdmin.from("user_roles").insert(
+            rolesBefore.map((item: any) => ({
+              user_id: entity.user_id,
+              ...item,
+            })),
+          );
+        if (previousHod) {
+          await supabaseAdmin
+            .from("user_roles")
+            .delete()
+            .eq("user_id", previousHod.user_id)
+            .eq("role", "teacher");
+          await supabaseAdmin
+            .from("user_roles")
+            .upsert(
+              { ...previousHod, role: "hod" },
+              { onConflict: "user_id,role" },
+            );
+          if (previousHodTeacher)
+            await supabaseAdmin
+              .from("teachers")
+              .update({ role: previousHodTeacher.role })
+              .eq("id", previousHodTeacher.id);
+        }
+        return res.status(400).json({
+          success: false,
+          message:
+            error?.message ||
+            "Account update failed and rollback was attempted.",
+        });
+      }
+    },
+  );
+
+  app.post(
     "/api/admin/accounts/password",
     requireAccountManager,
     async (req: AuthorizedRequest, res) => {

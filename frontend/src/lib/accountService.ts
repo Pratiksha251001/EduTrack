@@ -31,6 +31,28 @@ export async function provisionManagedAccount(input: ProvisionAccountInput) {
   return parseResponse(response);
 }
 
+export interface UpdateAccountInput {
+  email: string;
+  fullName: string;
+  role: ManagedRole;
+  departmentId?: string | null;
+  teacherId?: string | null;
+  studentId?: string | null;
+  previousRollNumber?: string | null;
+  currentRollNumber?: string | null;
+  password?: string;
+  replaceDepartmentHod?: boolean;
+}
+
+export async function updateManagedAccount(input: UpdateAccountInput) {
+  const response = await apiFetch("/api/admin/accounts/update", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(input),
+  });
+  return parseResponse(response);
+}
+
 export async function resetManagedAccountPassword(input: {
   teacherId?: string;
   studentId?: string;

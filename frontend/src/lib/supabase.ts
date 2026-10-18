@@ -333,6 +333,11 @@ class LocalDatabase {
     }
   }
 
+  /** Waits for the initial Supabase synchronization to settle. */
+  public async waitUntilReady(): Promise<void> {
+    await this.syncReady;
+  }
+
   /**
    * Synchronizes user accounts for all teachers and students so the admin Users section displays all accounts
    */
@@ -1077,20 +1082,22 @@ class LocalDatabase {
             .eq("id", id);
           if (error) {
             console.error(`Supabase update error for ${table}:`, error);
-            if (table === "teachers") {
+            if (table === "teachers" || table === "students") {
               throw new Error(
-                `Teacher update failed in Supabase: ${error.message}`,
+                `${table === "teachers" ? "Teacher" : "Student"} update failed in Supabase: ${error.message}`,
               );
             }
           }
         } catch (err) {
           console.error(`Supabase update exception on ${table}:`, err);
-          if (table === "teachers") {
+          if (table === "teachers" || table === "students") {
             list[idx] = previous;
             this.persist(table);
             throw err instanceof Error
               ? err
-              : new Error("Teacher update failed; local rollback required.");
+              : new Error(
+                  `${table === "teachers" ? "Teacher" : "Student"} update failed; local rollback required.`,
+                );
           }
         }
       }

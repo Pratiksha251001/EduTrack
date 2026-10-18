@@ -1,4 +1,4 @@
-import React, { useMemo } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import {
   CalendarCheck,
@@ -27,7 +27,23 @@ import {
 
 export const StudentDashboard: React.FC = () => {
   const { user } = useAuth();
-  const student = localDb.students.find((item) => item.id === user?.student_id);
+  const [, setDataVersion] = useState(0);
+  useEffect(() => {
+    const refreshData = () => setDataVersion((value) => value + 1);
+    window.addEventListener("edutrack_data_updated", refreshData);
+    window.addEventListener("storage", refreshData);
+    return () => {
+      window.removeEventListener("edutrack_data_updated", refreshData);
+      window.removeEventListener("storage", refreshData);
+    };
+  }, []);
+  const student = localDb.students.find(
+    (item) =>
+      item.id === user?.student_id ||
+      (user?.id && item.user_id === user.id) ||
+      (user?.roll_number && item.roll_number === user.roll_number) ||
+      (user?.email && item.email?.toLowerCase() === user.email.toLowerCase()),
+  );
   const department = localDb.departments.find(
     (item) => item.id === student?.department_id,
   );
@@ -152,7 +168,9 @@ export const StudentDashboard: React.FC = () => {
                     <TableRow>
                       <TableHead className="font-bold">Subject</TableHead>
                       <TableHead className="font-bold">Date</TableHead>
-                      <TableHead className="text-right font-bold pr-3">Status</TableHead>
+                      <TableHead className="text-right font-bold pr-3">
+                        Status
+                      </TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody className="divide-y divide-border">

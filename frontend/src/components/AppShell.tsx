@@ -45,11 +45,14 @@ export const AppShell: React.FC = () => {
     getStoredNotifications(),
   );
   const [smsGatewayModalOpen, setSmsGatewayModalOpen] = useState(false);
-  const [smsGatewayStatus, setSmsGatewayStatus] = useState<SmsGatewayStatus | null>(null);
+  const [smsGatewayStatus, setSmsGatewayStatus] =
+    useState<SmsGatewayStatus | null>(null);
 
   React.useEffect(() => {
     if (role && role !== "student") {
-      getSmsGatewayStatus().then(setSmsGatewayStatus).catch(() => {});
+      getSmsGatewayStatus()
+        .then(setSmsGatewayStatus)
+        .catch(() => {});
     }
   }, [role]);
 
@@ -357,11 +360,13 @@ export const AppShell: React.FC = () => {
               <span className="capitalize font-medium text-primary">
                 {role?.replace("_", " ")} Portal
               </span>
-              {user?.department_id && (
+              {(role === "student"
+                ? user?.roll_number
+                : user?.department_id) && (
                 <>
                   <span>•</span>
                   <span className="truncate max-w-56">
-                    {user.department_id}
+                    {role === "student" ? user.roll_number : user.department_id}
                   </span>
                 </>
               )}
@@ -444,11 +449,15 @@ export const AppShell: React.FC = () => {
           onOpenChange={(open) => {
             setSmsGatewayModalOpen(open);
             if (!open) {
-              getSmsGatewayStatus().then(setSmsGatewayStatus).catch(() => {});
+              getSmsGatewayStatus()
+                .then(setSmsGatewayStatus)
+                .catch(() => {});
             }
           }}
           onTestSent={() => {
-            getSmsGatewayStatus().then(setSmsGatewayStatus).catch(() => {});
+            getSmsGatewayStatus()
+              .then(setSmsGatewayStatus)
+              .catch(() => {});
           }}
         />
       )}
