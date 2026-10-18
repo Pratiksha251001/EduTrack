@@ -751,10 +751,7 @@ async function executeSingleSmsDispatch(
 // =========================================================================
 async function startServer() {
   const app = express();
-  const PORT =
-    process.env.NODE_ENV === "production" && process.env.PORT
-      ? Number(process.env.PORT)
-      : 3000;
+  const PORT = Number(process.env.PORT) || 3000;
 
   app.use(
     cors({

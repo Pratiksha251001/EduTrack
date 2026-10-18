@@ -147,15 +147,6 @@ export const AccessHub: React.FC = () => {
     }
 
     setSelectedRole(card.role);
-    const hasAdminAccount =
-      Boolean(defaultAdminEmail) ||
-      Boolean(
-        localStorage.getItem("edutrack_admin_account") ||
-        localStorage.getItem("smit_admin_account"),
-      );
-    setAdminMode(
-      card.role === "admin" && !hasAdminAccount ? "register" : "login",
-    );
     setShowLoginModal(true);
     setDepartmentId("");
     if (card.role === "admin" && !email) {
@@ -188,26 +179,6 @@ export const AccessHub: React.FC = () => {
   const handleLoginSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedRole) return;
-
-    if (selectedRole === "admin" && adminMode === "register") {
-      if (!fullName.trim() || password.length < 6) {
-        alert("Enter your name and a password of at least 6 characters.");
-        return;
-      }
-      setLoading(true);
-      const result = await registerAdmin(fullName, email, password);
-      setLoading(false);
-      if (!result.ok) {
-        alert(result.message);
-        return;
-      }
-      alert(
-        "Admin registered successfully. Sign in with your registered credentials.",
-      );
-      setAdminMode("login");
-      setPassword("");
-      return;
-    }
 
     setLoading(true);
     const result = await loginWithCredentials(
@@ -541,52 +512,10 @@ export const AccessHub: React.FC = () => {
               </p>
             </div>
 
-            {selectedRole === "admin" && (
-              <div className="mb-5 relative z-10 flex rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-100 dark:bg-slate-800 p-1">
-                <button
-                  type="button"
-                  onClick={() => setAdminMode("login")}
-                  className={`flex-1 rounded-md py-1.5 text-xs font-semibold transition-all ${
-                    adminMode === "login"
-                      ? "bg-white dark:bg-slate-700 text-foreground shadow-xs"
-                      : "text-muted-foreground hover:text-foreground"
-                  }`}
-                >
-                  Admin Sign In
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setAdminMode("register")}
-                  className={`flex-1 rounded-md py-1.5 text-xs font-semibold transition-all ${
-                    adminMode === "register"
-                      ? "bg-white dark:bg-slate-700 text-foreground shadow-xs"
-                      : "text-muted-foreground hover:text-foreground"
-                  }`}
-                >
-                  First-Time Setup
-                </button>
-              </div>
-            )}
-
             <form
               onSubmit={handleLoginSubmit}
               className="space-y-4 relative z-10"
             >
-              {selectedRole === "admin" && adminMode === "register" && (
-                <div className="space-y-1.5">
-                  <label className="text-xs font-semibold text-foreground">
-                    Administrator Full Name
-                  </label>
-                  <div className="relative">
-                    <Input
-                      required
-                      placeholder="Enter administrator name"
-                      value={fullName}
-                      onChange={(e) => setFullName(e.target.value)}
-                    />
-                  </div>
-                </div>
-              )}
 
               {selectedRole === "hod" && (
                 <div className="space-y-1.5">
@@ -717,9 +646,7 @@ export const AccessHub: React.FC = () => {
                   ) : (
                     <ArrowRight className="mr-2 h-4 w-4" />
                   )}
-                  {selectedRole === "admin" && adminMode === "register"
-                    ? "Create Admin Account"
-                    : `Go to ${portalCards.find((c) => c.role === selectedRole)?.title || "Portal"}`}
+                  {`Go to ${portalCards.find((c) => c.role === selectedRole)?.title || "Portal"}`}
                 </Button>
               </div>
             </form>
