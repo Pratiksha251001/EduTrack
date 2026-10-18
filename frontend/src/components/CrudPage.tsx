@@ -12,7 +12,7 @@ import {
 import { localDb } from "../lib/supabase";
 import {
   provisionManagedAccount,
-  resetManagedAccountPassword,
+  updateManagedAccount,
 } from "../lib/accountService";
 import {
   cleanMobile,
@@ -271,10 +271,15 @@ export function CrudPage<T extends { id: string }>({
               departmentId: teacher.department_id,
               teacherId: editingItem.id,
             });
-          } else if (rawPassword) {
-            await resetManagedAccountPassword({
+          } else {
+            await updateManagedAccount({
+              email,
+              fullName: teacher.full_name,
+              role: userRole,
+              departmentId: teacher.department_id,
               teacherId: editingItem.id,
-              password: rawPassword,
+              password: rawPassword || undefined,
+              replaceDepartmentHod: userRole === "hod",
             });
           }
           if (teacher.role === "hod" && teacher.department_id) {
@@ -303,10 +308,16 @@ export function CrudPage<T extends { id: string }>({
               departmentId: student.department_id,
               studentId: editingItem.id,
             });
-          } else if (rawPassword) {
-            await resetManagedAccountPassword({
+          } else {
+            await updateManagedAccount({
+              email,
+              fullName: student.full_name,
+              role: "student",
+              departmentId: student.department_id,
               studentId: editingItem.id,
-              password: rawPassword,
+              previousRollNumber: String(current.roll_number || ""),
+              currentRollNumber: String(student.roll_number || ""),
+              password: rawPassword || undefined,
             });
           }
         }

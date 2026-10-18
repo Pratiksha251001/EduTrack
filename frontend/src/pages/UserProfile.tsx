@@ -43,6 +43,16 @@ import { Badge } from "../components/ui/badge";
 
 export const UserProfile: React.FC = () => {
   const { user, role, updateUserPassword, openLogoutConfirm } = useAuth();
+  const [, setDataVersion] = useState(0);
+  useEffect(() => {
+    const refreshData = () => setDataVersion((value) => value + 1);
+    window.addEventListener("edutrack_data_updated", refreshData);
+    window.addEventListener("storage", refreshData);
+    return () => {
+      window.removeEventListener("edutrack_data_updated", refreshData);
+      window.removeEventListener("storage", refreshData);
+    };
+  }, []);
 
   // Find linked student or teacher data if available
   const student = useMemo(() => {
@@ -51,13 +61,10 @@ export const UserProfile: React.FC = () => {
       localDb.students.find(
         (s) =>
           s.id === user?.student_id ||
+          (user?.id && s.user_id === user.id) ||
           (user?.roll_number && s.roll_number === user.roll_number) ||
-          (user?.email &&
-            s.email?.toLowerCase() === user.email.toLowerCase()) ||
-          (user?.id && s.user_id === user.id),
-      ) ||
-      localDb.students[0] ||
-      null
+          (user?.email && s.email?.toLowerCase() === user.email.toLowerCase()),
+      ) || null
     );
   }, [role, user]);
 
@@ -182,8 +189,8 @@ export const UserProfile: React.FC = () => {
     setPwdSuccess(null);
 
     const clean = newPassword.trim();
-    if (clean.length < 6) {
-      setPwdError("Password must be at least 6 characters long.");
+    if (clean.length < 8) {
+      setPwdError("Password must be at least 8 characters long.");
       return;
     }
     if (clean !== confirmPassword.trim()) {
@@ -538,7 +545,7 @@ export const UserProfile: React.FC = () => {
                     type={showPassword ? "text" : "password"}
                     value={newPassword}
                     onChange={(e) => setNewPassword(e.target.value)}
-                    placeholder="At least 6 characters"
+                    placeholder="At least 8 characters"
                     className="text-xs h-9 pr-8"
                   />
                   <button

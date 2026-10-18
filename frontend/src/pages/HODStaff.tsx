@@ -33,7 +33,7 @@ import { useAuth } from "../context/AuthContext";
 import { localDb } from "../lib/supabase";
 import {
   provisionManagedAccount,
-  resetManagedAccountPassword,
+  updateManagedAccount,
 } from "../lib/accountService";
 import {
   Teacher,
@@ -632,7 +632,12 @@ export const HODStaff: React.FC<HODStaffProps> = ({ mode }) => {
         status: "active" as const,
       };
 
-      const userRole = isCoordinator ? "class_coordinator" : "teacher";
+      const userRole =
+        form.role === "hod"
+          ? "hod"
+          : isCoordinator
+            ? "class_coordinator"
+            : "teacher";
       const defaultPwd = isCoordinator ? "CC@123" : "Teacher@123";
       const effectivePwd = form.password.trim() || finalEmpId || defaultPwd;
 
@@ -667,10 +672,15 @@ export const HODStaff: React.FC<HODStaffProps> = ({ mode }) => {
               "Account provisioning did not return a Supabase Auth user ID.",
             );
           }
-        } else if (form.password.trim()) {
-          await resetManagedAccountPassword({
+        } else {
+          await updateManagedAccount({
+            email: data.email,
+            fullName: data.full_name,
+            role: userRole,
+            departmentId,
             teacherId: editing.id,
-            password: effectivePwd,
+            password: form.password.trim() || undefined,
+            replaceDepartmentHod: userRole === "hod",
           });
         }
         setAlertSuccess(`Updated profile for ${data.full_name}.`);
@@ -1115,6 +1125,7 @@ export const HODStaff: React.FC<HODStaffProps> = ({ mode }) => {
                 options={[
                   { value: "lecturer", label: "Lecturer / Faculty" },
                   { value: "class_coordinator", label: "Class Coordinator" },
+                  { value: "hod", label: "Head of Department" },
                 ]}
               />
             </div>

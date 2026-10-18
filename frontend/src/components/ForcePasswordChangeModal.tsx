@@ -24,6 +24,7 @@ export const ForcePasswordChangeModal: React.FC = () => {
     role,
     isDemo,
     mustChangePassword,
+    loading: authLoading,
     updateUserPassword,
     openLogoutConfirm,
   } = useAuth();
@@ -37,7 +38,13 @@ export const ForcePasswordChangeModal: React.FC = () => {
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
   // If user is admin or mustChangePassword is false, do not render
-  if (!user || role === "admin" || isDemo || !mustChangePassword) {
+  if (
+    authLoading ||
+    !user ||
+    role === "admin" ||
+    isDemo ||
+    !mustChangePassword
+  ) {
     return null;
   }
 
@@ -51,7 +58,7 @@ export const ForcePasswordChangeModal: React.FC = () => {
           : "Student";
 
   // Requirement checks
-  const isMinLength = newPassword.length >= 6;
+  const isMinLength = newPassword.length >= 8;
   const isMatch = newPassword.length > 0 && newPassword === confirmPassword;
   const isNotDefault =
     newPassword.length > 0 &&
@@ -69,7 +76,7 @@ export const ForcePasswordChangeModal: React.FC = () => {
     setErrorMessage(null);
 
     if (!isMinLength) {
-      setErrorMessage("Password must contain at least 6 characters.");
+      setErrorMessage("Password must contain at least 8 characters.");
       return;
     }
 
@@ -254,7 +261,7 @@ export const ForcePasswordChangeModal: React.FC = () => {
               <span
                 className={isMinLength ? "text-foreground font-medium" : ""}
               >
-                At least 6 characters long
+                At least 8 characters long
               </span>
             </div>
             <div className="flex items-center gap-2">

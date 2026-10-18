@@ -4,6 +4,7 @@
 
 @layer base {
   :root {
+    color-scheme: light;
     --radius: 0.75rem;
     --background: 140 32% 96%;
     --foreground: 155 42% 15%;
@@ -39,6 +40,7 @@
   }
 
   .dark {
+    color-scheme: dark;
     --background: 210 24% 6.5%;
     --foreground: 210 20% 96%;
     --card: 210 20% 9%;
@@ -76,7 +78,7 @@
 body {
   font-family: "Plus Jakarta Sans", sans-serif;
   background-color: hsl(var(--background));
-  background-image: 
+  background-image:
     linear-gradient(to right, rgba(16, 185, 129, 0.085) 1px, transparent 1px),
     linear-gradient(to bottom, rgba(16, 185, 129, 0.085) 1px, transparent 1px);
   background-size: 16px 16px;
@@ -84,7 +86,7 @@ body {
 
 .dark body {
   background-color: #0b0f12;
-  background-image: 
+  background-image:
     linear-gradient(to right, rgba(52, 211, 153, 0.08) 1px, transparent 1px),
     linear-gradient(to bottom, rgba(52, 211, 153, 0.08) 1px, transparent 1px);
   background-size: 16px 16px;
@@ -92,7 +94,7 @@ body {
 
 /* Technical grid background in transparent light green */
 .bg-grid-green-sm {
-  background-image: 
+  background-image:
     linear-gradient(to right, rgba(16, 185, 129, 0.085) 1px, transparent 1px),
     linear-gradient(to bottom, rgba(16, 185, 129, 0.085) 1px, transparent 1px);
   background-size: 16px 16px;
@@ -100,7 +102,7 @@ body {
 
 .dark .bg-grid-green-sm {
   background-color: #0b0f12;
-  background-image: 
+  background-image:
     linear-gradient(to right, rgba(52, 211, 153, 0.08) 1px, transparent 1px),
     linear-gradient(to bottom, rgba(52, 211, 153, 0.08) 1px, transparent 1px);
   background-size: 16px 16px;
