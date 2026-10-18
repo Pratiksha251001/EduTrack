@@ -10,7 +10,10 @@ import {
   EyeOff,
 } from "lucide-react";
 import { localDb } from "../lib/supabase";
-import { saveCredential } from "../lib/authUtils";
+import {
+  provisionManagedAccount,
+  resetManagedAccountPassword,
+} from "../lib/accountService";
 import {
   cleanMobile,
   isValid10DigitMobile,
@@ -94,6 +97,7 @@ export function CrudPage<T extends { id: string }>({
   const [formData, setFormData] = useState<Record<string, any>>({});
   const [saving, setSaving] = useState(false);
   const [credentialNotice, setCredentialNotice] = useState<{
+    accountType: "teacher" | "student";
     name: string;
     login: string;
     password: string;
@@ -161,316 +165,302 @@ export function CrudPage<T extends { id: string }>({
 
   const handleSave = async () => {
     setSaving(true);
-
-    if (table === "students" && !String(formData.department_id || "").trim()) {
-      alert("Department assignment is required for every student.");
-      setSaving(false);
-      return;
-    }
-
-    if (table === "students") {
-      const studentErrors = getStudentValidationErrors(
-        formData,
-        (localDb.students || []).map((student) => ({
-          ...student,
-          parent_mobile: cleanMobile(student.parent_mobile),
-          student_mobile: cleanMobile(student.student_mobile),
-        })),
-      );
-      if (studentErrors.length > 0) {
-        alert(studentErrors[0]);
+    let insertedRecord: { table: string; id: string } | null = null;
+    try {
+      if (
+        table === "students" &&
+        !String(formData.department_id || "").trim()
+      ) {
+        alert("Department assignment is required for every student.");
         setSaving(false);
         return;
       }
-    }
 
-    // Validate 10-digit mobile number fields strictly
-    for (const f of fields) {
-      if (isMobileField(f)) {
-        const rawVal = formData[f.key];
-        if (f.required || (rawVal && String(rawVal).trim().length > 0)) {
-          const err = getMobileValidationError(rawVal, f.label, !!f.required);
-          if (err) {
-            alert(err);
-            setSaving(false);
-            return;
-          }
-        }
-      }
-    }
-
-    // Flexible HOD & Faculty creation:
-    // HODs, Coordinators, and Lecturers do not require hardcoded fields upfront.
-    // If password/email/department are not provided, sensible defaults are automatically provisioned.
-
-    const saveData =
-      table === "teachers" && formData.role
-        ? {
-            ...formData,
-            is_class_coordinator: formData.role === "class_coordinator",
-          }
-        : { ...formData };
-
-    // Clean all mobile numbers to standard 10 digits before saving
-    for (const f of fields) {
-      if (isMobileField(f) && saveData[f.key]) {
-        saveData[f.key] = cleanMobile(saveData[f.key]) || null;
-      }
-    }
-
-    const rawPassword = formData.password?.trim();
-    if ("password" in saveData) {
-      delete saveData.password;
-    }
-
-    if (table === "users" && formData.role === "admin") {
-      const existingAdmin = (localDb.users || []).find(
-        (user: any) => user.role === "admin" && user.id !== editingItem?.id,
-      );
-      if (existingAdmin) {
-        alert("Only one Admin is allowed for the institution.");
-        setSaving(false);
-        return;
-      }
-    }
-
-    if (editingItem) {
-      await localDb.update(table, editingItem.id, saveData);
-
-      // 1. UPDATE TEACHER
-      if (table === "teachers") {
-        const userRole =
-          saveData.role === "hod"
-            ? "hod"
-            : saveData.role === "class_coordinator"
-              ? "class_coordinator"
-              : "teacher";
-        const defaultPwd =
-          saveData.role === "hod"
-            ? "Hod@123"
-            : saveData.role === "class_coordinator"
-              ? "Cc@123"
-              : "Teacher@123";
-        const effectivePwd = rawPassword || defaultPwd;
-
-        let account = localDb.users.find(
-          (user: any) => user.teacher_id === editingItem.id,
-        );
-
-        if (account) {
-          await localDb.update("users", account.id, {
-            full_name: saveData.full_name,
-            email: saveData.email?.trim().toLowerCase() || account.email,
-            role: userRole,
-            department_id: saveData.department_id,
-            status: saveData.status || "active",
-          });
-        } else if (saveData.email || saveData.employee_id) {
-          const accountId = `teacher-user-${editingItem.id}`;
-          await localDb.insert("users", [
-            {
-              id: accountId,
-              full_name: saveData.full_name,
-              email: saveData.email
-                ? saveData.email.trim().toLowerCase()
-                : `${saveData.employee_id.toLowerCase()}@edutrack.edu`,
-              role: userRole,
-              department_id: saveData.department_id,
-              teacher_id: editingItem.id,
-              status: saveData.status || "active",
-            },
-          ]);
-          await localDb.update("teachers", editingItem.id, {
-            user_id: accountId,
-          });
-        }
-
-        saveCredential(
-          [
-            editingItem.id,
-            account?.id,
-            `teacher-user-${editingItem.id}`,
-            saveData.email,
-            saveData.employee_id,
-            `hod_${editingItem.id}`,
-          ],
-          effectivePwd,
-        );
-
-        if (saveData.role === "hod" && saveData.department_id) {
-          await localDb.update("departments", saveData.department_id, {
-            hod_id: editingItem.id,
-          });
-        }
-      }
-
-      // 2. UPDATE STUDENT
       if (table === "students") {
-        const effectivePwd = rawPassword || saveData.roll_number || "123";
-        let account = localDb.users.find(
-          (user: any) => user.student_id === editingItem.id,
+        const studentErrors = getStudentValidationErrors(
+          formData,
+          (localDb.students || []).map((student) => ({
+            ...student,
+            parent_mobile: cleanMobile(student.parent_mobile),
+            student_mobile: cleanMobile(student.student_mobile),
+          })),
         );
+        if (studentErrors.length > 0) {
+          alert(studentErrors[0]);
+          setSaving(false);
+          return;
+        }
+      }
 
-        if (account) {
-          await localDb.update("users", account.id, {
-            full_name: saveData.full_name,
-            email: saveData.email?.trim().toLowerCase() || account.email,
-            department_id: saveData.department_id,
-            status: saveData.status || "active",
+      // Validate 10-digit mobile number fields strictly
+      for (const f of fields) {
+        if (isMobileField(f)) {
+          const rawVal = formData[f.key];
+          if (f.required || (rawVal && String(rawVal).trim().length > 0)) {
+            const err = getMobileValidationError(rawVal, f.label, !!f.required);
+            if (err) {
+              alert(err);
+              setSaving(false);
+              return;
+            }
+          }
+        }
+      }
+
+      // Flexible HOD & Faculty creation:
+      // HODs, Coordinators, and Lecturers do not require hardcoded fields upfront.
+      // If password/email/department are not provided, sensible defaults are automatically provisioned.
+
+      const saveData =
+        table === "teachers" && formData.role
+          ? {
+              ...formData,
+              is_class_coordinator: formData.role === "class_coordinator",
+            }
+          : { ...formData };
+
+      // Clean all mobile numbers to standard 10 digits before saving
+      for (const f of fields) {
+        if (isMobileField(f) && saveData[f.key]) {
+          saveData[f.key] = cleanMobile(saveData[f.key]) || null;
+        }
+      }
+
+      const rawPassword = formData.password?.trim();
+      if ("password" in saveData) {
+        delete saveData.password;
+      }
+
+      if (table === "users" && formData.role === "admin") {
+        const existingAdmin = (localDb.users || []).find(
+          (user: any) => user.role === "admin" && user.id !== editingItem?.id,
+        );
+        if (existingAdmin) {
+          alert("Only one Admin is allowed for the institution.");
+          setSaving(false);
+          return;
+        }
+      }
+
+      if (editingItem) {
+        await localDb.update(table, editingItem.id, saveData);
+
+        // 1. UPDATE TEACHER
+        if (table === "teachers") {
+          const teacher = saveData as any;
+          const userRole =
+            teacher.role === "hod"
+              ? "hod"
+              : teacher.role === "class_coordinator"
+                ? "class_coordinator"
+                : "teacher";
+          const email = String(teacher.email || "")
+            .trim()
+            .toLowerCase();
+          if (!email)
+            throw new Error(
+              "A valid email is required for a persistent staff account.",
+            );
+          const current = editingItem as any;
+          if (!current.user_id) {
+            await provisionManagedAccount({
+              email,
+              password: rawPassword || String(teacher.employee_id || ""),
+              fullName: teacher.full_name,
+              role: userRole,
+              departmentId: teacher.department_id,
+              teacherId: editingItem.id,
+            });
+          } else if (rawPassword) {
+            await resetManagedAccountPassword({
+              teacherId: editingItem.id,
+              password: rawPassword,
+            });
+          }
+          if (teacher.role === "hod" && teacher.department_id) {
+            await localDb.update("departments", teacher.department_id, {
+              hod_id: editingItem.id,
+            });
+          }
+        }
+        // 2. UPDATE STUDENT
+        if (table === "students") {
+          const student = saveData as any;
+          const email = String(student.email || "")
+            .trim()
+            .toLowerCase();
+          if (!email)
+            throw new Error(
+              "A valid email is required for a persistent student account.",
+            );
+          const current = editingItem as any;
+          if (!current.user_id) {
+            await provisionManagedAccount({
+              email,
+              password: rawPassword || String(student.roll_number || ""),
+              fullName: student.full_name,
+              role: "student",
+              departmentId: student.department_id,
+              studentId: editingItem.id,
+            });
+          } else if (rawPassword) {
+            await resetManagedAccountPassword({
+              studentId: editingItem.id,
+              password: rawPassword,
+            });
+          }
+        }
+        // 3. UPDATE SUBJECT (Sync Teacher Assignment)
+        if (table === "subjects") {
+          const assignedTeacherId = (saveData as any).teacher_id;
+          const existingTs = localDb.teacher_subjects.filter(
+            (ts) => ts.subject_id === editingItem.id,
+          );
+          for (const ts of existingTs) {
+            await localDb.delete("teacher_subjects", ts.id);
+          }
+          if (assignedTeacherId) {
+            await localDb.insert("teacher_subjects", [
+              {
+                id: `ts-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
+                teacher_id: assignedTeacherId,
+                subject_id: editingItem.id,
+                class_name: null,
+                created_at: new Date().toISOString(),
+              },
+            ]);
+          }
+          window.dispatchEvent(new CustomEvent("edutrack_data_updated"));
+        }
+      } else {
+        // INSERT NEW RECORD
+        const inserted = await localDb.insert(table, saveData);
+        if (inserted[0]?.id) insertedRecord = { table, id: inserted[0].id };
+
+        // 1. INSERT TEACHER (HOD, Teacher, Class Coordinator)
+        if (table === "teachers" && inserted[0]) {
+          const teacher = inserted[0] as any;
+          const userRole =
+            teacher.role === "hod"
+              ? "hod"
+              : teacher.role === "class_coordinator"
+                ? "class_coordinator"
+                : "teacher";
+          const email = String(teacher.email || "")
+            .trim()
+            .toLowerCase();
+          const password = rawPassword || String(teacher.employee_id || "");
+          if (!email || password.length < 8) {
+            await localDb.delete("teachers", teacher.id);
+            throw new Error(
+              "A valid email and an initial password of at least 8 characters are required.",
+            );
+          }
+          try {
+            await provisionManagedAccount({
+              email,
+              password,
+              fullName: teacher.full_name,
+              role: userRole,
+              departmentId: teacher.department_id,
+              teacherId: teacher.id,
+            });
+          } catch (error) {
+            await localDb.delete("teachers", teacher.id);
+            throw error;
+          }
+          setCredentialNotice({
+            accountType: "teacher",
+            name: teacher.full_name,
+            login: teacher.email || teacher.employee_id,
+            password,
+          });
+          if (teacher.role === "hod" && teacher.department_id) {
+            await localDb.update("departments", teacher.department_id, {
+              hod_id: teacher.id,
+            });
+          }
+        }
+        // 2. INSERT STUDENT
+        if (table === "students" && inserted[0]) {
+          const student = inserted[0] as any;
+          const email = String(student.email || "")
+            .trim()
+            .toLowerCase();
+          const password = rawPassword || String(student.roll_number || "");
+          if (!email || password.length < 8) {
+            await localDb.delete("students", student.id);
+            throw new Error(
+              "A valid email and an initial password of at least 8 characters are required.",
+            );
+          }
+          try {
+            await provisionManagedAccount({
+              email,
+              password,
+              fullName: student.full_name,
+              role: "student",
+              departmentId: student.department_id,
+              studentId: student.id,
+            });
+          } catch (error) {
+            await localDb.delete("students", student.id);
+            throw error;
+          }
+          setCredentialNotice({
+            accountType: "student",
+            name: student.full_name,
+            login: email,
+            password,
           });
         }
-
-        saveCredential(
-          [
-            editingItem.id,
-            account?.id,
-            `student-user-${editingItem.id}`,
-            saveData.roll_number,
-            saveData.reg_number,
-            saveData.email,
-          ],
-          effectivePwd,
-        );
-      }
-
-      // 3. UPDATE SUBJECT (Sync Teacher Assignment)
-      if (table === "subjects") {
-        const assignedTeacherId = (saveData as any).teacher_id;
-        const existingTs = localDb.teacher_subjects.filter(
-          (ts) => ts.subject_id === editingItem.id,
-        );
-        for (const ts of existingTs) {
-          await localDb.delete("teacher_subjects", ts.id);
+        // 3. INSERT SUBJECT (Sync Teacher Assignment)
+        if (table === "subjects" && inserted[0]) {
+          const sub = inserted[0];
+          const assignedTeacherId = (saveData as any).teacher_id;
+          if (assignedTeacherId) {
+            await localDb.insert("teacher_subjects", [
+              {
+                id: `ts-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
+                teacher_id: assignedTeacherId,
+                subject_id: sub.id,
+                class_name: null,
+                created_at: new Date().toISOString(),
+              },
+            ]);
+          }
+          window.dispatchEvent(new CustomEvent("edutrack_data_updated"));
         }
-        if (assignedTeacherId) {
-          await localDb.insert("teacher_subjects", [
-            {
-              id: `ts-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
-              teacher_id: assignedTeacherId,
-              subject_id: editingItem.id,
-              class_name: null,
-              created_at: new Date().toISOString(),
-            },
-          ]);
-        }
-        window.dispatchEvent(new CustomEvent("edutrack_data_updated"));
       }
-    } else {
-      // INSERT NEW RECORD
-      const inserted = await localDb.insert(table, saveData);
 
-      // 1. INSERT TEACHER (HOD, Teacher, Class Coordinator)
-      if (table === "teachers" && inserted[0]) {
-        const teacher = inserted[0];
-        const userRole =
-          teacher.role === "hod"
-            ? "hod"
-            : teacher.role === "class_coordinator"
-              ? "class_coordinator"
-              : "teacher";
-        const defaultPwd =
-          teacher.role === "hod"
-            ? "Hod@123"
-            : teacher.role === "class_coordinator"
-              ? "Cc@123"
-              : "Teacher@123";
-        const effectivePwd = rawPassword || defaultPwd;
-
-        const accountId = `teacher-user-${teacher.id}`;
-        await localDb.insert("users", [
-          {
-            id: accountId,
-            full_name: teacher.full_name,
-            email: teacher.email
-              ? teacher.email.trim().toLowerCase()
-              : `${teacher.employee_id?.toLowerCase()}@edutrack.edu`,
-            role: userRole,
-            department_id: teacher.department_id,
-            teacher_id: teacher.id,
-            status: "active",
-          },
-        ]);
-
-        saveCredential(
-          [
-            accountId,
-            teacher.id,
-            teacher.email,
-            teacher.employee_id,
-            `hod_${teacher.id}`,
-          ],
-          effectivePwd,
+      const updated = await localDb.get(table);
+      setData([...updated]);
+      setModalOpen(false);
+    } catch (error) {
+      if (insertedRecord) {
+        const stillExists = ((localDb as any)[insertedRecord.table] || []).some(
+          (item: { id: string }) => item.id === insertedRecord?.id,
         );
-
-        setCredentialNotice({
-          name: teacher.full_name,
-          login: teacher.employee_id || teacher.email || "the assigned account",
-          password: effectivePwd,
-        });
-
-        if (teacher.role === "hod" && teacher.department_id) {
-          await localDb.update("departments", teacher.department_id, {
-            hod_id: teacher.id,
-          });
+        if (stillExists) {
+          try {
+            await localDb.delete(insertedRecord.table, insertedRecord.id);
+          } catch (rollbackError) {
+            console.error(
+              "Failed to roll back inserted record:",
+              rollbackError,
+            );
+          }
         }
-        await localDb.update("teachers", teacher.id, { user_id: accountId });
       }
-
-      // 2. INSERT STUDENT
-      if (table === "students" && inserted[0]) {
-        const student = inserted[0];
-        const effectivePwd = rawPassword || student.roll_number || "123";
-        const accountId = `student-user-${student.id}`;
-
-        await localDb.insert("users", [
-          {
-            id: accountId,
-            full_name: student.full_name,
-            email: student.email
-              ? student.email.trim().toLowerCase()
-              : `${student.roll_number.toLowerCase()}@student.edutrack.edu`,
-            role: "student",
-            department_id: student.department_id,
-            student_id: student.id,
-            status: "active",
-          },
-        ]);
-
-        saveCredential(
-          [
-            accountId,
-            student.id,
-            student.roll_number,
-            student.reg_number,
-            student.email,
-          ],
-          effectivePwd,
-        );
-      }
-
-      // 3. INSERT SUBJECT (Sync Teacher Assignment)
-      if (table === "subjects" && inserted[0]) {
-        const sub = inserted[0];
-        const assignedTeacherId = (saveData as any).teacher_id;
-        if (assignedTeacherId) {
-          await localDb.insert("teacher_subjects", [
-            {
-              id: `ts-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
-              teacher_id: assignedTeacherId,
-              subject_id: sub.id,
-              class_name: null,
-              created_at: new Date().toISOString(),
-            },
-          ]);
-        }
-        window.dispatchEvent(new CustomEvent("edutrack_data_updated"));
-      }
+      const message =
+        error instanceof Error
+          ? error.message
+          : "The record could not be saved.";
+      console.error("CrudPage save failed:", error);
+      alert(message);
+    } finally {
+      setSaving(false);
     }
-
-    const updated = await localDb.get(table);
-    setData([...updated]);
-    setSaving(false);
-    setModalOpen(false);
   };
 
   const handleDelete = async (id: string) => {
@@ -492,14 +482,18 @@ export function CrudPage<T extends { id: string }>({
 
   return (
     <div className="space-y-6">
-      {credentialNotice && table === "teachers" && (
+      {credentialNotice && (table === "teachers" || table === "students") && (
         <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-4 text-sm text-foreground">
           <div className="flex items-start gap-3">
             <KeyRound className="mt-0.5 h-5 w-5 shrink-0 text-emerald-600 dark:text-emerald-400" />
             <div className="min-w-0 flex-1 space-y-2">
               <div className="flex items-start justify-between gap-3">
                 <div>
-                  <p className="font-semibold">Teacher account created</p>
+                  <p className="font-semibold">
+                    {credentialNotice.accountType === "student"
+                      ? "Student account created"
+                      : "Staff account created"}
+                  </p>
                   <p className="text-xs text-muted-foreground">
                     Share these initial login credentials with{" "}
                     {credentialNotice.name}.
@@ -653,6 +647,8 @@ export function CrudPage<T extends { id: string }>({
                       <div className="relative">
                         <Input
                           type={showPassword ? "text" : "password"}
+                          name={`edutrack-${table}-temporary-password`}
+                          autoComplete="new-password"
                           value={formData[f.key] || ""}
                           onChange={(e) =>
                             setFormData((prev) => ({
@@ -683,6 +679,14 @@ export function CrudPage<T extends { id: string }>({
                     ) : (
                       <Input
                         type={f.type || "text"}
+                        name={`edutrack-${table}-${f.key}`}
+                        autoComplete={
+                          f.key === "email"
+                            ? "off"
+                            : f.key === "roll_number" || f.key === "employee_id"
+                              ? "off"
+                              : "off"
+                        }
                         value={formData[f.key] || ""}
                         onChange={(e) =>
                           setFormData((prev) => ({

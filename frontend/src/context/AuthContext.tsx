@@ -177,7 +177,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
           console.warn("Could not restore Supabase session:", err);
         }
       };
-      void restoreSupabaseSession();
+      void restoreSupabaseSession?.();
 
       try {
         const { data: listener } = supabase.auth.onAuthStateChange(
@@ -193,7 +193,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
                 setMustChangePassword(false);
               }
             } else if (event === "SIGNED_IN" && session?.user) {
-              void restoreSupabaseSession();
+              void restoreSupabaseSession?.();
             }
           },
         );
@@ -353,19 +353,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
   };
 
   const updateUserPassword = async (
-    newPassword: string,
+    password: string,
   ): Promise<{ ok: boolean; message?: string }> => {
-    if (!user || !role) {
+    const cleanPassword = password.trim();
+    if (!user || !role)
       return { ok: false, message: "No active user session." };
-    }
-    const cleanPassword = newPassword.trim();
-    if (cleanPassword.length < 6) {
+    if (cleanPassword.length < 8)
       return {
         ok: false,
-        message: "Password must be at least 6 characters long.",
+        message: "Password must be at least 8 characters long.",
       };
-    }
-
     if (
       isDefaultPassword(cleanPassword, role, {
         employee_id: user.employee_id,
@@ -377,60 +374,26 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
       return {
         ok: false,
         message:
-          "New password cannot be a default institutional password (e.g. HOD@123, CC@123, Teacher@123, 123, or your roll number/employee ID). Please set your own unique private password.",
+          "Choose a private password that is different from institutional defaults and account identifiers.",
       };
     }
-
-    const identifiers = [
-      user.id,
-      user.email,
-      user.teacher_id,
-      user.student_id,
-      user.employee_id,
-      user.roll_number,
-      role === "hod" && user.teacher_id ? `hod_${user.teacher_id}` : null,
-    ].filter(Boolean);
-
-    if (isSupabaseConfigured) {
-      try {
-        const { data: sessionData } = await supabase.auth.getSession();
-        if (sessionData?.session?.user.id === user.id) {
-          const { error } = await supabase.auth.updateUser({
-            password: cleanPassword,
-          });
-          if (error) return { ok: false, message: error.message };
-          await supabase
-            .from("profiles")
-            .update({ must_change_password: false })
-            .eq("id", user.id);
-        } else {
-          saveCredential(identifiers, cleanPassword);
-          markCustomPasswordSet(identifiers);
-        }
-      } catch {
-        saveCredential(identifiers, cleanPassword);
-        markCustomPasswordSet(identifiers);
-      }
-    } else {
-      saveCredential(identifiers, cleanPassword);
-      markCustomPasswordSet(identifiers);
-    }
-    const matchingUser = localDb.users.find(
-      (u) =>
-        u.id === user.id ||
-        (user.email && normalizeId(u.email) === normalizeId(user.email)) ||
-        (user.teacher_id && u.teacher_id === user.teacher_id) ||
-        (user.student_id && u.student_id === user.student_id),
-    );
-    if (matchingUser) {
-      await localDb.update("users", matchingUser.id, {
-        updated_at: new Date().toISOString(),
-      });
-    }
-
+    const { data: sessionData } = await supabase.auth.getSession();
+    if (sessionData.session?.user.id !== user.id)
+      return {
+        ok: false,
+        message:
+          "Your Supabase session is missing or expired. Sign in again before changing the password.",
+      };
+    const { error } = await supabase.auth.updateUser({
+      password: cleanPassword,
+    });
+    if (error) return { ok: false, message: error.message };
+    await supabase
+      .from("profiles")
+      .update({ must_change_password: false })
+      .eq("id", user.id);
     setMustChangePassword(false);
     removeStorageItem("must_change_password");
-
     return { ok: true };
   };
 
@@ -518,725 +481,90 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     identifier: string,
     password: string,
     departmentId?: string,
-  ) => {
+  ): Promise<{ ok: boolean; message?: string }> => {
     const rawInput = identifier.trim();
-    const cleanId = normalizeId(rawInput);
-    setIsDemo(false);
-    removeStorageItem("is_demo");
-    const failLogin = (message: string) => {
-      recordFailedLoginNotification({
-        attemptedRole: targetRole,
-        identifier: rawInput,
-        reason: message,
-      });
-      return { ok: false, message };
+    const failLogin = (message: string): { ok: boolean; message?: string } => ({
+      ok: false,
+      message,
+    });
+    if (!rawInput || !password)
+      return failLogin("Email/ID and password are required.");
+
+    let email = rawInput.toLowerCase();
+    if (!email.includes("@")) {
+      if (targetRole === "student") {
+        const student = localDb.students.find((item) =>
+          [item.roll_number, item.reg_number, item.prn_number]
+            .filter(Boolean)
+            .some((value) => String(value).toLowerCase() === email),
+        );
+        email = student?.email?.trim().toLowerCase() || "";
+      } else {
+        const teacher = localDb.teachers.find(
+          (item) => item.employee_id?.trim().toLowerCase() === email,
+        );
+        email = teacher?.email?.trim().toLowerCase() || "";
+      }
+    }
+    if (!email)
+      return failLogin(
+        "This record has no email-linked Supabase account. Ask an administrator to provision it.",
+      );
+
+    const { data: authData, error: authError } =
+      await supabase.auth.signInWithPassword({ email, password });
+    if (authError || !authData.user)
+      return failLogin(authError?.message || "Invalid email or password.");
+    const { data: roles, error: roleError } = await supabase
+      .from("user_roles")
+      .select("role,department_id")
+      .eq("user_id", authData.user.id);
+    const roleRecord = roles?.find((row) => row.role === targetRole);
+    if (roleError || !roleRecord) {
+      await supabase.auth.signOut();
+      return failLogin(
+        "This account is not authorized for the selected portal.",
+      );
+    }
+    if (
+      departmentId &&
+      roleRecord.department_id &&
+      roleRecord.department_id !== departmentId
+    ) {
+      await supabase.auth.signOut();
+      return failLogin(
+        "This account is not assigned to the selected department.",
+      );
+    }
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("full_name,must_change_password")
+      .eq("id", authData.user.id)
+      .maybeSingle();
+    const studentRecord =
+      targetRole === "student"
+        ? localDb.students.find((item) => item.user_id === authData.user.id)
+        : undefined;
+    const authenticatedUser = {
+      id: authData.user.id,
+      email: authData.user.email || email,
+      full_name:
+        profile?.full_name ||
+        authData.user.user_metadata?.full_name ||
+        "Portal User",
+      department_id: roleRecord.department_id,
+      student_id: studentRecord?.id,
+      roll_number: studentRecord?.roll_number,
     };
-
-    const bootstrapAccess: Record<
-      "hod" | "class_coordinator" | "teacher",
-      {
-        identifiers: string[];
-        passwords: string[];
-        user: Record<string, string>;
-      }
-    > = {
-      hod: {
-        identifiers: ["hod@gmail.com", "hod.cse@edutrack.edu"],
-        passwords: ["hod@123", "Hod@123", "HOD@123", "Admin@123"],
-        user: {
-          id: "hod-default",
-          email: "hod@gmail.com",
-          full_name: "Dr. Default HOD",
-          department_id: "dept-1",
-          teacher_id: "t-1",
-          employee_id: "DEFAULT-HOD",
-        },
-      },
-      class_coordinator: {
-        identifiers: ["cc@gmail.com", "cc@edutrack.edu"],
-        passwords: ["cc@123", "Cc@123", "CC@123", "Teacher@123"],
-        user: {
-          id: "cc-default",
-          email: "cc@gmail.com",
-          full_name: "Default Class Coordinator",
-          department_id: "dept-1",
-          teacher_id: "t-4",
-          employee_id: "DEFAULT-CC",
-        },
-      },
-      teacher: {
-        identifiers: ["teacher@gmail.com", "teacher@edutrack.edu"],
-        passwords: ["teacher@123", "Teacher@123"],
-        user: {
-          id: "teacher-default",
-          email: "teacher@gmail.com",
-          full_name: "Default Teacher",
-          department_id: "dept-1",
-          teacher_id: "t-2",
-          employee_id: "DEFAULT-TEACHER",
-        },
-      },
-    };
-
-    if (
-      targetRole !== "admin" &&
-      targetRole !== "student" &&
-      bootstrapAccess[targetRole].identifiers.includes(cleanId) &&
-      bootstrapAccess[targetRole].passwords.includes(password)
-    ) {
-      const bootstrapUser = bootstrapAccess[targetRole].user;
-      setUser(bootstrapUser);
-      setRole(targetRole);
-      setMustChangePassword(true);
-      setStorageItem("must_change_password", "true");
-      setStorageItem("user", JSON.stringify(bootstrapUser));
-      setStorageItem("role", targetRole);
-      return { ok: true };
-    }
-
-    if (
-      targetRole === "student" &&
-      (cleanId === "student@gmail.com" || cleanId === "101") &&
-      (password === "student@123" ||
-        password === "Student@123" ||
-        password === "101")
-    ) {
-      const studentUser = {
-        id: "student-default",
-        email: "student@gmail.com",
-        full_name: "Default Student",
-        department_id: "dept-1",
-        student_id: "st-1",
-        roll_number: "101",
-      };
-      setUser(studentUser);
-      setRole("student");
-      setMustChangePassword(true);
-      setStorageItem("must_change_password", "true");
-      setStorageItem("user", JSON.stringify(studentUser));
-      setStorageItem("role", "student");
-      return { ok: true };
-    }
-
-    if (targetRole === "admin") {
-      const saved = getStorageItem("admin_account");
-      if (saved) {
-        try {
-          const account = JSON.parse(saved) as {
-            id: string;
-            full_name: string;
-            email: string;
-            password: string;
-          };
-          if (
-            normalizeId(account.email) === cleanId &&
-            account.password === password
-          ) {
-            const adminUser = {
-              id: account.id,
-              email: account.email,
-              full_name: account.full_name,
-            };
-            setUser(adminUser);
-            setRole("admin");
-            setStorageItem("user", JSON.stringify(adminUser));
-            setStorageItem("role", "admin");
-            return { ok: true };
-          }
-        } catch {
-          removeStorageItem("admin_account");
-        }
-      }
-    }
-
-    // Admin and student accounts are provisioned in Supabase Auth.
-    // HOD, coordinator, and teacher emails continue through the institutional
-    // record and credential checks below until those roles are provisioned.
-    if (
-      isSupabaseConfigured &&
-      (targetRole === "admin" || targetRole === "student") &&
-      rawInput.includes("@")
-    ) {
-      const { data: authData, error: authError } =
-        await supabase.auth.signInWithPassword({
-          email: rawInput.toLowerCase(),
-          password,
-        });
-      if (authError) {
-        return failLogin(authError.message || "Invalid email or password.");
-      }
-      if (authData.user) {
-        const { data: roleRecord } = await supabase
-          .from("user_roles")
-          .select("role, department_id")
-          .eq("user_id", authData.user.id)
-          .maybeSingle();
-        if (!roleRecord || roleRecord.role !== targetRole) {
-          await supabase.auth.signOut();
-          return failLogin(
-            "This account is not authorized for the selected portal.",
-          );
-        }
-        const { data: profile } = await supabase
-          .from("profiles")
-          .select("full_name, must_change_password")
-          .eq("id", authData.user.id)
-          .maybeSingle();
-        const studentRecord =
-          targetRole === "student"
-            ? localDb.students.find((item) => item.user_id === authData.user.id)
-            : undefined;
-        const authenticatedUser = {
-          id: authData.user.id,
-          email: authData.user.email || rawInput.toLowerCase(),
-          full_name:
-            profile?.full_name ||
-            authData.user.user_metadata?.full_name ||
-            "Portal User",
-          department_id: roleRecord.department_id,
-          student_id: studentRecord?.id,
-          roll_number: studentRecord?.roll_number,
-        };
-        setUser(authenticatedUser);
-        setRole(targetRole);
-        setStorageItem("user", JSON.stringify(authenticatedUser));
-        setStorageItem("role", targetRole);
-        const requiresChange = profile?.must_change_password === true;
-        setMustChangePassword(requiresChange);
-        if (requiresChange) setStorageItem("must_change_password", "true");
-        else removeStorageItem("must_change_password");
-        return { ok: true };
-      }
-    }
-
-    // ==========================================
-    // 1. ADMIN LOGIN
-    // ==========================================
-    if (targetRole === "admin") {
-      const envName =
-        import.meta.env.VITE_DEFAULT_ADMIN_NAME?.trim() ||
-        "Institutional Administrator";
-
-      // Check locally registered admin account
-      const saved = getStorageItem("admin_account");
-      if (saved) {
-        const account = JSON.parse(saved) as {
-          id: string;
-          full_name: string;
-          email: string;
-          password: string;
-        };
-        if (
-          normalizeId(account.email) === cleanId &&
-          account.password === password
-        ) {
-          const adminUser = {
-            id: account.id,
-            email: account.email,
-            full_name: account.full_name,
-          };
-          setUser(adminUser);
-          setRole("admin");
-          setStorageItem("user", JSON.stringify(adminUser));
-          setStorageItem("role", "admin");
-          return { ok: true };
-        }
-      }
-
-      return failLogin("Invalid Admin email or password.");
-    }
-
-    // ==========================================
-    // 2. HOD LOGIN (Created by Admin)
-    // ==========================================
-    if (targetRole === "hod") {
-      // Find teacher assigned as HOD or with role "hod"
-      const matchedTeacher = localDb.teachers.find((t) => {
-        const isHodRole =
-          t.role === "hod" ||
-          localDb.departments.some((d) => d.hod_id === t.id);
-        const matchesIdentifier =
-          normalizeId(t.email) === cleanId ||
-          normalizeId(t.employee_id) === cleanId ||
-          t.id === rawInput;
-        const matchesDept = !departmentId || t.department_id === departmentId;
-        return (
-          isHodRole && matchesIdentifier && matchesDept && t.status === "active"
-        );
-      });
-
-      // Also check user accounts
-      const matchedUserAcc = localDb.users.find(
-        (u) =>
-          u.role === "hod" &&
-          (normalizeId(u.email) === cleanId || u.id === rawInput) &&
-          (!departmentId || u.department_id === departmentId) &&
-          u.status === "active",
-      );
-
-      const teacherId = matchedTeacher?.id || matchedUserAcc?.teacher_id;
-      const deptId =
-        matchedTeacher?.department_id ||
-        matchedUserAcc?.department_id ||
-        departmentId;
-      const email = matchedTeacher?.email || matchedUserAcc?.email || rawInput;
-      const fullName =
-        matchedTeacher?.full_name ||
-        matchedUserAcc?.full_name ||
-        "Head of Department";
-
-      if (!matchedTeacher && !matchedUserAcc) {
-        // Check if demo HOD was requested
-        if (
-          (cleanId === "hod@gmail.com" || cleanId === "hod.cse@edutrack.edu") &&
-          (password === "hod@123" ||
-            password === "Hod@123" ||
-            password === "HOD@123" ||
-            password === "123456" ||
-            password === "Admin@123")
-        ) {
-          const hodUser = {
-            id: "hod-user-id",
-            email: "hod@gmail.com",
-            full_name: "Dr. Default HOD",
-            department_id: "dept-1",
-            teacher_id: "t-1",
-            employee_id: "EMP-CSE-01",
-          };
-          setUser(hodUser);
-          setRole("hod");
-          setMustChangePassword(true);
-          setStorageItem("must_change_password", "true");
-          setStorageItem("user", JSON.stringify(hodUser));
-          setStorageItem("role", "hod");
-          return { ok: true };
-        }
-        return failLogin(
-          "HOD not found. Ensure the Admin has added this HOD and assigned their department.",
-        );
-      }
-
-      const isValidPassword = verifyPassword(
-        password,
-        [
-          matchedUserAcc?.id,
-          teacherId,
-          matchedTeacher?.employee_id,
-          email,
-          `hod_${teacherId}`,
-        ],
-        [
-          "Hod@123",
-          "HOD@123",
-          "hod@123",
-          matchedTeacher?.employee_id,
-          "123456",
-          "Admin@123",
-        ],
-        matchedTeacher?.password,
-      );
-
-      if (!isValidPassword) {
-        return failLogin(
-          "Incorrect HOD password. Default is HOD@123 or employee ID.",
-        );
-      }
-
-      const hodUser = {
-        id:
-          matchedUserAcc?.id ||
-          (teacherId ? `teacher-user-${teacherId}` : `hod-${Date.now()}`),
-        email,
-        full_name: fullName,
-        department_id: deptId,
-        teacher_id: teacherId,
-        employee_id: matchedTeacher?.employee_id,
-      };
-
-      const isDefault = isDefaultPassword(password, "hod", {
-        employee_id: matchedTeacher?.employee_id,
-        email,
-        id: hodUser.id,
-      });
-
-      const hasCustom = hasCustomPassword([
-        hodUser.id,
-        hodUser.email,
-        matchedTeacher?.employee_id,
-        teacherId,
-      ]);
-
-      setUser(hodUser);
-      setRole("hod");
-      if (isDefault || !hasCustom) {
-        setMustChangePassword(true);
-        setStorageItem("must_change_password", "true");
-      } else {
-        setMustChangePassword(false);
-        removeStorageItem("must_change_password");
-      }
-      setStorageItem("user", JSON.stringify(hodUser));
-      setStorageItem("role", "hod");
-      return { ok: true };
-    }
-
-    // ==========================================
-    // 3. CLASS COORDINATOR (CC) LOGIN (Created by HOD)
-    // ==========================================
-    if (targetRole === "class_coordinator") {
-      const matchedTeacher = localDb.teachers.find((t) => {
-        const isCC =
-          t.role === "class_coordinator" ||
-          t.is_class_coordinator === true ||
-          (localDb.class_coordinator_assignments || []).some(
-            (a) => a.teacher_id === t.id,
-          );
-        const matchesIdentifier =
-          normalizeId(t.email) === cleanId ||
-          normalizeId(t.employee_id) === cleanId ||
-          t.id === rawInput;
-        return isCC && matchesIdentifier && t.status === "active";
-      });
-
-      const matchedUserAcc = localDb.users.find(
-        (u) =>
-          u.role === "class_coordinator" &&
-          (normalizeId(u.email) === cleanId || u.id === rawInput) &&
-          u.status === "active",
-      );
-
-      if (!matchedTeacher && !matchedUserAcc) {
-        // Fallback demo CC
-        if (
-          (cleanId === "cc@gmail.com" || cleanId === "cc@edutrack.edu") &&
-          (password === "cc@123" ||
-            password === "Cc@123" ||
-            password === "CC@123" ||
-            password === "123456" ||
-            password === "Teacher@123")
-        ) {
-          const ccUser = {
-            id: "cc-user-id",
-            email: "cc@gmail.com",
-            full_name: "Default Class Coordinator",
-            department_id: "dept-1",
-            teacher_id: "t-4",
-            employee_id: "EMP-CSE-04",
-          };
-          setUser(ccUser);
-          setRole("class_coordinator");
-          setMustChangePassword(true);
-          setStorageItem("must_change_password", "true");
-          setStorageItem("user", JSON.stringify(ccUser));
-          setStorageItem("role", "class_coordinator");
-          return { ok: true };
-        }
-        return failLogin(
-          "Class Coordinator not found. Ensure the HOD has created or assigned this coordinator.",
-        );
-      }
-
-      const teacherId = matchedTeacher?.id || matchedUserAcc?.teacher_id;
-      const isValidPassword = verifyPassword(
-        password,
-        [
-          matchedUserAcc?.id,
-          teacherId,
-          matchedTeacher?.employee_id,
-          matchedTeacher?.email,
-          matchedUserAcc?.email,
-        ],
-        [
-          "cc@123",
-          "Cc@123",
-          "CC@123",
-          "cc@123",
-          "Teacher@123",
-          matchedTeacher?.employee_id,
-          "123456",
-        ],
-        matchedTeacher?.password,
-      );
-
-      if (!isValidPassword) {
-        return failLogin(
-          "Incorrect Class Coordinator password. Default is CC@123 or employee ID.",
-        );
-      }
-
-      const ccUser = {
-        id:
-          matchedUserAcc?.id ||
-          (teacherId ? `cc-user-${teacherId}` : `cc-${Date.now()}`),
-        email: matchedTeacher?.email || matchedUserAcc?.email || rawInput,
-        full_name:
-          matchedTeacher?.full_name ||
-          matchedUserAcc?.full_name ||
-          "Class Coordinator",
-        department_id:
-          matchedTeacher?.department_id || matchedUserAcc?.department_id,
-        teacher_id: teacherId,
-        employee_id: matchedTeacher?.employee_id,
-      };
-
-      const isDefault = isDefaultPassword(password, "class_coordinator", {
-        employee_id: matchedTeacher?.employee_id,
-        email: ccUser.email,
-        id: ccUser.id,
-      });
-
-      const hasCustom = hasCustomPassword([
-        ccUser.id,
-        ccUser.email,
-        teacherId,
-        matchedTeacher?.employee_id,
-      ]);
-
-      setUser(ccUser);
-      setRole("class_coordinator");
-      if (isDefault || !hasCustom) {
-        setMustChangePassword(true);
-        setStorageItem("must_change_password", "true");
-      } else {
-        setMustChangePassword(false);
-        removeStorageItem("must_change_password");
-      }
-      setStorageItem("user", JSON.stringify(ccUser));
-      setStorageItem("role", "class_coordinator");
-      return { ok: true };
-    }
-
-    // ==========================================
-    // 4. TEACHER / LECTURER LOGIN (Created by HOD)
-    // ==========================================
-    if (targetRole === "teacher") {
-      const matchedTeacher = localDb.teachers.find((t) => {
-        const matchesIdentifier =
-          normalizeId(t.email) === cleanId ||
-          normalizeId(t.employee_id) === cleanId ||
-          t.id === rawInput;
-        return matchesIdentifier && t.status === "active";
-      });
-
-      const matchedUserAcc = localDb.users.find(
-        (u) =>
-          (u.role === "teacher" || (u.role as string) === "lecturer") &&
-          (normalizeId(u.email) === cleanId || u.id === rawInput) &&
-          u.status === "active",
-      );
-
-      if (!matchedTeacher && !matchedUserAcc) {
-        if (
-          (cleanId === "teacher@gmail.com" ||
-            cleanId === "teacher@edutrack.edu") &&
-          (password === "teacher@123" ||
-            password === "Teacher@123" ||
-            password === "123456")
-        ) {
-          const teacherUser = {
-            id: "teacher-user-id",
-            email: "teacher@gmail.com",
-            full_name: "Default Teacher",
-            department_id: "dept-1",
-            teacher_id: "t-2",
-            employee_id: "EMP-CSE-02",
-          };
-          setUser(teacherUser);
-          setRole("teacher");
-          setMustChangePassword(true);
-          setStorageItem("must_change_password", "true");
-          setStorageItem("user", JSON.stringify(teacherUser));
-          setStorageItem("role", "teacher");
-          return { ok: true };
-        }
-        return failLogin(
-          "Faculty teacher not found. Ensure the HOD has created this teacher.",
-        );
-      }
-
-      const teacherId = matchedTeacher?.id || matchedUserAcc?.teacher_id;
-      const isValidPassword = verifyPassword(
-        password,
-        [
-          matchedUserAcc?.id,
-          teacherId,
-          matchedTeacher?.employee_id,
-          matchedTeacher?.email,
-          matchedUserAcc?.email,
-        ],
-        ["Teacher@123", "teacher@123", matchedTeacher?.employee_id, "123456"],
-        matchedTeacher?.password,
-      );
-
-      if (!isValidPassword) {
-        return failLogin(
-          "Incorrect faculty password. Default is Teacher@123 or employee ID.",
-        );
-      }
-
-      const teacherUser = {
-        id:
-          matchedUserAcc?.id ||
-          (teacherId ? `teacher-user-${teacherId}` : `teacher-${Date.now()}`),
-        email: matchedTeacher?.email || matchedUserAcc?.email || rawInput,
-        full_name:
-          matchedTeacher?.full_name ||
-          matchedUserAcc?.full_name ||
-          "Faculty Member",
-        department_id:
-          matchedTeacher?.department_id || matchedUserAcc?.department_id,
-        teacher_id: teacherId,
-        employee_id: matchedTeacher?.employee_id,
-      };
-
-      const isDefault = isDefaultPassword(password, "teacher", {
-        employee_id: matchedTeacher?.employee_id,
-        email: teacherUser.email,
-        id: teacherUser.id,
-      });
-
-      const hasCustom = hasCustomPassword([
-        teacherUser.id,
-        teacherUser.email,
-        teacherId,
-        matchedTeacher?.employee_id,
-      ]);
-
-      setUser(teacherUser);
-      setRole("teacher");
-      if (isDefault || !hasCustom) {
-        setMustChangePassword(true);
-        setStorageItem("must_change_password", "true");
-      } else {
-        setMustChangePassword(false);
-        removeStorageItem("must_change_password");
-      }
-      setStorageItem("user", JSON.stringify(teacherUser));
-      setStorageItem("role", "teacher");
-      return { ok: true };
-    }
-
-    // ==========================================
-    // 5. STUDENT LOGIN (Created by Coordinator / Teacher / HOD)
-    // ==========================================
-    if (targetRole === "student") {
-      const matchedStudent = localDb.students.find((s) => {
-        const matchesIdentifier =
-          normalizeId(s.roll_number) === cleanId ||
-          normalizeId(s.reg_number) === cleanId ||
-          normalizeId(s.email) === cleanId ||
-          s.id === rawInput;
-        return matchesIdentifier && s.status === "active";
-      });
-
-      const matchedUserAcc = localDb.users.find(
-        (u) =>
-          u.role === "student" &&
-          (normalizeId(u.email) === cleanId || u.id === rawInput) &&
-          u.status === "active",
-      );
-
-      if (!matchedStudent && !matchedUserAcc) {
-        if (
-          (cleanId === "student@gmail.com" ||
-            cleanId === "123" ||
-            cleanId === "alex.h@student.edutrack.edu") &&
-          (password === "student@123" ||
-            password === "123" ||
-            password === "Student@123")
-        ) {
-          const studentUser = {
-            id: "student-user-id",
-            email: "student@gmail.com",
-            full_name: "Default Student",
-            department_id: "dept-1",
-            student_id: "st-1",
-            roll_number: "101",
-          };
-          setUser(studentUser);
-          setRole("student");
-          setMustChangePassword(true);
-          setStorageItem("must_change_password", "true");
-          setStorageItem("user", JSON.stringify(studentUser));
-          setStorageItem("role", "student");
-          return { ok: true };
-        }
-        return failLogin(
-          "Student record not found. Check your Roll Number or contact your Class Teacher.",
-        );
-      }
-
-      const studentId = matchedStudent?.id || matchedUserAcc?.student_id;
-      const rollNumber = matchedStudent?.roll_number;
-      const regNumber = matchedStudent?.reg_number;
-
-      const isValidPassword = verifyPassword(
-        password,
-        [
-          matchedUserAcc?.id,
-          studentId,
-          rollNumber,
-          regNumber,
-          matchedStudent?.email,
-          matchedUserAcc?.email,
-        ],
-        [rollNumber, regNumber, "123", "Student@123", "student@123", "123456"],
-      );
-
-      if (!isValidPassword) {
-        return failLogin(
-          `Incorrect password. Default student password is your Roll Number (${rollNumber || "e.g. 101"}).`,
-        );
-      }
-
-      const studentUser = {
-        id:
-          matchedUserAcc?.id ||
-          (studentId ? `student-user-${studentId}` : `student-${Date.now()}`),
-        email:
-          matchedStudent?.email ||
-          matchedUserAcc?.email ||
-          `${normalizeId(rollNumber || "student")}@student.edutrack.edu`,
-        full_name:
-          matchedStudent?.full_name ||
-          matchedUserAcc?.full_name ||
-          "Enrolled Student",
-        department_id:
-          matchedStudent?.department_id || matchedUserAcc?.department_id,
-        student_id: studentId,
-        roll_number: rollNumber,
-      };
-
-      const isDefault = isDefaultPassword(password, "student", {
-        roll_number: rollNumber,
-        reg_number: regNumber,
-        email: studentUser.email,
-        id: studentUser.id,
-      });
-
-      const hasCustom = hasCustomPassword([
-        studentUser.id,
-        studentUser.email,
-        studentId,
-        rollNumber,
-        regNumber,
-      ]);
-
-      setUser(studentUser);
-      setRole("student");
-      if (isDefault || !hasCustom) {
-        setMustChangePassword(true);
-        setStorageItem("must_change_password", "true");
-      } else {
-        setMustChangePassword(false);
-        removeStorageItem("must_change_password");
-      }
-      setStorageItem("user", JSON.stringify(studentUser));
-      setStorageItem("role", "student");
-      return { ok: true };
-    }
-
-    return { ok: false, message: "Invalid role selected." };
+    setUser(authenticatedUser);
+    setRole(targetRole);
+    setStorageItem("user", JSON.stringify(authenticatedUser));
+    setStorageItem("role", targetRole);
+    const requiresChange = profile?.must_change_password === true;
+    setMustChangePassword(requiresChange);
+    if (requiresChange) setStorageItem("must_change_password", "true");
+    else removeStorageItem("must_change_password");
+    return { ok: true };
   };
 
   return (

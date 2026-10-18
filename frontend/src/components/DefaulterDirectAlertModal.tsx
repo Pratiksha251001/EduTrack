@@ -67,6 +67,9 @@ export const DefaulterDirectAlertModal: React.FC<
   const [copiedPreview, setCopiedPreview] = useState(false);
   const [sentSuccessDetails, setSentSuccessDetails] = useState<{
     count: number;
+    acceptedCount: number;
+    failedCount: number;
+    logsRecorded: boolean;
     channels: AlertChannel[];
   } | null>(null);
 
@@ -74,7 +77,9 @@ export const DefaulterDirectAlertModal: React.FC<
   const defaulterList: DefaulterStudentItem[] = useMemo(() => {
     const allAttendance = localDb.attendance;
     const allStudents = localDb.students.filter((s) => s.status === "active");
-    const classesMap = new Map(localDb.academic_classes.map((c) => [c.id, c.name]));
+    const classesMap = new Map(
+      localDb.academic_classes.map((c) => [c.id, c.name]),
+    );
 
     const list: DefaulterStudentItem[] = [];
 
@@ -83,8 +88,7 @@ export const DefaulterDirectAlertModal: React.FC<
       const total = records.length;
       const present = records.filter((a) => a.status === "present").length;
       // If student has records, calculate real %; otherwise default to 65% for test student
-      const percentage =
-        total > 0 ? Math.round((present / total) * 100) : 65;
+      const percentage = total > 0 ? Math.round((present / total) * 100) : 65;
 
       if (percentage < 75) {
         const className =
@@ -131,7 +135,7 @@ export const DefaulterDirectAlertModal: React.FC<
         d.name.toLowerCase().includes(q) ||
         d.roll.toLowerCase().includes(q) ||
         d.className.toLowerCase().includes(q) ||
-        d.parentMobile.includes(q)
+        d.parentMobile.includes(q),
     );
   }, [defaulterList, search]);
 
@@ -178,7 +182,7 @@ export const DefaulterDirectAlertModal: React.FC<
     todayStr,
     sampleDefaulter.className || "Academics",
     "absent",
-    sampleDefaulter.percentage
+    sampleDefaulter.percentage,
   );
 
   const handleSendAlerts = async () => {
@@ -186,150 +190,174 @@ export const DefaulterDirectAlertModal: React.FC<
     if (targets.length === 0) return;
 
     setIsSending(true);
-    await new Promise((r) => setTimeout(r, 600));
+    try {
+      await new Promise((r) => setTimeout(r, 600));
 
-    const timestamp = new Date().toISOString();
-    const newLogs: SmsLog[] = [];
-    const smsGatewayBatch: any[] = [];
+      const timestamp = new Date().toISOString();
+      const newLogs: SmsLog[] = [];
+      const smsGatewayBatch: any[] = [];
 
-    for (const t of targets) {
-      // 1. Channel: Email
-      if (selectedChannels.includes("email")) {
-        const emailContent = generateEmailAlertContent(
-          t.name,
-          todayStr,
-          t.className,
-          "absent",
-          t.percentage
-        );
+      for (const t of targets) {
+        // 1. Channel: Email
+        if (selectedChannels.includes("email")) {
+          const emailContent = generateEmailAlertContent(
+            t.name,
+            todayStr,
+            t.className,
+            "absent",
+            t.percentage,
+          );
 
-        let body = emailContent.body;
-        if (customNote.trim()) {
-          body += `\n\nAdministrative Note: ${customNote.trim()}`;
+          let body = emailContent.body;
+          if (customNote.trim()) {
+            body += `\n\nAdministrative Note: ${customNote.trim()}`;
+          }
+
+          const emailResult = await sendEmailAlert({
+            to_email: t.parentEmail,
+            subject: emailContent.subject,
+            message: body,
+            student_name: t.name,
+            parent_name: t.student.parent_name || undefined,
+            attendance_rate: t.percentage,
+            college_name: "SMIT College of Engineering",
+          });
+
+          const isLive = !emailResult.isSimulated && emailResult.success;
+          newLogs.push({
+            id: `email-defaulter-${Date.now()}-${t.student.id}-${Math.random().toString(36).substring(2, 6)}`,
+            student_id: t.student.id,
+            student_name: t.name,
+            parent_mobile: t.parentMobile,
+            recipient_email: t.parentEmail,
+            channel: "email",
+            is_defaulter_alert: true,
+            attendance_rate: t.percentage,
+            email_subject: emailContent.subject,
+            message: body,
+            status: emailResult.success ? "sent" : "failed",
+            attendance_date: todayStr,
+            sent_at: timestamp,
+            language: "en",
+            gateway: isLive
+              ? "EmailJS Live Service"
+              : "Email Notification Service",
+            gateway_response: isLive
+              ? `EmailJS accepted the email request for ${t.parentEmail}`
+              : emailResult.message || "Email request failed.",
+            created_at: timestamp,
+          });
         }
 
-        const emailResult = await sendEmailAlert({
-          to_email: t.parentEmail,
-          subject: emailContent.subject,
-          message: body,
-          student_name: t.name,
-          parent_name: t.student.parent_name || undefined,
-          attendance_rate: t.percentage,
-          college_name: "SMIT College of Engineering",
-        });
+        // 2. Channel: SMS
+        if (selectedChannels.includes("sms")) {
+          let smsMsg = `Dear Parent, ${t.name} (Roll ${t.roll}, ${t.className}) has CRITICAL LOW ATTENDANCE: ${t.percentage}% (Min req is 75%). Debarment risk for University exams. Kindly meet HOD immediately. - EduTrack`;
+          if (customNote.trim()) {
+            smsMsg += ` Note: ${customNote.trim()}`;
+          }
 
-        const isLive = !emailResult.isSimulated && emailResult.success;
-        newLogs.push({
-          id: `email-defaulter-${Date.now()}-${t.student.id}-${Math.random().toString(36).substring(2, 6)}`,
-          student_id: t.student.id,
-          student_name: t.name,
-          parent_mobile: t.parentMobile,
-          recipient_email: t.parentEmail,
-          channel: "email",
-          is_defaulter_alert: true,
-          attendance_rate: t.percentage,
-          email_subject: emailContent.subject,
-          message: body,
-          status: emailResult.success ? "sent" : "failed",
-          attendance_date: todayStr,
-          sent_at: timestamp,
-          language: "en",
-          gateway: isLive ? "EmailJS Live Service" : "Email Notification Service",
-          gateway_response: isLive
-            ? `Live email delivered via EmailJS to ${t.parentEmail}`
-            : `Defaulter (<75%) Warning Email sent to ${t.parentEmail}`,
-          created_at: timestamp,
-        });
-      }
-
-      // 2. Channel: SMS
-      if (selectedChannels.includes("sms")) {
-        let smsMsg = `Dear Parent, ${t.name} (Roll ${t.roll}, ${t.className}) has CRITICAL LOW ATTENDANCE: ${t.percentage}% (Min req is 75%). Debarment risk for University exams. Kindly meet HOD immediately. - EduTrack`;
-        if (customNote.trim()) {
-          smsMsg += ` Note: ${customNote.trim()}`;
-        }
-
-        const hasMobile = Boolean(t.parentMobile && t.parentMobile.length >= 10);
-        newLogs.push({
-          id: `sms-defaulter-${Date.now()}-${t.student.id}-${Math.random().toString(36).substring(2, 6)}`,
-          student_id: t.student.id,
-          student_name: t.name,
-          parent_mobile: t.parentMobile,
-          channel: "sms",
-          is_defaulter_alert: true,
-          attendance_rate: t.percentage,
-          message: cleanSmsMessage(smsMsg),
-          status: hasMobile ? "sent" : "failed",
-          attendance_date: todayStr,
-          sent_at: timestamp,
-          language: "en",
-          gateway: "MSG91",
-          gateway_response: hasMobile ? "Delivered" : "Invalid phone number",
-          created_at: timestamp,
-        });
-
-        if (hasMobile) {
-          smsGatewayBatch.push({
-            mobile: t.parentMobile,
+          const hasMobile = Boolean(
+            t.parentMobile && t.parentMobile.length >= 10,
+          );
+          newLogs.push({
+            id: `sms-defaulter-${Date.now()}-${t.student.id}-${Math.random().toString(36).substring(2, 6)}`,
+            student_id: t.student.id,
+            student_name: t.name,
+            parent_mobile: t.parentMobile,
+            channel: "sms",
+            is_defaulter_alert: true,
+            attendance_rate: t.percentage,
             message: cleanSmsMessage(smsMsg),
-            studentName: t.name,
-            studentId: t.student.id,
-            date: todayStr,
+            status: hasMobile ? "pending" : "failed",
+            attendance_date: todayStr,
+            sent_at: timestamp,
+            language: "en",
+            gateway: "MSG91",
+            gateway_response: hasMobile
+              ? "Queued for MSG91 dispatch; provider acceptance not yet confirmed"
+              : "Invalid phone number",
+            created_at: timestamp,
+          });
+
+          if (hasMobile) {
+            smsGatewayBatch.push({
+              mobile: t.parentMobile,
+              message: cleanSmsMessage(smsMsg),
+              studentName: t.name,
+              studentId: t.student.id,
+              date: todayStr,
+            });
+          }
+        }
+
+        // 3. Channel: WhatsApp
+        if (selectedChannels.includes("whatsapp")) {
+          let waMsg = `*⚠️ CRITICAL LOW ATTENDANCE NOTICE (<75%)*\n\nStudent: *${t.name}* (Roll: ${t.roll})\nClass: *${t.className}*\nAttendance: *${t.percentage}%* (Below mandatory 75%)\n\nDear Parent, your ward's attendance is critically deficient. Please contact the department coordinator immediately.\n\n- EduTrack Engineering Academic Cell`;
+          if (customNote.trim()) {
+            waMsg += `\n\n*Note:* ${customNote.trim()}`;
+          }
+
+          newLogs.push({
+            id: `wa-defaulter-${Date.now()}-${t.student.id}-${Math.random().toString(36).substring(2, 6)}`,
+            student_id: t.student.id,
+            student_name: t.name,
+            parent_mobile: t.parentMobile,
+            channel: "whatsapp",
+            is_defaulter_alert: true,
+            attendance_rate: t.percentage,
+            message: waMsg,
+            status: "pending",
+            attendance_date: todayStr,
+            sent_at: timestamp,
+            language: "en",
+            gateway: "WhatsApp",
+            gateway_response: "WhatsApp provider integration is not configured",
+            created_at: timestamp,
           });
         }
       }
 
-      // 3. Channel: WhatsApp
-      if (selectedChannels.includes("whatsapp")) {
-        let waMsg = `*⚠️ CRITICAL LOW ATTENDANCE NOTICE (<75%)*\n\nStudent: *${t.name}* (Roll: ${t.roll})\nClass: *${t.className}*\nAttendance: *${t.percentage}%* (Below mandatory 75%)\n\nDear Parent, your ward's attendance is critically deficient. Please contact the department coordinator immediately.\n\n- EduTrack Engineering Academic Cell`;
-        if (customNote.trim()) {
-          waMsg += `\n\n*Note:* ${customNote.trim()}`;
+      let logsRecorded = false;
+      if (newLogs.length > 0) {
+        try {
+          await localDb.insert("sms_logs", newLogs);
+          logsRecorded = true;
+          window.dispatchEvent(
+            new CustomEvent("edutrack_sms_logs_updated", { detail: newLogs }),
+          );
+        } catch (error) {
+          console.error(
+            "Communication delivery completed, but Parent Log recording failed:",
+            error,
+          );
         }
-
-        newLogs.push({
-          id: `wa-defaulter-${Date.now()}-${t.student.id}-${Math.random().toString(36).substring(2, 6)}`,
-          student_id: t.student.id,
-          student_name: t.name,
-          parent_mobile: t.parentMobile,
-          channel: "whatsapp",
-          is_defaulter_alert: true,
-          attendance_rate: t.percentage,
-          message: waMsg,
-          status: "sent",
-          attendance_date: todayStr,
-          sent_at: timestamp,
-          language: "en",
-          gateway: "WhatsApp Business API",
-          gateway_response: "WhatsApp Alert Logged",
-          created_at: timestamp,
-        });
       }
-    }
 
-    if (newLogs.length > 0) {
-      await localDb.insert("sms_logs", newLogs);
-      window.dispatchEvent(
-        new CustomEvent("edutrack_sms_logs_updated", { detail: newLogs })
-      );
-    }
+      if (smsGatewayBatch.length > 0) {
+        dispatchSmsViaGateway(smsGatewayBatch).catch((err) =>
+          console.warn("Defaulter SMS gateway notice:", err),
+        );
+      }
 
-    if (smsGatewayBatch.length > 0) {
-      dispatchSmsViaGateway(smsGatewayBatch).catch((err) =>
-        console.warn("Defaulter SMS gateway notice:", err)
-      );
+      setSentSuccessDetails({
+        count: targets.length,
+        acceptedCount: newLogs.filter((log) => log.status === "sent").length,
+        failedCount: newLogs.filter((log) => log.status === "failed").length,
+        logsRecorded,
+        channels: selectedChannels,
+      });
+      onAlertsSent?.(targets.length);
+    } catch (error) {
+      console.error("Defaulter alert dispatch failed:", error);
+      alert(error instanceof Error ? error.message : "Alert dispatch failed.");
+    } finally {
+      setIsSending(false);
     }
-
-    setIsSending(false);
-    setSentSuccessDetails({
-      count: targets.length,
-      channels: selectedChannels,
-    });
-    onAlertsSent?.(targets.length);
   };
 
   const handleCopyPreview = () => {
     navigator.clipboard.writeText(
-      `${sampleEmail.subject}\n\n${sampleEmail.body}`
+      `${sampleEmail.subject}\n\n${sampleEmail.body}`,
     );
     setCopiedPreview(true);
     setTimeout(() => setCopiedPreview(false), 2000);
@@ -349,8 +377,12 @@ export const DefaulterDirectAlertModal: React.FC<
                 Dispatch &lt;75% Attendance Defaulter Alerts
               </DialogTitle>
               <p className="text-xs text-muted-foreground mt-0.5">
-                Targeting students below the mandatory 75% attendance threshold (Total:{" "}
-                <strong className="text-foreground">{defaulterList.length}</strong> defaulters)
+                Targeting students below the mandatory 75% attendance threshold
+                (Total:{" "}
+                <strong className="text-foreground">
+                  {defaulterList.length}
+                </strong>{" "}
+                defaulters)
               </p>
             </div>
           </div>
@@ -371,7 +403,11 @@ export const DefaulterDirectAlertModal: React.FC<
                 .
               </p>
               <p className="text-xs text-muted-foreground mt-0.5">
-                Recorded in Parent Logs.
+                {sentSuccessDetails.acceptedCount} request(s) accepted;{" "}
+                {sentSuccessDetails.failedCount} failed.
+                {sentSuccessDetails.logsRecorded
+                  ? " Recorded in Parent Logs."
+                  : " Parent Log recording failed."}
               </p>
             </div>
             <div className="pt-2">
@@ -456,7 +492,9 @@ export const DefaulterDirectAlertModal: React.FC<
               </div>
 
               <p className="text-[10.5px] text-muted-foreground leading-relaxed pt-0.5">
-                ✉️ An official <strong>Defaulter Warning Notice (&lt;75%)</strong> will be delivered to parents with exact lecture deficit details.
+                ✉️ An official{" "}
+                <strong>Defaulter Warning Notice (&lt;75%)</strong> will be
+                delivered to parents with exact lecture deficit details.
               </p>
             </div>
 
@@ -478,14 +516,17 @@ export const DefaulterDirectAlertModal: React.FC<
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                 <div className="flex items-center gap-2">
                   <span className="text-xs font-bold text-foreground">
-                    Select Defaulter Students ({selectedIds.size} of {defaulterList.length} selected):
+                    Select Defaulter Students ({selectedIds.size} of{" "}
+                    {defaulterList.length} selected):
                   </span>
                   <button
                     type="button"
                     onClick={toggleSelectAll}
                     className="text-[11px] text-primary hover:underline font-semibold"
                   >
-                    {selectedIds.size === filteredDefaulters.length ? "Deselect All" : "Select All"}
+                    {selectedIds.size === filteredDefaulters.length
+                      ? "Deselect All"
+                      : "Select All"}
                   </button>
                 </div>
 
@@ -542,8 +583,12 @@ export const DefaulterDirectAlertModal: React.FC<
                             </div>
                             <p className="text-[10.5px] text-muted-foreground truncate">
                               Parent: {d.parentName}
-                              {d.parentMobile && <span> • 📱 {d.parentMobile}</span>}
-                              {d.parentEmail && <span> • ✉️ {d.parentEmail}</span>}
+                              {d.parentMobile && (
+                                <span> • 📱 {d.parentMobile}</span>
+                              )}
+                              {d.parentEmail && (
+                                <span> • ✉️ {d.parentEmail}</span>
+                              )}
                             </p>
                           </div>
                         </div>

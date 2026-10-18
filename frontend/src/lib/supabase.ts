@@ -14,6 +14,12 @@ import {
 } from "./mockData";
 import { cleanSmsMessage } from "./college";
 
+const UUID_PATTERN =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+function isUuid(value: unknown): value is string {
+  return typeof value === "string" && UUID_PATTERN.test(value);
+}
 export function generateUuid(): string {
   if (
     typeof crypto !== "undefined" &&
@@ -244,8 +250,8 @@ export function sanitizePayloadForSupabase(table: string, rawItem: any): any {
     item[k] = val;
   }
 
-  // Ensure valid UUID
-  if (!item.id || item.id.length < 20 || item.id.startsWith("id-")) {
+  // Supabase UUID columns must receive an actual UUID.
+  if (!isUuid(item.id)) {
     item.id = generateUuid();
   }
 
@@ -333,7 +339,9 @@ class LocalDatabase {
   public syncAllUserAccounts() {
     let usersUpdated = false;
     const existingEmails = new Set(
-      this.users.map((u) => (u.email || "").toLowerCase().trim()).filter(Boolean)
+      this.users
+        .map((u) => (u.email || "").toLowerCase().trim())
+        .filter(Boolean),
     );
     const existingUserIds = new Set(this.users.map((u) => u.id));
 
@@ -349,7 +357,12 @@ class LocalDatabase {
           id: t.user_id || `user-${t.id}`,
           full_name: t.full_name,
           email: t.email || `${t.employee_id.toLowerCase()}@edutrack.edu`,
-          role: t.role === "hod" ? "hod" : t.is_class_coordinator ? "class_coordinator" : "teacher",
+          role:
+            t.role === "hod"
+              ? "hod"
+              : t.is_class_coordinator
+                ? "class_coordinator"
+                : "teacher",
           department_id: t.department_id,
           teacher_id: t.id,
           status: t.status === "inactive" ? "inactive" : "active",
@@ -370,7 +383,8 @@ class LocalDatabase {
         this.users.push({
           id: s.user_id || `user-${s.id}`,
           full_name: s.full_name,
-          email: s.email || `${s.roll_number.toLowerCase()}@student.college.edu`,
+          email:
+            s.email || `${s.roll_number.toLowerCase()}@student.college.edu`,
           role: "student",
           department_id: s.department_id,
           student_id: s.id,
@@ -477,7 +491,9 @@ class LocalDatabase {
 
     for (const dept of depts) {
       const deptCode = dept.code || "ENGG";
-      const deptClasses = this.academic_classes.filter((c) => c.department_id === dept.id);
+      const deptClasses = this.academic_classes.filter(
+        (c) => c.department_id === dept.id,
+      );
 
       const yearsConfig = [
         { year: 1, sem: 1, code: "FY", hasDivB: false },
@@ -489,13 +505,23 @@ class LocalDatabase {
       for (const yc of yearsConfig) {
         const divAExists = deptClasses.some(
           (c) =>
-            (c.year === yc.year || c.semester === yc.sem || c.semester === yc.sem + 1) &&
-            (c.name.includes("-A") || c.name.endsWith(" A") || c.name.includes("Div A") || c.name.includes("Division A")),
+            (c.year === yc.year ||
+              c.semester === yc.sem ||
+              c.semester === yc.sem + 1) &&
+            (c.name.includes("-A") ||
+              c.name.endsWith(" A") ||
+              c.name.includes("Div A") ||
+              c.name.includes("Division A")),
         );
         const divBExists = deptClasses.some(
           (c) =>
-            (c.year === yc.year || c.semester === yc.sem || c.semester === yc.sem + 1) &&
-            (c.name.includes("-B") || c.name.endsWith(" B") || c.name.includes("Div B") || c.name.includes("Division B")),
+            (c.year === yc.year ||
+              c.semester === yc.sem ||
+              c.semester === yc.sem + 1) &&
+            (c.name.includes("-B") ||
+              c.name.endsWith(" B") ||
+              c.name.includes("Div B") ||
+              c.name.includes("Division B")),
         );
 
         if (!divAExists) {
@@ -527,30 +553,16 @@ class LocalDatabase {
         }
       }
     }
-
-    // Also check if BE CSE-B has student st-be-2, if not add it
-    const beClassB = this.academic_classes.find((c) => c.name === "BE CSE-B" || c.id === "class-cse-be-b");
-    if (beClassB && !this.students.some((s) => s.id === "st-be-2" || s.roll_number === "21CS002")) {
-      const studentBeB = {
-        id: "st-be-2",
-        roll_number: "21CS002",
-        reg_number: "REG-2021-002",
-        full_name: "Meera Nair",
-        department_id: beClassB.department_id || "dept-1",
-        year: 4,
-        semester: 7,
-        class_id: beClassB.id,
-        class_name: beClassB.name,
-        parent_name: "Gopal Nair",
-        parent_mobile: "9876543242",
-        student_mobile: "9876543243",
-        email: "meera.n@student.college.edu",
-        address: "Campus View Hostel D, Room 210",
-        date_of_birth: "2003-05-18",
-        gender: "female",
-        status: "active" as const,
-      };
-      this.students.push(studentBeB);
+    const staleDemoStudentCount = this.students.length;
+    this.students = this.students.filter(
+      (student) =>
+        student.id !== "st-be-2" &&
+        !(
+          student.roll_number === "21CS002" &&
+          student.email === "meera.n@student.college.edu"
+        ),
+    );
+    if (this.students.length !== staleDemoStudentCount) {
       this.persist("students");
     }
 
@@ -596,18 +608,27 @@ class LocalDatabase {
     }
 
     try {
-      const [{ data: roles, error: rolesError }, { data: profiles, error: profilesError }] =
-        await Promise.all([
-          supabase.from("user_roles").select("user_id, role, department_id"),
-          supabase.from("profiles").select("id, full_name, email"),
-        ]);
+      const [
+        { data: roles, error: rolesError },
+        { data: profiles, error: profilesError },
+      ] = await Promise.all([
+        supabase.from("user_roles").select("user_id, role, department_id"),
+        supabase.from("profiles").select("id, full_name, email"),
+      ]);
 
-      if (!rolesError && !profilesError && Array.isArray(roles) && Array.isArray(profiles)) {
+      if (
+        !rolesError &&
+        !profilesError &&
+        Array.isArray(roles) &&
+        Array.isArray(profiles)
+      ) {
         const existingUsers = new Map(
           this.users.map((user: any) => [user.id, user]),
         );
         const users = roles.map((roleRecord: any) => {
-          const profile = profiles.find((item: any) => item.id === roleRecord.user_id);
+          const profile = profiles.find(
+            (item: any) => item.id === roleRecord.user_id,
+          );
           const existing = existingUsers.get(roleRecord.user_id) || {};
           const teacher = this.teachers.find(
             (item: any) => item.user_id === roleRecord.user_id,
@@ -673,7 +694,9 @@ class LocalDatabase {
       )
       .subscribe((status) => {
         if (status === "CHANNEL_ERROR" || status === "TIMED_OUT") {
-          console.warn(`Supabase realtime subscription ${status.toLowerCase()}.`);
+          console.warn(
+            `Supabase realtime subscription ${status.toLowerCase()}.`,
+          );
         }
       });
   }
@@ -948,10 +971,7 @@ class LocalDatabase {
     const inserted = items.map((it) => {
       const entry = {
         ...it,
-        id:
-          it.id && it.id.length > 20 && !it.id.startsWith("id-")
-            ? it.id
-            : generateUuid(),
+        id: isUuid(it.id) ? it.id : generateUuid(),
         created_at: it.created_at || new Date().toISOString(),
         sent_at: it.sent_at || new Date().toISOString(),
       };
@@ -1008,7 +1028,9 @@ class LocalDatabase {
           }
         } else {
           if (Array.isArray(savedRows) && savedRows.length > 0) {
-            const savedById = new Map(savedRows.map((row: any) => [row.id, row]));
+            const savedById = new Map(
+              savedRows.map((row: any) => [row.id, row]),
+            );
             (this as any)[table] = ((this as any)[table] || []).map(
               (item: any) => savedById.get(item.id) || item,
             );
@@ -1056,7 +1078,9 @@ class LocalDatabase {
           if (error) {
             console.error(`Supabase update error for ${table}:`, error);
             if (table === "teachers") {
-              throw new Error(`Teacher update failed in Supabase: ${error.message}`);
+              throw new Error(
+                `Teacher update failed in Supabase: ${error.message}`,
+              );
             }
           }
         } catch (err) {
