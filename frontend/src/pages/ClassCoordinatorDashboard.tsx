@@ -27,7 +27,10 @@ import {
 } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import { localDb } from "../lib/supabase";
-import { saveCredential } from "../lib/authUtils";
+import {
+  provisionManagedAccount,
+  resetManagedAccountPassword,
+} from "../lib/accountService";
 import { Student, Subject, AcademicClass, TeacherSubject } from "../lib/types";
 import { college } from "../lib/college";
 import {
@@ -439,46 +442,34 @@ export const ClassCoordinatorDashboard: React.FC = () => {
           });
         }
         if (studentForm.password.trim() || !account) {
-          saveCredential(
-            [
-              editingStudent.id,
-              account?.id,
-              `student-user-${editingStudent.id}`,
-              data.roll_number,
-              data.reg_number,
-              data.email,
-            ],
-            effectivePwd,
-          );
+          await resetManagedAccountPassword({
+            studentId: editingStudent.id,
+            password: effectivePwd,
+          });
         }
       } else {
         const inserted = await localDb.insert("students", [data]);
         const student = inserted[0];
         if (student) {
-          const accountId = `student-user-${student.id}`;
-          await localDb.insert("users", [
-            {
-              id: accountId,
-              full_name: student.full_name,
-              email:
-                student.email ||
-                `${student.roll_number.toLowerCase()}@student.edutrack.edu`,
+          if (!student.email) {
+            await localDb.delete("students", student.id);
+            throw new Error(
+              "A valid student email is required to create a persistent login account.",
+            );
+          }
+          try {
+            await provisionManagedAccount({
+              email: student.email,
+              password: effectivePwd,
+              fullName: student.full_name,
               role: "student",
-              department_id: user?.department_id,
-              student_id: student.id,
-              status: "active",
-            },
-          ]);
-          saveCredential(
-            [
-              accountId,
-              student.id,
-              student.roll_number,
-              student.reg_number,
-              student.email,
-            ],
-            effectivePwd,
-          );
+              departmentId: user?.department_id,
+              studentId: student.id,
+            });
+          } catch (provisionError) {
+            await localDb.delete("students", student.id);
+            throw provisionError;
+          }
         }
       }
     } catch (error) {

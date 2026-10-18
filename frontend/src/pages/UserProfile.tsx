@@ -33,7 +33,12 @@ import {
 } from "../lib/validation";
 import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
-import { Card, CardHeader, CardTitle, CardContent } from "../components/ui/card";
+import {
+  Card,
+  CardHeader,
+  CardTitle,
+  CardContent,
+} from "../components/ui/card";
 import { Badge } from "../components/ui/badge";
 
 export const UserProfile: React.FC = () => {
@@ -47,8 +52,9 @@ export const UserProfile: React.FC = () => {
         (s) =>
           s.id === user?.student_id ||
           (user?.roll_number && s.roll_number === user.roll_number) ||
-          (user?.email && s.email?.toLowerCase() === user.email.toLowerCase()) ||
-          (user?.id && s.user_id === user.id)
+          (user?.email &&
+            s.email?.toLowerCase() === user.email.toLowerCase()) ||
+          (user?.id && s.user_id === user.id),
       ) ||
       localDb.students[0] ||
       null
@@ -62,7 +68,7 @@ export const UserProfile: React.FC = () => {
         (t) =>
           t.id === user?.teacher_id ||
           (user?.employee_id && t.employee_id === user.employee_id) ||
-          (user?.email && t.email?.toLowerCase() === user.email.toLowerCase())
+          (user?.email && t.email?.toLowerCase() === user.email.toLowerCase()),
       ) || null
     );
   }, [role, user]);
@@ -102,10 +108,14 @@ export const UserProfile: React.FC = () => {
 
   // Contact edit state
   const [mobileVal, setMobileVal] = useState(
-    student?.student_mobile || teacher?.mobile || ""
+    student?.student_mobile || teacher?.mobile || "",
   );
-  const [parentNameVal, setParentNameVal] = useState(student?.parent_name || "");
-  const [parentMobileVal, setParentMobileVal] = useState(student?.parent_mobile || "");
+  const [parentNameVal, setParentNameVal] = useState(
+    student?.parent_name || "",
+  );
+  const [parentMobileVal, setParentMobileVal] = useState(
+    student?.parent_mobile || "",
+  );
   const [isSavingContact, setIsSavingContact] = useState(false);
   const [contactSuccess, setContactSuccess] = useState<string | null>(null);
   const [contactError, setContactError] = useState<string | null>(null);
@@ -128,7 +138,11 @@ export const UserProfile: React.FC = () => {
       }
     }
     if (role === "student" && parentMobileVal) {
-      const err = getMobileValidationError(parentMobileVal, "Parent Mobile Number", false);
+      const err = getMobileValidationError(
+        parentMobileVal,
+        "Parent Mobile Number",
+        false,
+      );
       if (err) {
         setContactError(err);
         return;
@@ -185,15 +199,18 @@ export const UserProfile: React.FC = () => {
       })
     ) {
       setPwdError(
-        "Please choose a unique personal password rather than a default password."
+        "Please choose a unique personal password rather than a default password.",
       );
       return;
     }
 
     setPwdLoading(true);
     try {
-      await updateUserPassword(clean);
-      saveCredential(userIdentifiers, clean);
+      const result = await updateUserPassword(clean);
+      if (!result.ok) {
+        setPwdError(result.message || "Password could not be updated.");
+        return;
+      }
       markCustomPasswordSet(userIdentifiers);
       setPwdSuccess("Password changed successfully!");
       setNewPassword("");
@@ -232,7 +249,10 @@ export const UserProfile: React.FC = () => {
             </p>
           </div>
         </div>
-        <Badge variant="outline" className="capitalize text-xs font-semibold px-2.5 py-1">
+        <Badge
+          variant="outline"
+          className="capitalize text-xs font-semibold px-2.5 py-1"
+        >
           {roleLabel}
         </Badge>
       </div>
@@ -271,7 +291,9 @@ export const UserProfile: React.FC = () => {
             {department && (
               <p className="text-xs text-muted-foreground flex items-center gap-1.5">
                 <Building2 className="h-3.5 w-3.5 text-muted-foreground" />
-                <span>{department.name} ({department.code})</span>
+                <span>
+                  {department.name} ({department.code})
+                </span>
               </p>
             )}
           </div>
@@ -301,16 +323,22 @@ export const UserProfile: React.FC = () => {
         <CardContent className="space-y-4">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
             <div className="p-3 rounded-lg bg-muted/40 border border-border/60">
-              <p className="text-[11px] text-muted-foreground font-medium">Full Name</p>
+              <p className="text-[11px] text-muted-foreground font-medium">
+                Full Name
+              </p>
               <p className="font-semibold text-foreground mt-0.5">{fullName}</p>
             </div>
             <div className="p-3 rounded-lg bg-muted/40 border border-border/60">
-              <p className="text-[11px] text-muted-foreground font-medium">Email Address</p>
+              <p className="text-[11px] text-muted-foreground font-medium">
+                Email Address
+              </p>
               <p className="font-semibold text-foreground mt-0.5">{email}</p>
             </div>
             {(user?.employee_id || teacher?.employee_id) && (
               <div className="p-3 rounded-lg bg-muted/40 border border-border/60">
-                <p className="text-[11px] text-muted-foreground font-medium">Employee ID</p>
+                <p className="text-[11px] text-muted-foreground font-medium">
+                  Employee ID
+                </p>
                 <p className="font-semibold font-mono text-foreground mt-0.5">
                   {user?.employee_id || teacher?.employee_id}
                 </p>
@@ -318,7 +346,9 @@ export const UserProfile: React.FC = () => {
             )}
             {(user?.roll_number || student?.roll_number) && (
               <div className="p-3 rounded-lg bg-muted/40 border border-border/60">
-                <p className="text-[11px] text-muted-foreground font-medium">Roll Number</p>
+                <p className="text-[11px] text-muted-foreground font-medium">
+                  Roll Number
+                </p>
                 <p className="font-semibold font-mono text-foreground mt-0.5">
                   {user?.roll_number || student?.roll_number}
                 </p>
@@ -326,7 +356,9 @@ export const UserProfile: React.FC = () => {
             )}
             {student?.class_name && (
               <div className="p-3 rounded-lg bg-muted/40 border border-border/60">
-                <p className="text-[11px] text-muted-foreground font-medium">Class</p>
+                <p className="text-[11px] text-muted-foreground font-medium">
+                  Class
+                </p>
                 <p className="font-semibold text-foreground mt-0.5">
                   {student.class_name}
                 </p>
@@ -334,7 +366,9 @@ export const UserProfile: React.FC = () => {
             )}
             {student?.semester && (
               <div className="p-3 rounded-lg bg-muted/40 border border-border/60">
-                <p className="text-[11px] text-muted-foreground font-medium">Semester</p>
+                <p className="text-[11px] text-muted-foreground font-medium">
+                  Semester
+                </p>
                 <p className="font-semibold text-foreground mt-0.5">
                   Semester {student.semester}
                 </p>
@@ -342,7 +376,9 @@ export const UserProfile: React.FC = () => {
             )}
             {department && (
               <div className="p-3 rounded-lg bg-muted/40 border border-border/60">
-                <p className="text-[11px] text-muted-foreground font-medium">Department</p>
+                <p className="text-[11px] text-muted-foreground font-medium">
+                  Department
+                </p>
                 <p className="font-semibold text-foreground mt-0.5">
                   {department.name}
                 </p>
@@ -351,7 +387,10 @@ export const UserProfile: React.FC = () => {
           </div>
 
           {role === "student" && student && (
-            <form onSubmit={handleUpdateContact} className="pt-3 border-t border-border/60 space-y-3">
+            <form
+              onSubmit={handleUpdateContact}
+              className="pt-3 border-t border-border/60 space-y-3"
+            >
               <div className="flex items-center justify-between">
                 <p className="text-xs font-semibold text-foreground flex items-center gap-1.5">
                   <Phone className="h-3.5 w-3.5 text-primary" />
@@ -369,7 +408,9 @@ export const UserProfile: React.FC = () => {
                   </label>
                   <Input
                     value={mobileVal}
-                    onChange={(e) => setMobileVal(sanitizeMobileInput(e.target.value))}
+                    onChange={(e) =>
+                      setMobileVal(sanitizeMobileInput(e.target.value))
+                    }
                     maxLength={10}
                     placeholder="10-digit mobile"
                     className="text-xs h-9 font-mono"
@@ -394,7 +435,9 @@ export const UserProfile: React.FC = () => {
                   </label>
                   <Input
                     value={parentMobileVal}
-                    onChange={(e) => setParentMobileVal(sanitizeMobileInput(e.target.value))}
+                    onChange={(e) =>
+                      setParentMobileVal(sanitizeMobileInput(e.target.value))
+                    }
                     maxLength={10}
                     placeholder="10-digit mobile"
                     className="text-xs h-9 font-mono"
@@ -429,7 +472,10 @@ export const UserProfile: React.FC = () => {
           )}
 
           {role !== "student" && teacher && (
-            <form onSubmit={handleUpdateContact} className="pt-2 border-t border-border/60">
+            <form
+              onSubmit={handleUpdateContact}
+              className="pt-2 border-t border-border/60"
+            >
               <div className="flex flex-col sm:flex-row items-start sm:items-end gap-2.5">
                 <div className="flex-1 w-full space-y-1">
                   <label className="text-xs font-semibold text-foreground flex items-center gap-1.5">
@@ -438,7 +484,9 @@ export const UserProfile: React.FC = () => {
                   </label>
                   <Input
                     value={mobileVal}
-                    onChange={(e) => setMobileVal(sanitizeMobileInput(e.target.value))}
+                    onChange={(e) =>
+                      setMobileVal(sanitizeMobileInput(e.target.value))
+                    }
                     maxLength={10}
                     placeholder="Enter 10-digit mobile"
                     className="text-xs h-9 font-mono"
@@ -498,7 +546,11 @@ export const UserProfile: React.FC = () => {
                     onClick={() => setShowPassword(!showPassword)}
                     className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
                   >
-                    {showPassword ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
+                    {showPassword ? (
+                      <EyeOff className="h-3.5 w-3.5" />
+                    ) : (
+                      <Eye className="h-3.5 w-3.5" />
+                    )}
                   </button>
                 </div>
               </div>
@@ -554,7 +606,9 @@ export const UserProfile: React.FC = () => {
       <Card className="p-4 border-destructive/20 bg-destructive/[0.02]">
         <div className="flex items-center justify-between gap-3">
           <div>
-            <p className="text-xs font-semibold text-foreground">Active Session</p>
+            <p className="text-xs font-semibold text-foreground">
+              Active Session
+            </p>
             <p className="text-[11px] text-muted-foreground">
               Sign out of EduTrack on this browser.
             </p>

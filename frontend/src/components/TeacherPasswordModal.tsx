@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { resetManagedAccountPassword } from "../lib/accountService";
 import {
   KeyRound,
   Lock,
@@ -11,8 +12,13 @@ import {
 } from "lucide-react";
 import { Teacher } from "../lib/types";
 import { localDb } from "../lib/supabase";
-import { saveCredential, getCredential, markCustomPasswordSet } from "../lib/authUtils";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "./ui/dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "./ui/dialog";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { Badge } from "./ui/badge";
@@ -37,80 +43,60 @@ export const TeacherPasswordModal: React.FC<TeacherPasswordModalProps> = ({
 
   if (!teacher) return null;
 
-  const currentSavedPassword =
-    getCredential(
-      teacher.id,
-      `teacher-user-${teacher.id}`,
-      teacher.employee_id,
-      teacher.email,
-      `hod_${teacher.id}`
-    ) || teacher.employee_id || "Teacher@123";
-
   const handleResetToEmpId = async () => {
-    const defaultPwd = teacher.employee_id || "Teacher@123";
-    const accountId = `teacher-user-${teacher.id}`;
-    const identifiers = [
-      accountId,
-      teacher.id,
-      teacher.employee_id,
-      teacher.email,
-      `hod_${teacher.id}`,
-    ];
-
-    try {
-      await localDb.update("teachers", teacher.id, { password: defaultPwd });
-    } catch (error) {
-      alert(error instanceof Error ? error.message : "Password could not be saved.");
+    const defaultPwd = teacher.employee_id;
+    if (!defaultPwd || defaultPwd.length < 8) {
+      alert(
+        "Employee ID must contain at least 8 characters before it can be used as a temporary password.",
+      );
       return;
     }
-    saveCredential(identifiers, defaultPwd);
-    setSuccessMsg(`Password successfully reset to Employee ID: ${defaultPwd}`);
-    setTimeout(() => {
-      setSuccessMsg(null);
-      onSuccess?.(`Password reset to Employee ID for ${teacher.full_name}`);
-      onOpenChange(false);
-    }, 1200);
+    setIsSaving(true);
+    try {
+      await resetManagedAccountPassword({
+        teacherId: teacher.id,
+        password: defaultPwd,
+      });
+      setSuccessMsg(`Password successfully reset for ${teacher.full_name}.`);
+      setTimeout(() => {
+        setSuccessMsg(null);
+        onSuccess?.(`Password reset for ${teacher.full_name}`);
+        onOpenChange(false);
+      }, 1200);
+    } catch (error) {
+      alert(
+        error instanceof Error ? error.message : "Password could not be saved.",
+      );
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const handleSavePassword = async () => {
     const cleanPwd = newPassword.trim();
-    if (!cleanPwd) {
-      alert("Please enter a valid password.");
+    if (cleanPwd.length < 8) {
+      alert("Password must be at least 8 characters long.");
       return;
     }
-    if (cleanPwd.length < 3) {
-      alert("Password must be at least 3 characters long.");
-      return;
-    }
-
     setIsSaving(true);
-    const accountId = `teacher-user-${teacher.id}`;
-    const identifiers = [
-      accountId,
-      teacher.id,
-      teacher.employee_id,
-      teacher.email,
-      `hod_${teacher.id}`,
-    ];
-
     try {
-      await localDb.update("teachers", teacher.id, { password: cleanPwd });
-      saveCredential(identifiers, cleanPwd);
-      markCustomPasswordSet(identifiers);
+      await resetManagedAccountPassword({
+        teacherId: teacher.id,
+        password: cleanPwd,
+      });
+      setSuccessMsg(`Password updated for ${teacher.full_name}.`);
+      setTimeout(() => {
+        setSuccessMsg(null);
+        onSuccess?.(`Password updated for ${teacher.full_name}`);
+        onOpenChange(false);
+      }, 1200);
     } catch (error) {
+      alert(
+        error instanceof Error ? error.message : "Password could not be saved.",
+      );
+    } finally {
       setIsSaving(false);
-      alert(error instanceof Error ? error.message : "Password could not be saved.");
-      return;
     }
-
-    setIsSaving(false);
-    setSuccessMsg(`Password updated to: ${cleanPwd}`);
-    setTimeout(() => {
-      setSuccessMsg(null);
-      setNewPassword("");
-      onSuccess?.(`Password updated for ${teacher.full_name}`);
-      onOpenChange(false);
-    }, 1200);
   };
 
   return (
@@ -135,30 +121,40 @@ export const TeacherPasswordModal: React.FC<TeacherPasswordModalProps> = ({
         {successMsg ? (
           <div className="py-8 flex flex-col items-center justify-center text-center space-y-2">
             <CheckCircle2 className="h-10 w-10 text-emerald-500 animate-bounce" />
-            <p className="text-sm font-semibold text-foreground">{successMsg}</p>
-            <p className="text-xs text-muted-foreground">Updated successfully.</p>
+            <p className="text-sm font-semibold text-foreground">
+              {successMsg}
+            </p>
+            <p className="text-xs text-muted-foreground">
+              Updated successfully.
+            </p>
           </div>
         ) : (
           <div className="py-3 space-y-4">
             {/* Summary */}
             <div className="rounded-xl border border-border bg-muted/20 p-3 text-xs space-y-2">
               <div className="flex items-center justify-between">
-                <span className="font-semibold text-foreground">{teacher.full_name}</span>
+                <span className="font-semibold text-foreground">
+                  {teacher.full_name}
+                </span>
                 <Badge variant="outline" className="text-[10px] font-mono">
                   {teacher.employee_id}
                 </Badge>
               </div>
               <div className="grid grid-cols-2 gap-2 text-[11px] text-muted-foreground">
                 <div>
-                  <span className="block text-foreground/70">Designation / Role:</span>
+                  <span className="block text-foreground/70">
+                    Designation / Role:
+                  </span>
                   <span className="capitalize font-semibold text-foreground">
                     {teacher.designation || teacher.role}
                   </span>
                 </div>
                 <div>
-                  <span className="block text-foreground/70">Current Password:</span>
+                  <span className="block text-foreground/70">
+                    Credential Status:
+                  </span>
                   <span className="font-mono font-bold text-primary">
-                    {currentSavedPassword}
+                    Managed securely in Supabase Auth
                   </span>
                 </div>
               </div>
@@ -167,10 +163,14 @@ export const TeacherPasswordModal: React.FC<TeacherPasswordModalProps> = ({
             {/* Reset to Employee ID */}
             <div className="rounded-xl border border-primary/20 bg-primary/5 p-3 flex items-center justify-between gap-3">
               <div className="text-xs">
-                <p className="font-semibold text-foreground">Default Employee ID Password</p>
+                <p className="font-semibold text-foreground">
+                  Default Employee ID Password
+                </p>
                 <p className="text-[11px] text-muted-foreground">
                   Reset password to Employee ID:{" "}
-                  <span className="font-mono font-bold">{teacher.employee_id}</span>
+                  <span className="font-mono font-bold">
+                    {teacher.employee_id}
+                  </span>
                 </p>
               </div>
               <Button
@@ -210,7 +210,9 @@ export const TeacherPasswordModal: React.FC<TeacherPasswordModalProps> = ({
                 </button>
               </div>
               <p className="text-[10px] text-muted-foreground">
-                Teacher can sign in with Employee ID (<code className="font-bold">{teacher.employee_id}</code>) or Email and this password.
+                Teacher can sign in with Employee ID (
+                <code className="font-bold">{teacher.employee_id}</code>) or
+                Email and this password.
               </p>
             </div>
 

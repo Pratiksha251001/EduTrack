@@ -93,7 +93,7 @@ export function getSubjectShortName(subjectNameOrCode?: string): string {
   const commonMap: Record<string, string> = {
     "database management systems": "DMS",
     "database management system": "DMS",
-    "dbms": "DMS",
+    dbms: "DMS",
     "computer networks": "CN",
     "computer network": "CN",
     "data structures & algorithms": "DSA",
@@ -126,7 +126,18 @@ export function getSubjectShortName(subjectNameOrCode?: string): string {
   }
 
   // Generate abbreviation from first letters of significant words
-  const stopWords = new Set(["and", "&", "for", "in", "of", "the", "to", "with", "a", "an"]);
+  const stopWords = new Set([
+    "and",
+    "&",
+    "for",
+    "in",
+    "of",
+    "the",
+    "to",
+    "with",
+    "a",
+    "an",
+  ]);
   const words = trimmed
     .replace(/[()]/g, "")
     .split(/[\s\-_/]+/)
@@ -350,7 +361,7 @@ export function generateEmailAlertContent(
   const isDefaulter = typeof currentRate === "number" && currentRate < 75;
 
   if (status === "absent" && isDefaulter) {
-    const subject = `⚠️ Low Attendance Warning (<75%): ${studentName} - ${shortSub}`;
+    const subject = `⚠️ Low Attendance Warning (Below 75%): ${studentName} - ${shortSub}`;
     const body = `Dear Parent / Guardian,
 
 This is an official attendance notice from EduTrack Academic Portal.
@@ -419,4 +430,3 @@ export function generateWhatsAppMessage(
 
   return `*EduTrack Attendance Update*\nDear Parent, your ward *${studentName}* is marked *PRESENT* for *${shortSub}* today (${date}).\n\n— EduTrack College Portal`;
 }
-

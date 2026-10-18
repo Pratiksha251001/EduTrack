@@ -18,7 +18,10 @@ import {
 } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import { localDb } from "../lib/supabase";
-import { saveCredential } from "../lib/authUtils";
+import {
+  provisionManagedAccount,
+  resetManagedAccountPassword,
+} from "../lib/accountService";
 import { Button } from "../components/ui/button";
 import {
   Card,
@@ -80,9 +83,8 @@ export const HODStudents: React.FC = () => {
 
   // Modals state
   const [alertModalOpen, setAlertModalOpen] = useState(false);
-  const [selectedStudentForAlert, setSelectedStudentForAlert] = useState<
-    Student | null
-  >(null);
+  const [selectedStudentForAlert, setSelectedStudentForAlert] =
+    useState<Student | null>(null);
   const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
 
   const refresh = () => {
@@ -287,7 +289,9 @@ export const HODStudents: React.FC = () => {
       });
 
       // Update user account if present
-      const account = localDb.users.find((u) => u.student_id === editingStudent.id);
+      const account = localDb.users.find(
+        (u) => u.student_id === editingStudent.id,
+      );
       if (account) {
         await localDb.update("users", account.id, {
           full_name: form.full_name.trim(),
@@ -299,10 +303,10 @@ export const HODStudents: React.FC = () => {
       }
 
       if (form.password.trim()) {
-        saveCredential(
-          [editingStudent.id, account?.id, form.roll_number, form.email],
-          form.password.trim(),
-        );
+        await resetManagedAccountPassword({
+          studentId: editingStudent.id,
+          password: form.password.trim(),
+        });
       }
     } else {
       // Insert new student
@@ -322,25 +326,27 @@ export const HODStudents: React.FC = () => {
 
       const student = inserted[0];
       if (student) {
-        const accountId = `student-user-${student.id}`;
-        await localDb.insert("users", [
-          {
-            id: accountId,
-            full_name: student.full_name,
-            email:
-              student.email ||
-              `${student.roll_number.toLowerCase()}@student.edutrack.edu`,
+        if (!student.email) {
+          await localDb.delete("students", student.id);
+          throw new Error(
+            "A valid student email is required for a persistent login account.",
+          );
+        }
+        const effectivePwd =
+          form.password.trim() || student.roll_number || "123";
+        try {
+          await provisionManagedAccount({
+            email: student.email,
+            password: effectivePwd,
+            fullName: student.full_name,
             role: "student",
-            department_id: departmentId,
-            student_id: student.id,
-            status: "active",
-          },
-        ]);
-        const effectivePwd = form.password.trim() || student.roll_number || "123";
-        saveCredential(
-          [accountId, student.id, student.roll_number, student.email],
-          effectivePwd,
-        );
+            departmentId,
+            studentId: student.id,
+          });
+        } catch (error) {
+          await localDb.delete("students", student.id);
+          throw error;
+        }
       }
     }
 
@@ -350,7 +356,10 @@ export const HODStudents: React.FC = () => {
   };
 
   const remove = async (student: Student) => {
-    if (!confirm(`Delete student ${student.full_name} (${student.roll_number})?`)) return;
+    if (
+      !confirm(`Delete student ${student.full_name} (${student.roll_number})?`)
+    )
+      return;
     await localDb.delete("students", student.id);
     refresh();
   };
@@ -454,7 +463,11 @@ export const HODStudents: React.FC = () => {
             <span>Export CSV</span>
           </Button>
 
-          <Button size="sm" onClick={openAddModal} className="gap-1.5 text-xs h-9">
+          <Button
+            size="sm"
+            onClick={openAddModal}
+            className="gap-1.5 text-xs h-9"
+          >
             <Plus className="h-4 w-4" />
             <span>Add Student</span>
           </Button>
@@ -701,7 +714,8 @@ export const HODStudents: React.FC = () => {
           </div>
 
           <div className="text-xs text-muted-foreground">
-            Total Students: <strong className="text-foreground">{filtered.length}</strong>
+            Total Students:{" "}
+            <strong className="text-foreground">{filtered.length}</strong>
           </div>
         </div>
       </div>
@@ -715,14 +729,30 @@ export const HODStudents: React.FC = () => {
             <TableHeader className="bg-muted/70 border-b border-border">
               <TableRow>
                 <TableHead className="w-12 text-center font-bold">#</TableHead>
-                <TableHead className="min-w-[120px] font-bold">Roll Number</TableHead>
-                <TableHead className="min-w-[200px] font-bold">Student Name</TableHead>
-                <TableHead className="min-w-[110px] font-bold">Class / Sem</TableHead>
-                <TableHead className="min-w-[180px] font-bold">Guardian Contact</TableHead>
-                <TableHead className="min-w-[160px] font-bold">Email / Login</TableHead>
-                <TableHead className="min-w-[160px] font-bold">Attendance Record</TableHead>
-                <TableHead className="min-w-[90px] text-center font-bold">SMS Sent</TableHead>
-                <TableHead className="min-w-[130px] text-right font-bold pr-4">Actions</TableHead>
+                <TableHead className="min-w-[120px] font-bold">
+                  Roll Number
+                </TableHead>
+                <TableHead className="min-w-[200px] font-bold">
+                  Student Name
+                </TableHead>
+                <TableHead className="min-w-[110px] font-bold">
+                  Class / Sem
+                </TableHead>
+                <TableHead className="min-w-[180px] font-bold">
+                  Guardian Contact
+                </TableHead>
+                <TableHead className="min-w-[160px] font-bold">
+                  Email / Login
+                </TableHead>
+                <TableHead className="min-w-[160px] font-bold">
+                  Attendance Record
+                </TableHead>
+                <TableHead className="min-w-[90px] text-center font-bold">
+                  SMS Sent
+                </TableHead>
+                <TableHead className="min-w-[130px] text-right font-bold pr-4">
+                  Actions
+                </TableHead>
               </TableRow>
             </TableHeader>
             <TableBody className="divide-y divide-border">
@@ -740,8 +770,8 @@ export const HODStudents: React.FC = () => {
                         No students found matching your criteria
                       </p>
                       <p className="text-xs text-muted-foreground">
-                        Add students manually or import via Excel (.xlsx) / CSV file
-                        to populate the department directory.
+                        Add students manually or import via Excel (.xlsx) / CSV
+                        file to populate the department directory.
                       </p>
                       <div className="flex items-center justify-center gap-2 pt-2">
                         <Button
@@ -753,7 +783,11 @@ export const HODStudents: React.FC = () => {
                           <FileSpreadsheet className="h-4 w-4 text-emerald-600" />
                           Import Students
                         </Button>
-                        <Button size="sm" onClick={openAddModal} className="gap-1.5">
+                        <Button
+                          size="sm"
+                          onClick={openAddModal}
+                          className="gap-1.5"
+                        >
                           <Plus className="h-4 w-4" />
                           Add Student Manually
                         </Button>
@@ -805,7 +839,10 @@ export const HODStudents: React.FC = () => {
                       {/* Semester & Class */}
                       <TableCell>
                         <div className="flex flex-col gap-1 items-start">
-                          <Badge variant="outline" className="text-[10px] font-semibold">
+                          <Badge
+                            variant="outline"
+                            className="text-[10px] font-semibold"
+                          >
                             Sem {student.semester}
                           </Badge>
                           {student.class_name && (
@@ -835,7 +872,10 @@ export const HODStudents: React.FC = () => {
                       {/* Email / Login */}
                       <TableCell>
                         <div className="space-y-0.5 max-w-[150px]">
-                          <p className="truncate text-muted-foreground text-[11px]" title={student.email || ""}>
+                          <p
+                            className="truncate text-muted-foreground text-[11px]"
+                            title={student.email || ""}
+                          >
                             {student.email || "—"}
                           </p>
                           <span className="inline-flex items-center gap-1 text-[10px] text-emerald-600 font-medium">

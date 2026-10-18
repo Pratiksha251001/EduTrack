@@ -3,15 +3,13 @@ import { supabase } from "./supabase";
 const rawApiUrl = (import.meta.env.VITE_API_URL || "")
   .trim()
   .replace(/\/+$/, "");
-const isLocalhost =
-  rawApiUrl.includes("localhost") ||
-  rawApiUrl.includes("127.0.0.1") ||
-  rawApiUrl.includes("0.0.0.0");
-const apiBaseUrl =
-  typeof window !== "undefined" && isLocalhost
-    ? ""
-    : rawApiUrl ||
-      (import.meta.env.PROD ? "https://edutrack-q07f.onrender.com" : "");
+const isBrowserLocalhost =
+  typeof window !== "undefined" &&
+  ["localhost", "127.0.0.1", "0.0.0.0"].includes(window.location.hostname);
+const apiBaseUrl = isBrowserLocalhost
+  ? ""
+  : rawApiUrl ||
+    (import.meta.env.PROD ? "https://edutrack-q07f.onrender.com" : "");
 
 export function apiUrl(path: string): string {
   const cleanPath = path.startsWith("/") ? path : `/${path}`;

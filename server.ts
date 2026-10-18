@@ -87,7 +87,13 @@ async function requireRole(
     return res
       .status(401)
       .json({ success: false, message: "Invalid session." });
-  const { data: roleRow, error: roleError } = await supabase
+  if (!supabaseAdmin)
+    return res.status(503).json({
+      success: false,
+      message: "SUPABASE_SERVICE_ROLE_KEY is not configured.",
+    });
+
+  const { data: roleRow, error: roleError } = await supabaseAdmin
     .from("user_roles")
     .select("role,department_id")
     .eq("user_id", userData.user.id)
@@ -105,6 +111,12 @@ async function requireRole(
   };
   next();
 }
+
+const requireAccountManager = (
+  req: AuthorizedRequest,
+  res: express.Response,
+  next: express.NextFunction,
+) => void requireRole(["admin", "hod", "class_coordinator"], req, res, next);
 
 const requireAdmin = (
   req: AuthorizedRequest,
@@ -834,6 +846,203 @@ async function startServer() {
     }
     return res.status(201).json({ success: true, userId, role });
   });
+
+  // Persistent account lifecycle: all credentials remain in Supabase Auth.
+  app.post(
+    "/api/admin/accounts/provision",
+    requireAccountManager,
+    async (req: AuthorizedRequest, res) => {
+      if (!supabaseAdmin)
+        return res.status(503).json({
+          success: false,
+          message: "SUPABASE_SERVICE_ROLE_KEY is not configured.",
+        });
+      const {
+        email,
+        password,
+        fullName,
+        role,
+        departmentId,
+        teacherId,
+        studentId,
+      } = req.body || {};
+      const allowed = ["hod", "teacher", "class_coordinator", "student"];
+      if (!email || !password || !fullName || !allowed.includes(role))
+        return res.status(400).json({
+          success: false,
+          message: "email, password, fullName, and a valid role are required.",
+        });
+      if (role === "student" && !studentId)
+        return res.status(400).json({
+          success: false,
+          message: "studentId is required for a student account.",
+        });
+      if (role !== "student" && !teacherId)
+        return res.status(400).json({
+          success: false,
+          message: "teacherId is required for a staff account.",
+        });
+      const actor = req.actor;
+      if (!actor)
+        return res
+          .status(401)
+          .json({ success: false, message: "Authentication required." });
+      if (actor.role === "class_coordinator" && role !== "student")
+        return res.status(403).json({
+          success: false,
+          message: "Class Coordinators may provision student accounts only.",
+        });
+      if (
+        actor.role !== "admin" &&
+        departmentId &&
+        actor.departmentId !== departmentId
+      )
+        return res.status(403).json({
+          success: false,
+          message: "You may manage accounts only in your department.",
+        });
+      const targetTable = role === "student" ? "students" : "teachers";
+      const targetId = role === "student" ? studentId : teacherId;
+      const { data: targetRecord, error: targetError } = await supabaseAdmin
+        .from(targetTable)
+        .select("id,department_id,user_id")
+        .eq("id", targetId)
+        .single();
+      if (targetError || !targetRecord)
+        return res.status(404).json({
+          success: false,
+          message: "The target student or staff record does not exist.",
+        });
+      if (targetRecord.user_id)
+        return res.status(409).json({
+          success: false,
+          message: "This record is already linked to a Supabase Auth account.",
+        });
+      if (
+        actor.role !== "admin" &&
+        targetRecord.department_id !== actor.departmentId
+      )
+        return res.status(403).json({
+          success: false,
+          message: "You may manage accounts only in your department.",
+        });
+      const normalizedEmail = String(email).trim().toLowerCase();
+      let userId = "";
+      try {
+        const { data: created, error: createError } =
+          await supabaseAdmin.auth.admin.createUser({
+            email: normalizedEmail,
+            password: String(password),
+            email_confirm: true,
+            user_metadata: { full_name: String(fullName).trim() },
+          });
+        if (createError || !created.user)
+          throw new Error(
+            createError?.message || "Unable to create Auth user.",
+          );
+        userId = created.user.id;
+        const { error: profileError } = await supabaseAdmin
+          .from("profiles")
+          .upsert({
+            id: userId,
+            full_name: String(fullName).trim(),
+            email: normalizedEmail,
+            must_change_password: true,
+          });
+        if (profileError) throw new Error(profileError.message);
+        const { error: roleError } = await supabaseAdmin
+          .from("user_roles")
+          .upsert(
+            { user_id: userId, role, department_id: departmentId || null },
+            { onConflict: "user_id,role" },
+          );
+        if (roleError) throw new Error(roleError.message);
+        const table = role === "student" ? "students" : "teachers";
+        const entityId = role === "student" ? studentId : teacherId;
+        const { error: linkError } = await supabaseAdmin
+          .from(table)
+          .update({ user_id: userId })
+          .eq("id", entityId);
+        if (linkError) throw new Error(linkError.message);
+        return res.status(201).json({ success: true, userId, role });
+      } catch (error: any) {
+        if (userId) await supabaseAdmin.auth.admin.deleteUser(userId);
+        return res.status(400).json({
+          success: false,
+          message:
+            error?.message ||
+            "Account provisioning failed and was rolled back.",
+        });
+      }
+    },
+  );
+
+  app.post(
+    "/api/admin/accounts/password",
+    requireAccountManager,
+    async (req: AuthorizedRequest, res) => {
+      if (!supabaseAdmin)
+        return res.status(503).json({
+          success: false,
+          message: "SUPABASE_SERVICE_ROLE_KEY is not configured.",
+        });
+      const { teacherId, studentId, password } = req.body || {};
+      if (
+        (!teacherId && !studentId) ||
+        !password ||
+        String(password).length < 8
+      )
+        return res.status(400).json({
+          success: false,
+          message:
+            "A linked teacher/student and password of at least 8 characters are required.",
+        });
+      const table = studentId ? "students" : "teachers";
+      const entityId = studentId || teacherId;
+      const { data: entity, error: entityError } = await supabaseAdmin
+        .from(table)
+        .select("user_id,department_id")
+        .eq("id", entityId)
+        .single();
+      if (entityError || !entity?.user_id)
+        return res.status(404).json({
+          success: false,
+          message: "No linked Supabase Auth account exists for this record.",
+        });
+      const actor = req.actor;
+      if (!actor)
+        return res
+          .status(401)
+          .json({ success: false, message: "Authentication required." });
+      if (actor.role === "class_coordinator" && table !== "students")
+        return res.status(403).json({
+          success: false,
+          message: "Class Coordinators may reset student passwords only.",
+        });
+      if (actor.role !== "admin" && entity.department_id !== actor.departmentId)
+        return res.status(403).json({
+          success: false,
+          message: "You may reset passwords only in your department.",
+        });
+      const { error: updateError } =
+        await supabaseAdmin.auth.admin.updateUserById(entity.user_id, {
+          password: String(password),
+        });
+      if (updateError)
+        return res
+          .status(400)
+          .json({ success: false, message: updateError.message });
+      const { error: profileError } = await supabaseAdmin
+        .from("profiles")
+        .update({ must_change_password: true })
+        .eq("id", entity.user_id);
+      if (profileError)
+        return res
+          .status(500)
+          .json({ success: false, message: profileError.message });
+      return res.json({ success: true });
+    },
+  );
 
   // API 1: Health check
   app.get("/api/health", (req, res) => {
