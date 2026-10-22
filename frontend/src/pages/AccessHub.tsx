@@ -225,19 +225,15 @@ export const AccessHub: React.FC = () => {
   });
 
   return (
-    <div className="relative min-h-screen bg-[#f4fbf7] dark:bg-background text-foreground transition-colors duration-200 overflow-x-hidden">
-      {/* Educational Illustration Background - High Contrast & Crisp */}
+    <div className="relative min-h-screen bg-gradient-to-br from-[#f2fdf7] via-[#e4fbef] to-[#d5f8e7]/70 dark:from-[#0b1311] dark:via-[#091512] dark:to-[#08100e] text-foreground transition-colors duration-200 overflow-x-hidden">
+      {/* Soft Ambient Mint Gradient Mesh Backdrop */}
       <div
         aria-hidden="true"
         className="pointer-events-none fixed inset-0 overflow-hidden z-0 select-none"
       >
-        <img
-          src="/edutrack-bg.svg"
-          alt=""
-          className="w-full h-full object-cover object-center opacity-60 dark:opacity-30"
-        />
-        {/* Subtle light mode contrast scrim so white cards stand out prominently */}
-        <div className="absolute inset-0 bg-white/20 dark:bg-slate-950/65" />
+        <div className="absolute -top-32 -left-32 w-96 h-96 rounded-full bg-[#c2f5df]/60 dark:bg-emerald-950/20 blur-3xl" />
+        <div className="absolute top-1/3 -right-28 w-[32rem] h-[32rem] rounded-full bg-[#d5f8e7]/50 dark:bg-teal-950/20 blur-3xl" />
+        <div className="absolute -bottom-24 left-1/4 w-[28rem] h-[28rem] rounded-full bg-[#e4fbef]/70 dark:bg-emerald-900/10 blur-3xl" />
       </div>
 
       {/* Top Bar - 100% Fixed and Docked at Top (Never scrolls off screen) */}
@@ -467,15 +463,153 @@ export const AccessHub: React.FC = () => {
           })}
         </section>
 
-        {/* Footer */}
-        <footer className="text-center pt-4 pb-8 border-t border-border/80 text-xs text-muted-foreground space-y-1">
-          <p className="font-medium text-foreground/70">
-            © {new Date().getFullYear()} EduTrack · Academic Portal Hub
-          </p>
-          <p className="text-[11px] text-muted-foreground/80">
-            Session {CURRENT_ACADEMIC_YEAR} · Smart Attendance & Parent Alert
-            System
-          </p>
+        {/* Institutional Features Highlights */}
+        <section className="mt-12 pt-8 border-t border-border/60">
+          <div className="mb-6 text-center sm:text-left">
+            <h2 className="font-display text-xl font-bold text-foreground">
+              Core Institutional Capabilities
+            </h2>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+            {/* Feature 1 */}
+            <div className="group rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-5 shadow-sm transition-all hover:border-emerald-500/40 hover:shadow-md">
+              <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 mb-4 group-hover:scale-105 transition-transform">
+                <CheckCircle2 className="h-6 w-6" />
+              </div>
+              <h3 className="font-display text-base font-bold text-foreground">
+                Smart Attendance Capture
+              </h3>
+              <p className="mt-2 text-xs text-muted-foreground line-clamp-1">
+                Record period-wise lecture attendance with 1-tap marking and Excel roster imports.
+              </p>
+            </div>
+
+            {/* Feature 2 */}
+            <div className="group rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-5 shadow-sm transition-all hover:border-teal-500/40 hover:shadow-md">
+              <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-teal-500/10 text-teal-600 dark:text-teal-400 mb-4 group-hover:scale-105 transition-transform">
+                <Zap className="h-6 w-6" />
+              </div>
+              <h3 className="font-display text-base font-bold text-foreground">
+                Automated Parent Alerts
+              </h3>
+              <p className="mt-2 text-xs text-muted-foreground line-clamp-1">
+                Instant SMS, WhatsApp, and Email notices dispatched immediately to parents upon absence.
+              </p>
+            </div>
+
+            {/* Feature 3 */}
+            <div className="group rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-5 shadow-sm transition-all hover:border-emerald-500/40 hover:shadow-md">
+              <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 mb-4 group-hover:scale-105 transition-transform">
+                <ShieldCheck className="h-6 w-6" />
+              </div>
+              <h3 className="font-display text-base font-bold text-foreground">
+                Academic Analytics & Reports
+              </h3>
+              <p className="mt-2 text-xs text-muted-foreground line-clamp-1">
+                Live attendance tracking, automatic 75% defaulter detection, and official report exports.
+              </p>
+            </div>
+          </div>
+        </section>
+
+        {/* Standard Comprehensive Footer */}
+        <footer className="mt-14 border-t border-slate-200 dark:border-slate-800 pt-10 pb-8 text-xs text-muted-foreground">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-8">
+            {/* Column 1: Brand & About */}
+            <div className="space-y-2.5">
+              <h4 className="font-display font-bold text-foreground text-sm tracking-tight">
+                EduTrack Smart Attendance
+              </h4>
+              <p className="text-xs text-muted-foreground leading-relaxed">
+                Smart attendance tracking and automated parent notification platform for academic institutions.
+              </p>
+              <div className="inline-flex items-center gap-2 rounded-lg bg-emerald-500/10 px-2.5 py-1 text-[11px] font-semibold text-emerald-700 dark:text-emerald-400">
+                <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
+                <span>All Academic Systems Operational</span>
+              </div>
+            </div>
+
+            {/* Column 2: Quick Portals */}
+            <div className="space-y-2.5 md:pl-4">
+              <h5 className="font-semibold text-foreground text-xs uppercase tracking-wider">
+                Authorized Portals
+              </h5>
+              <ul className="space-y-1.5 text-xs">
+                <li>
+                  <button
+                    type="button"
+                    onClick={() => handleCardClick(portalCards[0])}
+                    className="hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors text-left"
+                  >
+                    Admin Portal
+                  </button>
+                </li>
+                <li>
+                  <button
+                    type="button"
+                    onClick={() => handleCardClick(portalCards[1])}
+                    className="hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors text-left"
+                  >
+                    HOD Portal
+                  </button>
+                </li>
+                <li>
+                  <button
+                    type="button"
+                    onClick={() => handleCardClick(portalCards[2])}
+                    className="hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors text-left"
+                  >
+                    Teacher Portal
+                  </button>
+                </li>
+                <li>
+                  <button
+                    type="button"
+                    onClick={() => handleCardClick(portalCards[3])}
+                    className="hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors text-left"
+                  >
+                    Class Coordinator
+                  </button>
+                </li>
+                <li>
+                  <button
+                    type="button"
+                    onClick={() => handleCardClick(portalCards[4])}
+                    className="hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors text-left"
+                  >
+                    Student Self-Service
+                  </button>
+                </li>
+              </ul>
+            </div>
+
+            {/* Column 3: Contact & Support */}
+            <div className="space-y-2.5">
+              <h5 className="font-semibold text-foreground text-xs uppercase tracking-wider">
+                Contact & Support
+              </h5>
+              <div className="pt-0.5">
+                <a
+                  href="mailto:edutrack.work@gmail.com"
+                  className="inline-flex items-center gap-2 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 px-3.5 py-2 text-xs font-semibold text-foreground hover:border-emerald-500/50 hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors shadow-xs"
+                >
+                  <Mail className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
+                  <span>edutrack.work@gmail.com</span>
+                </a>
+              </div>
+              <p className="text-[11px] font-medium text-slate-700 dark:text-slate-300 pt-1">
+                Manage Attendance · Alert Parents · Build Trust
+              </p>
+            </div>
+          </div>
+
+          {/* Bottom Bar */}
+          <div className="pt-6 border-t border-slate-200/80 dark:border-slate-800 text-center text-xs font-medium text-slate-800 dark:text-slate-200">
+            <p>
+              © {new Date().getFullYear()} EduTrack. All rights reserved. Institutional Governance & Smart Attendance.
+            </p>
+          </div>
         </footer>
       </main>
 
