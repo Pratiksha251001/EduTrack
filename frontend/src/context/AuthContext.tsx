@@ -1,4 +1,11 @@
-import React, { createContext, useContext, useState, useEffect } from "react";
+import React, {
+  createContext,
+  useContext,
+  useState,
+  useEffect,
+  useRef,
+  useCallback,
+} from "react";
 import { UserRoleType } from "../lib/types";
 import { localDb, supabase, isSupabaseConfigured } from "../lib/supabase";
 import {
@@ -120,23 +127,44 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
   const openLogoutConfirm = () => setIsLogoutConfirmOpen(true);
   const closeLogoutConfirm = () => setIsLogoutConfirmOpen(false);
 
+  // Auth-session race guard: invalidate stale asynchronous account restoration.
+  const authEpoch = useRef(0);
+  const credentialLoginActive = useRef(false);
+  const demoSessionActive = useRef(getStorageItem("is_demo") === "true");
+  const providerMounted = useRef(true);
+  const clearAuthenticatedState = useCallback(() => {
+    authEpoch.current += 1;
+    setUser(null);
+    setRole(null);
+    setIsDemo(false);
+    setMustChangePassword(false);
+    setLoading(false);
+    for (const key of [
+      "user",
+      "role",
+      "is_demo",
+      "must_change_password",
+      "last_active_path",
+      "last_authenticated_path",
+    ]) {
+      removeStorageItem(key);
+    }
+  }, []);
   useEffect(() => {
+    providerMounted.current = true;
     let mounted = true;
-    let listenerSubscription: { unsubscribe: () => void } | null = null;
-    let restoreSupabaseSession: (() => Promise<void>) | null = null;
-
-    // 1. If demo mode was saved, load demo dataset so mock records are populated
+    const timers = new Set<ReturnType<typeof setTimeout>>();
+    let subscription: { unsubscribe: () => void } | null = null;
     const savedIsDemo = getStorageItem("is_demo") === "true";
+    demoSessionActive.current = savedIsDemo;
     if (savedIsDemo) {
       setIsDemo(true);
       localDb.ensureDemoDataLoaded();
     }
-
-    // 2. Re-verify password requirements for non-admin
+    // Keep local/demo password requirements separate from remote authentication.
     const savedUser = getStorageItem("user");
     const savedRole = getStorageItem("role") as UserRoleType | null;
     const savedMustChange = getStorageItem("must_change_password") === "true";
-
     if (!isSupabaseConfigured && savedUser && savedRole) {
       try {
         const parsedUser = JSON.parse(savedUser);
@@ -149,110 +177,160 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
             parsedUser.student_id,
             parsedUser.roll_number,
           ];
-          const hasCustom = hasCustomPassword(identifiers);
-          if (!hasCustom || savedMustChange) {
+          if (!hasCustomPassword(identifiers) || savedMustChange) {
             setMustChangePassword(true);
             setStorageItem("must_change_password", "true");
           }
         }
-      } catch (e) {
-        console.error("Failed to parse saved user", e);
+      } catch (error) {
+        console.error("Failed to parse saved user", error);
       }
     }
-
-    // 3. Supabase background session sync (if configured)
-    if (isSupabaseConfigured) {
-      restoreSupabaseSession = async () => {
-        try {
-          const { data } = await supabase.auth.getSession();
-          if (!mounted || !data?.session) return;
-          const authUser = data.session.user;
-          const { data: roleRecord } = await supabase
-            .from("user_roles")
-            .select("role, department_id")
-            .eq("user_id", authUser.id)
-            .maybeSingle();
-          if (!roleRecord) return;
-          const { data: profile } = await supabase
-            .from("profiles")
-            .select("full_name, must_change_password")
-            .eq("id", authUser.id)
-            .maybeSingle();
-          const restoredRole = roleRecord.role as UserRoleType;
-          await localDb.waitUntilReady();
-          if (!mounted) return;
-          const studentRecord = await resolveStudentAccountLink(
-            authUser.id,
-            restoredRole,
-          );
-          if (restoredRole === "student" && !studentRecord) {
-            console.warn(
-              "The authenticated student account has no linked student record.",
-            );
-            return;
-          }
-          const restoredUser = {
-            id: authUser.id,
-            email: studentRecord?.email || authUser.email || "",
-            full_name:
-              studentRecord?.full_name ||
-              profile?.full_name ||
-              authUser.user_metadata?.full_name ||
-              "Portal User",
-            department_id:
-              studentRecord?.department_id || roleRecord.department_id,
-            student_id: studentRecord?.id,
-            roll_number: studentRecord?.roll_number,
-          };
-          setUser(restoredUser);
-          setRole(restoredRole);
-          setStorageItem("user", JSON.stringify(restoredUser));
-          setStorageItem("role", roleRecord.role as string);
-          setMustChangePassword(profile?.must_change_password === true);
-        } catch (err) {
-          console.warn("Could not restore Supabase session:", err);
-        }
-      };
-      const initializeSupabaseSession = async () => {
-        await restoreSupabaseSession?.();
-        if (mounted) setLoading(false);
-      };
-      void initializeSupabaseSession();
-
+    const restoreSupabaseSession = async () => {
+      if (
+        !mounted ||
+        credentialLoginActive.current ||
+        demoSessionActive.current
+      )
+        return;
+      const epoch = ++authEpoch.current;
+      const isCurrent = () =>
+        mounted &&
+        epoch === authEpoch.current &&
+        !credentialLoginActive.current &&
+        !demoSessionActive.current;
       try {
-        const { data: listener } = supabase.auth.onAuthStateChange(
-          (event, session) => {
-            if (!mounted) return;
-            // CRITICAL FIX: Only clear state if explicitly SIGNED_OUT and no local session exists.
-            // Never wipe user on INITIAL_SESSION when session is null.
-            if (event === "SIGNED_OUT") {
-              const currentSaved = getStorageItem("user");
-              if (!currentSaved) {
-                setUser(null);
-                setRole(null);
-                setMustChangePassword(false);
-              }
-            } else if (event === "SIGNED_IN" && session?.user) {
-              void restoreSupabaseSession?.();
-            }
-          },
+        const { data, error } = await supabase.auth.getSession();
+        if (!isCurrent()) return;
+        if (error) throw error;
+        if (!data?.session) {
+          clearAuthenticatedState();
+          return;
+        }
+        const authUser = data.session.user;
+        const { data: roles, error: roleError } = await supabase
+          .from("user_roles")
+          .select("role,department_id")
+          .eq("user_id", authUser.id);
+        if (!isCurrent()) return;
+        if (roleError) throw roleError;
+        const preferredRole = getStorageItem("role");
+        const roleRecord =
+          roles?.find((row) => row.role === preferredRole) ||
+          (roles?.length === 1 ? roles[0] : null);
+        if (!roleRecord)
+          throw new Error("No unambiguous portal role is available.");
+        const { data: profile, error: profileError } = await supabase
+          .from("profiles")
+          .select("full_name,must_change_password")
+          .eq("id", authUser.id)
+          .maybeSingle();
+        if (!isCurrent()) return;
+        if (profileError) throw profileError;
+        if (!profile) throw new Error("The account profile is missing.");
+        await localDb.waitUntilReady();
+        if (!isCurrent()) return;
+        const restoredRole = roleRecord.role as UserRoleType;
+        const studentRecord = await resolveStudentAccountLink(
+          authUser.id,
+          restoredRole,
         );
-        listenerSubscription = listener.subscription;
-      } catch (err) {
-        console.warn("Could not attach Supabase auth listener:", err);
+        if (!isCurrent()) return;
+        if (restoredRole === "student" && !studentRecord) {
+          throw new Error("The student account has no linked student record.");
+        }
+        const { data: latest, error: latestError } =
+          await supabase.auth.getSession();
+        if (!isCurrent()) return;
+        if (latestError) throw latestError;
+        if (latest.session?.user.id !== authUser.id) {
+          clearAuthenticatedState();
+          return;
+        }
+        const restoredUser = {
+          id: authUser.id,
+          email: studentRecord?.email || authUser.email || "",
+          full_name:
+            studentRecord?.full_name ||
+            profile.full_name ||
+            authUser.user_metadata?.full_name ||
+            "Portal User",
+          department_id:
+            studentRecord?.department_id || roleRecord.department_id,
+          student_id: studentRecord?.id,
+          roll_number: studentRecord?.roll_number,
+        };
+        setUser(restoredUser);
+        setRole(restoredRole);
+        setIsDemo(false);
+        removeStorageItem("is_demo");
+        setStorageItem("user", JSON.stringify(restoredUser));
+        setStorageItem("role", restoredRole);
+        const requiresChange = profile.must_change_password === true;
+        setMustChangePassword(requiresChange);
+        if (requiresChange) setStorageItem("must_change_password", "true");
+        else removeStorageItem("must_change_password");
+      } catch (error) {
+        if (isCurrent()) {
+          console.warn("Could not restore Supabase session:", error);
+          clearAuthenticatedState();
+        }
+      } finally {
+        if (
+          mounted &&
+          epoch === authEpoch.current &&
+          !credentialLoginActive.current
+        )
+          setLoading(false);
       }
+    };
+    if (isSupabaseConfigured) {
+      const { data } = supabase.auth.onAuthStateChange((event, session) => {
+        if (!mounted || demoSessionActive.current) return;
+        if (event === "SIGNED_OUT") {
+          clearAuthenticatedState();
+          return;
+        }
+        if (
+          event === "SIGNED_IN" &&
+          session?.user &&
+          !credentialLoginActive.current
+        ) {
+          // Run outside the synchronous Auth callback to avoid client lock re-entry.
+          const scheduledEpoch = authEpoch.current;
+          const timer = setTimeout(() => {
+            timers.delete(timer);
+            if (
+              mounted &&
+              scheduledEpoch === authEpoch.current &&
+              !credentialLoginActive.current &&
+              !demoSessionActive.current
+            ) {
+              void restoreSupabaseSession();
+            }
+          }, 0);
+          timers.add(timer);
+        }
+      });
+      subscription = data.subscription;
+      if (!savedIsDemo) void restoreSupabaseSession();
+      else setLoading(false);
     } else {
-      // Local/demo authentication has no remote session to restore.
       setLoading(false);
     }
-
     return () => {
       mounted = false;
-      listenerSubscription?.unsubscribe();
+      providerMounted.current = false;
+      authEpoch.current += 1;
+      for (const timer of timers) clearTimeout(timer);
+      subscription?.unsubscribe();
     };
-  }, []);
+  }, [clearAuthenticatedState]);
 
   const loginAsDemo = async (targetRole: UserRoleType) => {
+    authEpoch.current += 1;
+    demoSessionActive.current = true;
+
     setLoading(true);
 
     // Ensure database mock records are loaded so dashboard and profiles are populated
@@ -346,25 +424,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
   };
 
   const signOut = async () => {
-    if (isSupabaseConfigured) {
+    const wasDemo = demoSessionActive.current;
+    demoSessionActive.current = false;
+    clearAuthenticatedState();
+    if (isSupabaseConfigured && !wasDemo) {
       try {
-        await supabase.auth.signOut();
-      } catch (err) {
-        console.warn("Could not sign out of Supabase:", err);
+        const { error } = await supabase.auth.signOut({ scope: "local" });
+        if (error) console.warn("Could not sign out of Supabase:", error);
+      } catch (error) {
+        console.warn("Could not sign out of Supabase:", error);
       }
     }
-    setUser(null);
-    setRole(null);
-    setIsDemo(false);
-    setMustChangePassword(false);
-    removeStorageItem("user");
-    removeStorageItem("role");
-    removeStorageItem("is_demo");
-    removeStorageItem("must_change_password");
-    removeStorageItem("last_active_path");
-    localStorage.removeItem("edutrack_last_active_path");
-    localStorage.removeItem("smit_last_active_path");
-    localStorage.removeItem("edutrack_last_authenticated_path");
   };
 
   const confirmLogout = async () => {
@@ -523,106 +593,139 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     password: string,
     departmentId?: string,
   ): Promise<{ ok: boolean; message?: string }> => {
+    const failLogin = (message: string) => ({ ok: false, message });
     const rawInput = identifier.trim();
-    const failLogin = (message: string): { ok: boolean; message?: string } => ({
-      ok: false,
-      message,
-    });
     if (!rawInput || !password)
       return failLogin("Email/ID and password are required.");
-
-    let email = rawInput.toLowerCase();
-    if (!email.includes("@")) {
-      if (targetRole === "student") {
-        const student = localDb.students.find((item) =>
-          [item.roll_number, item.reg_number, item.prn_number]
-            .filter(Boolean)
-            .some((value) => String(value).toLowerCase() === email),
-        );
-        email = student?.email?.trim().toLowerCase() || "";
-      } else {
-        const teacher = localDb.teachers.find(
-          (item) => item.employee_id?.trim().toLowerCase() === email,
-        );
-        email = teacher?.email?.trim().toLowerCase() || "";
+    if (credentialLoginActive.current)
+      return failLogin("A sign-in is already in progress.");
+    credentialLoginActive.current = true;
+    demoSessionActive.current = false;
+    clearAuthenticatedState();
+    setLoading(true);
+    const epoch = authEpoch.current;
+    const isCurrent = () =>
+      providerMounted.current && epoch === authEpoch.current;
+    const cancelled = () =>
+      failLogin("Sign-in was cancelled. Please try again.");
+    const rejectLogin = async (message: string) => {
+      if (!isCurrent()) return cancelled();
+      clearAuthenticatedState();
+      try {
+        const { error } = await supabase.auth.signOut({ scope: "local" });
+        if (error) console.warn("Could not close rejected sign-in:", error);
+      } catch (error) {
+        console.warn("Could not close rejected sign-in:", error);
       }
-    }
-    if (!email)
-      return failLogin(
-        "This record has no email-linked Supabase account. Ask an administrator to provision it.",
-      );
-
-    const { data: authData, error: authError } =
-      await supabase.auth.signInWithPassword({ email, password });
-    if (authError || !authData.user)
-      return failLogin(authError?.message || "Invalid email or password.");
-    const { data: roles, error: roleError } = await supabase
-      .from("user_roles")
-      .select("role,department_id")
-      .eq("user_id", authData.user.id);
-    const roleRecord = roles?.find((row) => row.role === targetRole);
-    if (roleError || !roleRecord) {
-      await supabase.auth.signOut();
-      return failLogin(
-        "This account is not authorized for the selected portal.",
-      );
-    }
-    if (
-      departmentId &&
-      roleRecord.department_id &&
-      roleRecord.department_id !== departmentId
-    ) {
-      await supabase.auth.signOut();
-      return failLogin(
-        "This account is not assigned to the selected department.",
-      );
-    }
-    const { data: profile } = await supabase
-      .from("profiles")
-      .select("full_name,must_change_password")
-      .eq("id", authData.user.id)
-      .maybeSingle();
-    let studentRecord: StudentAccountLink | null = null;
+      return failLogin(message);
+    };
     try {
-      studentRecord = await resolveStudentAccountLink(
+      let email = rawInput.toLowerCase();
+      if (!email.includes("@")) {
+        await localDb.waitUntilReady();
+        if (!isCurrent()) return cancelled();
+        if (targetRole === "student") {
+          const student = localDb.students.find((item) =>
+            [item.roll_number, item.reg_number, item.prn_number]
+              .filter(Boolean)
+              .some((value) => String(value).toLowerCase() === email),
+          );
+          email = student?.email?.trim().toLowerCase() || "";
+        } else {
+          const teacher = localDb.teachers.find(
+            (item) => item.employee_id?.trim().toLowerCase() === email,
+          );
+          email = teacher?.email?.trim().toLowerCase() || "";
+        }
+      }
+      if (!email)
+        return failLogin(
+          "This record has no email-linked Supabase account. Ask an administrator to provision it.",
+        );
+      const { data: authData, error: authError } =
+        await supabase.auth.signInWithPassword({ email, password });
+      if (!isCurrent()) return cancelled();
+      if (authError || !authData.user || !authData.session) {
+        return await rejectLogin(
+          authError?.message || "Invalid email or password.",
+        );
+      }
+      const { data: roles, error: roleError } = await supabase
+        .from("user_roles")
+        .select("role,department_id")
+        .eq("user_id", authData.user.id);
+      if (!isCurrent()) return cancelled();
+      if (roleError)
+        return await rejectLogin(
+          "Could not verify portal access. Please try again.",
+        );
+      const roleRecord = roles?.find((row) => row.role === targetRole);
+      if (!roleRecord)
+        return await rejectLogin(
+          "This account is not authorized for the selected portal.",
+        );
+      if (departmentId && roleRecord.department_id !== departmentId) {
+        return await rejectLogin(
+          "This account is not assigned to the selected department.",
+        );
+      }
+      const { data: profile, error: profileError } = await supabase
+        .from("profiles")
+        .select("full_name,must_change_password")
+        .eq("id", authData.user.id)
+        .maybeSingle();
+      if (!isCurrent()) return cancelled();
+      if (profileError || !profile)
+        return await rejectLogin("The account profile could not be loaded.");
+      const studentRecord = await resolveStudentAccountLink(
         authData.user.id,
         targetRole,
       );
+      if (!isCurrent()) return cancelled();
+      if (targetRole === "student" && !studentRecord)
+        return await rejectLogin(
+          "This student account is not linked to a student profile. Ask an administrator to repair the account link.",
+        );
+      const { data: latest, error: latestError } =
+        await supabase.auth.getSession();
+      if (!isCurrent()) return cancelled();
+      if (latestError || latest.session?.user.id !== authData.user.id) {
+        return await rejectLogin(
+          "Your sign-in session expired. Please sign in again.",
+        );
+      }
+      const authenticatedUser = {
+        id: authData.user.id,
+        email: studentRecord?.email || authData.user.email || email,
+        full_name:
+          studentRecord?.full_name ||
+          profile.full_name ||
+          authData.user.user_metadata?.full_name ||
+          "Portal User",
+        department_id: studentRecord?.department_id || roleRecord.department_id,
+        student_id: studentRecord?.id,
+        roll_number: studentRecord?.roll_number,
+      };
+      setUser(authenticatedUser);
+      setRole(targetRole);
+      setIsDemo(false);
+      setStorageItem("user", JSON.stringify(authenticatedUser));
+      setStorageItem("role", targetRole);
+      const requiresChange = profile.must_change_password === true;
+      setMustChangePassword(requiresChange);
+      if (requiresChange) setStorageItem("must_change_password", "true");
+      else removeStorageItem("must_change_password");
+      return { ok: true };
     } catch (error) {
-      await supabase.auth.signOut();
-      return failLogin(
+      return await rejectLogin(
         error instanceof Error
           ? error.message
-          : "The linked student profile could not be loaded.",
+          : "Sign-in failed. Please try again.",
       );
+    } finally {
+      credentialLoginActive.current = false;
+      if (providerMounted.current) setLoading(false);
     }
-    if (targetRole === "student" && !studentRecord) {
-      await supabase.auth.signOut();
-      return failLogin(
-        "This student account is not linked to a student profile. Ask an administrator to repair the account link.",
-      );
-    }
-    const authenticatedUser = {
-      id: authData.user.id,
-      email: studentRecord?.email || authData.user.email || email,
-      full_name:
-        studentRecord?.full_name ||
-        profile?.full_name ||
-        authData.user.user_metadata?.full_name ||
-        "Portal User",
-      department_id: studentRecord?.department_id || roleRecord.department_id,
-      student_id: studentRecord?.id,
-      roll_number: studentRecord?.roll_number,
-    };
-    setUser(authenticatedUser);
-    setRole(targetRole);
-    setStorageItem("user", JSON.stringify(authenticatedUser));
-    setStorageItem("role", targetRole);
-    const requiresChange = profile?.must_change_password === true;
-    setMustChangePassword(requiresChange);
-    if (requiresChange) setStorageItem("must_change_password", "true");
-    else removeStorageItem("must_change_password");
-    return { ok: true };
   };
 
   return (
