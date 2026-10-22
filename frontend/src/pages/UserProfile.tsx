@@ -18,7 +18,7 @@ import {
   Users,
 } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
-import { localDb } from "../lib/supabase";
+import { localDb, isSupabaseConfigured } from "../lib/supabase";
 import {
   hasCustomPassword,
   markCustomPasswordSet,
@@ -42,7 +42,14 @@ import {
 import { Badge } from "../components/ui/badge";
 
 export const UserProfile: React.FC = () => {
-  const { user, role, updateUserPassword, openLogoutConfirm } = useAuth();
+  const {
+    user,
+    role,
+    isDemo,
+    mustChangePassword,
+    updateUserPassword,
+    openLogoutConfirm,
+  } = useAuth();
   const [, setDataVersion] = useState(0);
   useEffect(() => {
     const refreshData = () => setDataVersion((value) => value + 1);
@@ -103,7 +110,10 @@ export const UserProfile: React.FC = () => {
     ].filter(Boolean) as string[];
   }, [user, student, teacher]);
 
-  const isCustomPwd = hasCustomPassword(userIdentifiers);
+  const isCustomPwd =
+    isSupabaseConfigured && !isDemo
+      ? !mustChangePassword
+      : hasCustomPassword(userIdentifiers);
 
   // Password state
   const [newPassword, setNewPassword] = useState("");
