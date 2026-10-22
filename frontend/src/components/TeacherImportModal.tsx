@@ -3,6 +3,8 @@ import {
   AlertCircle,
   Check,
   CheckCircle2,
+  ChevronDown,
+  ChevronUp,
   Download,
   FileSpreadsheet,
   FileText,
@@ -64,6 +66,7 @@ export const TeacherImportModal: React.FC<TeacherImportModalProps> = ({
   const [createAccounts, setCreateAccounts] = useState(true);
   const [passwordMode, setPasswordMode] = useState<"empid" | "custom">("empid");
   const [customPassword, setCustomPassword] = useState("Teacher@123");
+  const [showGuidelines, setShowGuidelines] = useState(false);
 
   const resetState = () => {
     setFileName(null);
@@ -274,119 +277,112 @@ export const TeacherImportModal: React.FC<TeacherImportModalProps> = ({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-4xl border-border bg-card p-6 shadow-2xl rounded-2xl max-h-[92vh] flex flex-col overflow-hidden">
+      <DialogContent className="max-w-3xl w-[95vw] sm:w-full border-border bg-card p-4 sm:p-6 shadow-2xl rounded-2xl max-h-[92vh] flex flex-col overflow-hidden">
         <DialogHeader className="pb-3 border-b border-border/60 shrink-0">
-          <div className="flex items-center justify-between">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
             <div>
               <p className="text-[11px] font-bold uppercase tracking-wider text-primary">
                 Bulk Faculty Management
               </p>
-              <DialogTitle className="text-xl font-bold font-display mt-0.5">
+              <DialogTitle className="text-lg sm:text-xl font-bold font-display mt-0.5">
                 Import Multiple Teachers (Excel / CSV)
               </DialogTitle>
             </div>
-            <Badge variant="outline" className="text-xs">
-              {department?.name || "Department Staff"}
-            </Badge>
+            {department && (
+              <Badge variant="outline" className="text-xs w-fit">
+                {department.name}
+              </Badge>
+            )}
           </div>
         </DialogHeader>
 
-        <div className="flex-1 overflow-y-auto space-y-5 py-3 pr-1">
-          {/* Format Specification Banner */}
-          <div className="rounded-xl border border-primary/20 bg-primary/[0.03] p-4 text-xs space-y-2">
-            <div className="flex items-center justify-between">
-              <span className="font-semibold text-foreground flex items-center gap-1.5">
-                <HelpCircle className="h-4 w-4 text-primary" />
-                Required & Optional Data Format Specification
-              </span>
-              <div className="flex items-center gap-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => downloadTeacherExcelTemplate(department?.name)}
-                  className="h-7 text-xs bg-card"
-                >
-                  <FileSpreadsheet className="h-3.5 w-3.5 mr-1 text-emerald-600" />
-                  Excel Template (.xlsx)
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => downloadTeacherCsvTemplate(department?.name)}
-                  className="h-7 text-xs bg-card"
-                >
-                  <Download className="h-3.5 w-3.5 mr-1 text-primary" />
-                  CSV Template (.csv)
-                </Button>
-              </div>
+        <div className="flex-1 overflow-y-auto space-y-4 py-3 pr-1">
+          {/* Quick Template Download & Guidelines Toggle Bar */}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 p-3 rounded-xl border border-border/70 bg-muted/20 text-xs">
+            <div className="flex items-center gap-1.5 text-muted-foreground">
+              <FileSpreadsheet className="h-4 w-4 text-emerald-600 shrink-0" />
+              <span className="font-medium text-foreground">Need standard template?</span>
             </div>
-
-            <p className="text-muted-foreground text-[11px]">
-              The spreadsheet header must include the following column attributes:
-            </p>
-
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-1 font-mono text-[11px]">
-              <div className="bg-muted/40 p-2 rounded-lg border border-border/60">
-                <p className="font-bold text-foreground font-sans">Full Name *</p>
-                <p className="text-muted-foreground text-[10px]">Required identifier</p>
-              </div>
-              <div className="bg-muted/40 p-2 rounded-lg border border-border/60">
-                <p className="font-bold text-foreground font-sans">Designation</p>
-                <p className="text-muted-foreground text-[10px]">Prof / Asst Prof / Lect</p>
-              </div>
-              <div className="bg-muted/40 p-2 rounded-lg border border-border/60">
-                <p className="font-bold text-foreground font-sans">Department</p>
-                <p className="text-muted-foreground text-[10px]">{department?.code || "CSE"} or full name</p>
-              </div>
-              <div className="bg-muted/40 p-2 rounded-lg border border-border/60">
-                <p className="font-bold text-foreground font-sans">Qualification</p>
-                <p className="text-muted-foreground text-[10px]">Ph.D, M.Tech, M.Sc, etc</p>
-              </div>
-              <div className="bg-muted/40 p-2 rounded-lg border border-border/60">
-                <p className="font-bold text-foreground font-sans">College Emp ID *</p>
-                <p className="text-muted-foreground text-[10px]">Reference No (e.g. EMP102)</p>
-              </div>
-              <div className="bg-muted/40 p-2 rounded-lg border border-border/60">
-                <p className="font-bold text-foreground font-sans text-primary">Email Address *</p>
-                <p className="text-muted-foreground text-[10px]">teacher@college.edu</p>
-              </div>
-              <div className="bg-muted/40 p-2 rounded-lg border border-border/60">
-                <p className="font-bold text-foreground font-sans">Year of Experience</p>
-                <p className="text-muted-foreground text-[10px]">e.g. 8 Years (Optional)</p>
-              </div>
-              <div className="bg-muted/40 p-2 rounded-lg border border-border/60">
-                <p className="font-bold text-foreground font-sans">Phone (Optional)</p>
-                <p className="text-muted-foreground text-[10px]">Option to set manually</p>
-              </div>
+            <div className="flex flex-wrap items-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => downloadTeacherExcelTemplate(department?.name)}
+                className="h-7 text-xs bg-background hover:bg-muted"
+              >
+                <Download className="h-3 w-3 mr-1 text-emerald-600" />
+                Excel (.xlsx)
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => downloadTeacherCsvTemplate(department?.name)}
+                className="h-7 text-xs bg-background hover:bg-muted"
+              >
+                <Download className="h-3 w-3 mr-1 text-primary" />
+                CSV (.csv)
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setShowGuidelines(!showGuidelines)}
+                className="h-7 text-xs text-muted-foreground hover:text-foreground"
+              >
+                <HelpCircle className="h-3.5 w-3.5 mr-1 text-primary" />
+                {showGuidelines ? "Hide Columns" : "View Columns"}
+                {showGuidelines ? (
+                  <ChevronUp className="h-3 w-3 ml-1" />
+                ) : (
+                  <ChevronDown className="h-3 w-3 ml-1" />
+                )}
+              </Button>
             </div>
           </div>
 
-          {/* Department Selection for College-wide Admin Import */}
-          {!department && departments.length > 0 && (
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 p-3 bg-muted/30 rounded-xl border border-border/70 text-xs">
-              <div>
-                <span className="font-semibold text-foreground block">
-                  Fallback Department Assignment:
-                </span>
-                <span className="text-[11px] text-muted-foreground">
-                  Teachers whose spreadsheet row has a Department column will automatically match their department.
-                </span>
+          {/* Collapsible Format Details Specification */}
+          {showGuidelines && (
+            <div className="rounded-xl border border-primary/20 bg-primary/[0.03] p-3.5 text-xs space-y-2 animate-in fade-in duration-200">
+              <p className="text-muted-foreground text-[11px]">
+                Spreadsheet columns (* indicates strictly required field):
+              </p>
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-0.5 text-[11px]">
+                <div className="bg-background p-2 rounded-lg border border-border/60">
+                  <p className="font-bold text-foreground">Full Name *</p>
+                  <p className="text-muted-foreground text-[10px]">Required identifier</p>
+                </div>
+                <div className="bg-background p-2 rounded-lg border border-border/60">
+                  <p className="font-bold text-foreground">College Emp ID *</p>
+                  <p className="text-muted-foreground text-[10px]">e.g. EMP-101</p>
+                </div>
+                <div className="bg-background p-2 rounded-lg border border-border/60">
+                  <p className="font-bold text-foreground text-primary">Email Address *</p>
+                  <p className="text-muted-foreground text-[10px]">teacher@college.edu</p>
+                </div>
+                <div className="bg-background p-2 rounded-lg border border-border/60">
+                  <p className="font-bold text-foreground">Department</p>
+                  <p className="text-muted-foreground text-[10px]">Auto-matched</p>
+                </div>
+                <div className="bg-background p-2 rounded-lg border border-border/60">
+                  <p className="font-bold text-foreground">Designation</p>
+                  <p className="text-muted-foreground text-[10px]">Prof / Asst Prof</p>
+                </div>
+                <div className="bg-background p-2 rounded-lg border border-border/60">
+                  <p className="font-bold text-foreground">Qualification</p>
+                  <p className="text-muted-foreground text-[10px]">Ph.D, M.Tech, etc</p>
+                </div>
+                <div className="bg-background p-2 rounded-lg border border-border/60">
+                  <p className="font-bold text-foreground">Experience</p>
+                  <p className="text-muted-foreground text-[10px]">Years (Optional)</p>
+                </div>
+                <div className="bg-background p-2 rounded-lg border border-border/60">
+                  <p className="font-bold text-foreground">Phone</p>
+                  <p className="text-muted-foreground text-[10px]">10 digits (Optional)</p>
+                </div>
               </div>
-              <select
-                value={selectedDeptId}
-                onChange={(e) => setSelectedDeptId(e.target.value)}
-                className="h-8 rounded-md border border-input bg-background px-2.5 text-xs font-medium min-w-[200px]"
-              >
-                {departments.map((d) => (
-                  <option key={d.id} value={d.id}>
-                    {d.name} ({d.code})
-                  </option>
-                ))}
-              </select>
             </div>
           )}
 
-          {/* Upload Dropzone */}
+          {/* Prominent Upload Dropzone - Immediately Visible */}
           {rows.length === 0 ? (
             <div
               onDragOver={(e) => {
@@ -396,7 +392,7 @@ export const TeacherImportModal: React.FC<TeacherImportModalProps> = ({
               onDragLeave={() => setDragOver(false)}
               onDrop={handleDrop}
               onClick={() => fileInputRef.current?.click()}
-              className={`border-2 border-dashed rounded-2xl p-8 text-center cursor-pointer transition-all ${
+              className={`border-2 border-dashed rounded-2xl p-6 sm:p-8 text-center cursor-pointer transition-all ${
                 dragOver
                   ? "border-primary bg-primary/10 scale-[0.99]"
                   : "border-border hover:border-primary/50 hover:bg-muted/30"
@@ -410,12 +406,12 @@ export const TeacherImportModal: React.FC<TeacherImportModalProps> = ({
                 onChange={handleFileSelect}
               />
 
-              <div className="flex flex-col items-center justify-center space-y-3">
-                <div className="h-14 w-14 rounded-2xl bg-primary/10 text-primary flex items-center justify-center shadow-xs">
+              <div className="flex flex-col items-center justify-center space-y-2.5">
+                <div className="h-12 w-12 sm:h-14 sm:w-14 rounded-2xl bg-primary/10 text-primary flex items-center justify-center shadow-xs">
                   {isParsing ? (
-                    <Loader2 className="h-7 w-7 animate-spin" />
+                    <Loader2 className="h-6 w-6 animate-spin" />
                   ) : (
-                    <Upload className="h-7 w-7" />
+                    <Upload className="h-6 w-6" />
                   )}
                 </div>
 
@@ -425,19 +421,19 @@ export const TeacherImportModal: React.FC<TeacherImportModalProps> = ({
                       ? "Analyzing spreadsheet and validating rows..."
                       : "Drag & drop your Excel or CSV file here, or click to browse"}
                   </p>
-                  <p className="text-xs text-muted-foreground mt-1">
-                    Accepts Microsoft Excel (.xlsx, .xls) and Comma-Separated Values (.csv)
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    Supports Microsoft Excel (.xlsx, .xls) and CSV (.csv)
                   </p>
                 </div>
 
-                <div className="flex gap-2">
-                  <Badge variant="outline" className="text-[10px]">
+                <div className="flex gap-1.5 pt-1">
+                  <Badge variant="outline" className="text-[10px] px-2 py-0.5">
                     .xlsx
                   </Badge>
-                  <Badge variant="outline" className="text-[10px]">
+                  <Badge variant="outline" className="text-[10px] px-2 py-0.5">
                     .xls
                   </Badge>
-                  <Badge variant="outline" className="text-[10px]">
+                  <Badge variant="outline" className="text-[10px] px-2 py-0.5">
                     .csv
                   </Badge>
                 </div>
@@ -445,20 +441,20 @@ export const TeacherImportModal: React.FC<TeacherImportModalProps> = ({
             </div>
           ) : (
             /* File loaded bar */
-            <div className="flex flex-wrap items-center justify-between p-3.5 rounded-xl border border-border bg-muted/20 gap-3">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between p-3.5 rounded-xl border border-border bg-muted/20 gap-3">
               <div className="flex items-center gap-3">
-                <div className="h-9 w-9 rounded-lg bg-emerald-500/10 text-emerald-600 flex items-center justify-center">
+                <div className="h-9 w-9 rounded-lg bg-emerald-500/10 text-emerald-600 flex items-center justify-center shrink-0">
                   <FileSpreadsheet className="h-5 w-5" />
                 </div>
-                <div>
-                  <p className="text-xs font-bold text-foreground">{fileName}</p>
+                <div className="min-w-0">
+                  <p className="text-xs font-bold text-foreground truncate">{fileName}</p>
                   <p className="text-[11px] text-muted-foreground">
-                    {rows.length} total rows detected · {validCount} valid · {invalidCount} issues
+                    {rows.length} rows · {validCount} valid · {invalidCount} issues
                   </p>
                 </div>
               </div>
 
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 shrink-0">
                 <Button
                   variant="outline"
                   size="sm"
@@ -466,9 +462,29 @@ export const TeacherImportModal: React.FC<TeacherImportModalProps> = ({
                   className="h-8 text-xs text-muted-foreground hover:text-foreground"
                 >
                   <X className="h-3.5 w-3.5 mr-1" />
-                  Upload Different File
+                  Choose Different File
                 </Button>
               </div>
+            </div>
+          )}
+
+          {/* Department Selection for College-wide Admin Import (Compact) */}
+          {!department && departments.length > 0 && rows.length === 0 && (
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 p-3 bg-muted/20 rounded-xl border border-border/70 text-xs">
+              <span className="font-semibold text-foreground">
+                Fallback Department:
+              </span>
+              <select
+                value={selectedDeptId}
+                onChange={(e) => setSelectedDeptId(e.target.value)}
+                className="h-8 rounded-md border border-input bg-background px-2.5 text-xs font-medium w-full sm:w-auto min-w-[200px]"
+              >
+                {departments.map((d) => (
+                  <option key={d.id} value={d.id}>
+                    {d.name} ({d.code})
+                  </option>
+                ))}
+              </select>
             </div>
           )}
 
