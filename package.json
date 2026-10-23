@@ -8,7 +8,9 @@
     "build": "npm run build:frontend",
     "build:frontend": "npm --prefix frontend run build",
     "build:backend": "npm --prefix backend run build",
-    "start": "node server.ts",
+    "build:server": "esbuild server.ts --bundle --platform=node --format=cjs --packages=external --sourcemap --outfile=dist/server.cjs",
+    "build:render": "npm run build:frontend && npm run build:server",
+    "start": "node dist/server.cjs",
     "lint": "npm run lint:frontend",
     "lint:frontend": "npm --prefix frontend run lint",
     "preview": "npm --prefix frontend run preview"
