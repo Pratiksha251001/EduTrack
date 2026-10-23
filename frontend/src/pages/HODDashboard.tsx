@@ -123,7 +123,10 @@ export const HODDashboard: React.FC = () => {
         const assignedT = teachers.find((t) => t.id === (s as any).teacher_id);
         const tsList = teacherSubjects.filter((ts) => ts.subject_id === s.id);
         const mappedTeachers = tsList
-          .map((ts) => teachers.find((t) => t.id === ts.teacher_id)?.full_name || "")
+          .map(
+            (ts) =>
+              teachers.find((t) => t.id === ts.teacher_id)?.full_name || "",
+          )
           .join(" ")
           .toLowerCase();
         return (
@@ -135,7 +138,14 @@ export const HODDashboard: React.FC = () => {
       });
     }
     return list;
-  }, [allDeptSubjects, subjectSemFilter, subjectSearch, teachers, teacherSubjects, version]);
+  }, [
+    allDeptSubjects,
+    subjectSemFilter,
+    subjectSearch,
+    teachers,
+    teacherSubjects,
+    version,
+  ]);
 
   // Subjects taught directly by this HOD
   const myTeachingSubjects = useMemo(() => {
@@ -159,7 +169,7 @@ export const HODDashboard: React.FC = () => {
             deptAttendance.length) *
             100,
         )
-      : 86;
+      : 0;
 
   const attendanceTrend = useMemo(() => {
     const byDate: Record<string, { present: number; total: number }> = {};
@@ -172,16 +182,7 @@ export const HODDashboard: React.FC = () => {
       first.localeCompare(second),
     );
 
-    if (entries.length === 0) {
-      // Provide a baseline trend if no records yet
-      return [
-        { date: "Mon", rate: 84 },
-        { date: "Tue", rate: 88 },
-        { date: "Wed", rate: 82 },
-        { date: "Thu", rate: 90 },
-        { date: "Fri", rate: 86 },
-      ];
-    }
+    if (entries.length === 0) return [];
 
     return entries.slice(-7).map(([date, value]) => ({
       date: new Date(date).toLocaleDateString("en-US", {
@@ -196,39 +197,45 @@ export const HODDashboard: React.FC = () => {
   const statCards = [
     {
       label: "Department",
-      value: myDepartment?.code || "CSE",
+      value: myDepartment?.code || "Unassigned",
       icon: Building2,
-      color: "from-cyan-500/20 to-cyan-500/5 text-cyan-600 dark:text-cyan-400 border-cyan-500/20",
+      color:
+        "from-cyan-500/20 to-cyan-500/5 text-cyan-600 dark:text-cyan-400 border-cyan-500/20",
     },
     {
       label: "Faculty Members",
       value: String(deptTeachers.length),
       icon: Users,
-      color: "from-violet-500/20 to-violet-500/5 text-violet-600 dark:text-violet-400 border-violet-500/20",
+      color:
+        "from-violet-500/20 to-violet-500/5 text-violet-600 dark:text-violet-400 border-violet-500/20",
     },
     {
       label: "Class Coordinators",
       value: String(deptAssignments.length),
       icon: UserCog,
-      color: "from-emerald-500/20 to-emerald-500/5 text-emerald-600 dark:text-emerald-400 border-emerald-500/20",
+      color:
+        "from-emerald-500/20 to-emerald-500/5 text-emerald-600 dark:text-emerald-400 border-emerald-500/20",
     },
     {
       label: "Total Classes",
       value: String(deptClasses.length),
       icon: Layers,
-      color: "from-blue-500/20 to-blue-500/5 text-blue-600 dark:text-blue-400 border-blue-500/20",
+      color:
+        "from-blue-500/20 to-blue-500/5 text-blue-600 dark:text-blue-400 border-blue-500/20",
     },
     {
       label: "Curriculum Subjects",
       value: String(allDeptSubjects.length),
       icon: BookOpen,
-      color: "from-teal-500/20 to-teal-500/5 text-teal-600 dark:text-teal-400 border-teal-500/20",
+      color:
+        "from-teal-500/20 to-teal-500/5 text-teal-600 dark:text-teal-400 border-teal-500/20",
     },
     {
       label: "Enrolled Students",
       value: String(deptStudents.length),
       icon: GraduationCap,
-      color: "from-amber-500/20 to-amber-500/5 text-amber-600 dark:text-amber-400 border-amber-500/20",
+      color:
+        "from-amber-500/20 to-amber-500/5 text-amber-600 dark:text-amber-400 border-amber-500/20",
     },
   ];
 
@@ -240,7 +247,7 @@ export const HODDashboard: React.FC = () => {
           <div>
             <div className="mb-2 flex items-center gap-2">
               <Badge className="bg-primary/15 text-primary border-primary/20 text-xs font-bold">
-                HOD PORTAL · {myDepartment?.code || "ENGINEERING"}
+                HOD PORTAL · {myDepartment?.code || "UNASSIGNED"}
               </Badge>
               <span className="text-xs text-muted-foreground">
                 Academic Year {CURRENT_ACADEMIC_YEAR}
@@ -278,7 +285,9 @@ export const HODDashboard: React.FC = () => {
                 <span className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
                   {s.label}
                 </span>
-                <div className={`p-1.5 rounded-lg border bg-gradient-to-br ${s.color}`}>
+                <div
+                  className={`p-1.5 rounded-lg border bg-gradient-to-br ${s.color}`}
+                >
                   <Icon className="h-3.5 w-3.5" />
                 </div>
               </div>
@@ -467,7 +476,8 @@ export const HODDashboard: React.FC = () => {
                       Classes
                     </span>
                     <strong className="text-foreground text-sm">
-                      {yearClasses.length} {yearClasses.length === 1 ? "Class" : "Divs"}
+                      {yearClasses.length}{" "}
+                      {yearClasses.length === 1 ? "Class" : "Divs"}
                     </strong>
                   </div>
                   <div>
@@ -483,12 +493,15 @@ export const HODDashboard: React.FC = () => {
                 {/* Coordinator */}
                 <div className="pt-2 border-t border-border/60 text-[11px] flex items-center justify-between gap-1">
                   <span className="text-muted-foreground flex items-center gap-1 shrink-0">
-                    <UserCog className="h-3.5 w-3.5 text-muted-foreground" /> Coordinator:
+                    <UserCog className="h-3.5 w-3.5 text-muted-foreground" />{" "}
+                    Coordinator:
                   </span>
                   {yearCoordinators.length > 0 ? (
                     <span
                       className="font-semibold text-emerald-600 dark:text-emerald-400 truncate max-w-[130px] text-right"
-                      title={yearCoordinators.map((c) => c.full_name).join(", ")}
+                      title={yearCoordinators
+                        .map((c) => c.full_name)
+                        .join(", ")}
                     >
                       {yearCoordinators[0].full_name}
                     </span>
@@ -579,11 +592,16 @@ export const HODDashboard: React.FC = () => {
             <div className="flex flex-col sm:flex-row items-center justify-between gap-3 rounded-xl border border-dashed border-border bg-background/50 p-4 text-xs text-muted-foreground">
               <div className="space-y-0.5 text-center sm:text-left">
                 <p className="font-semibold text-foreground">
-                  Ready to take lectures for {myDepartment?.code || "your department"}
+                  Ready to take lectures for{" "}
+                  {myDepartment?.code || "your department"}
                 </p>
               </div>
               <Link to="/attendance" className="shrink-0">
-                <Button size="sm" variant="secondary" className="gap-1.5 text-xs">
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  className="gap-1.5 text-xs"
+                >
                   <ClipboardCheck className="h-3.5 w-3.5 text-primary" />
                   Take Attendance
                 </Button>
@@ -609,19 +627,28 @@ export const HODDashboard: React.FC = () => {
               </Badge>
             </div>
             <p className="text-xs text-muted-foreground">
-              All subjects and curriculum courses added by Class Coordinators (CC) and Department across Engineering Semesters.
+              All subjects and curriculum courses added by Class Coordinators
+              (CC) and Department across Engineering Semesters.
             </p>
           </div>
 
           <div className="flex flex-wrap items-center gap-2">
             <Link to="/subjects">
-              <Button size="sm" variant="outline" className="gap-1.5 text-xs shadow-xs">
+              <Button
+                size="sm"
+                variant="outline"
+                className="gap-1.5 text-xs shadow-xs"
+              >
                 <BookOpen className="h-3.5 w-3.5" />
                 Manage in Curriculum Portal
               </Button>
             </Link>
             <Link to="/hod/teachers">
-              <Button size="sm" variant="outline" className="gap-1.5 text-xs shadow-xs">
+              <Button
+                size="sm"
+                variant="outline"
+                className="gap-1.5 text-xs shadow-xs"
+              >
                 <Users className="h-3.5 w-3.5" />
                 Assign Faculty
               </Button>
@@ -672,12 +699,17 @@ export const HODDashboard: React.FC = () => {
               const directTeacher = teachers.find(
                 (t) => t.id === (sub as any).teacher_id,
               );
-              const mappedTs = teacherSubjects.filter((ts) => ts.subject_id === sub.id);
+              const mappedTs = teacherSubjects.filter(
+                (ts) => ts.subject_id === sub.id,
+              );
               const assignedTeachers = Array.from(
                 new Set(
                   [
                     directTeacher?.full_name,
-                    ...mappedTs.map((ts) => teachers.find((t) => t.id === ts.teacher_id)?.full_name),
+                    ...mappedTs.map(
+                      (ts) =>
+                        teachers.find((t) => t.id === ts.teacher_id)?.full_name,
+                    ),
                   ].filter(Boolean),
                 ),
               );
@@ -756,10 +788,13 @@ export const HODDashboard: React.FC = () => {
           <div className="text-center py-8 px-4 rounded-xl border border-dashed border-border bg-muted/20">
             <BookOpen className="h-8 w-8 mx-auto text-muted-foreground/60 mb-2" />
             <p className="text-sm font-semibold text-foreground">
-              {subjectSearch ? "No matching subjects found" : "No subjects added yet for this filter"}
+              {subjectSearch
+                ? "No matching subjects found"
+                : "No subjects added yet for this filter"}
             </p>
             <p className="text-xs text-muted-foreground mt-1 max-w-sm mx-auto">
-              Class Coordinators can add subjects from their dashboard, or you can import curriculum directly.
+              Class Coordinators can add subjects from their dashboard, or you
+              can import curriculum directly.
             </p>
             <Link to="/subjects" className="inline-block mt-3">
               <Button size="sm" variant="outline" className="gap-1.5 text-xs">
@@ -783,35 +818,54 @@ export const HODDashboard: React.FC = () => {
             </h2>
           </div>
           <Badge className="bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border border-emerald-500/20 text-xs font-bold">
-            Average: {attendanceRate}%
+            {deptAttendance.length > 0
+              ? `Average: ${attendanceRate}%`
+              : "No attendance data"}
           </Badge>
         </div>
 
         <div className="h-64">
-          <ResponsiveContainer width="100%" height="100%">
-            <LineChart data={attendanceTrend}>
-              <CartesianGrid strokeDasharray="3 3" opacity={0.2} />
-              <XAxis dataKey="date" fontSize={11} stroke="currentColor" opacity={0.6} />
-              <YAxis domain={[0, 100]} unit="%" fontSize={11} stroke="currentColor" opacity={0.6} />
-              <Tooltip
-                formatter={(value: number) => [`${value}%`, "Attendance"]}
-                contentStyle={{
-                  backgroundColor: "hsl(var(--card))",
-                  borderColor: "hsl(var(--border))",
-                  borderRadius: "8px",
-                  fontSize: "12px",
-                }}
-              />
-              <Line
-                type="monotone"
-                dataKey="rate"
-                stroke="hsl(var(--primary))"
-                strokeWidth={3}
-                dot={{ r: 4, fill: "hsl(var(--primary))" }}
-                activeDot={{ r: 6 }}
-              />
-            </LineChart>
-          </ResponsiveContainer>
+          {attendanceTrend.length === 0 ? (
+            <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
+              No attendance data available
+            </div>
+          ) : (
+            <ResponsiveContainer width="100%" height="100%">
+              <LineChart data={attendanceTrend}>
+                <CartesianGrid strokeDasharray="3 3" opacity={0.2} />
+                <XAxis
+                  dataKey="date"
+                  fontSize={11}
+                  stroke="currentColor"
+                  opacity={0.6}
+                />
+                <YAxis
+                  domain={[0, 100]}
+                  unit="%"
+                  fontSize={11}
+                  stroke="currentColor"
+                  opacity={0.6}
+                />
+                <Tooltip
+                  formatter={(value: number) => [`${value}%`, "Attendance"]}
+                  contentStyle={{
+                    backgroundColor: "hsl(var(--card))",
+                    borderColor: "hsl(var(--border))",
+                    borderRadius: "8px",
+                    fontSize: "12px",
+                  }}
+                />
+                <Line
+                  type="monotone"
+                  dataKey="rate"
+                  stroke="hsl(var(--primary))"
+                  strokeWidth={3}
+                  dot={{ r: 4, fill: "hsl(var(--primary))" }}
+                  activeDot={{ r: 6 }}
+                />
+              </LineChart>
+            </ResponsiveContainer>
+          )}
         </div>
       </Card>
     </div>
