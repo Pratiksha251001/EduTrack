@@ -91,6 +91,7 @@ export const Students: React.FC = () => {
             label: "Student Mobile",
           },
           { key: "email", label: "Student Email", type: "email", required: true },
+          { key: "parent_email", label: "Parent Email (verification required)", type: "email" },
         ]}
         columns={[
           {

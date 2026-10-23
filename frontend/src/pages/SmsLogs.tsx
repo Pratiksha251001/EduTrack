@@ -161,7 +161,7 @@ export const SmsLogs: React.FC = () => {
         const records = allAttendance.filter((a) => a.student_id === st.id);
         const total = records.length;
         const present = records.filter((a) => a.status === 'present').length;
-        const rate = total > 0 ? Math.round((present / total) * 100) : 65;
+        const rate = total > 0 ? Math.round((present / total) * 100) : null;
         return {
           student: st,
           id: st.id,
@@ -172,12 +172,10 @@ export const SmsLogs: React.FC = () => {
           present,
           parentName: st.parent_name || 'Parent',
           parentMobile: st.parent_mobile || '',
-          parentEmail:
-            st.email ||
-            `${st.full_name.toLowerCase().replace(/\s+/g, '.')}@engg.college.edu`,
+          parentEmail: st.parent_email_verified_at ? (st.parent_email || "") : "",
         };
       })
-      .filter((item) => item.rate < 75)
+      .filter((item) => item.total > 0 && item.rate !== null && item.rate < 75)
       .sort((a, b) => a.rate - b.rate);
   }, []);
 
@@ -249,7 +247,7 @@ export const SmsLogs: React.FC = () => {
         <div>
           <h2 className="font-display text-2xl font-bold">Parent Alert &amp; Communication Logs</h2>
           <p className="text-xs text-muted-foreground mt-0.5">
-            Automated SMS, Email &amp; WhatsApp logs with direct &lt;75% Defaulter Notice dispatch
+            SMS and Email notification logs with direct &lt;75% Defaulter Notice dispatch
           </p>
         </div>
 
@@ -382,8 +380,8 @@ export const SmsLogs: React.FC = () => {
                 const realRate =
                   totalRecs > 0
                     ? Math.round((presentRecs / totalRecs) * 100)
-                    : (log.attendance_rate ?? 65);
-                const isDefaulter = log.is_defaulter_alert || realRate < 75;
+                    : (typeof log.attendance_rate === 'number' ? log.attendance_rate : null);
+                const isDefaulter = log.is_defaulter_alert || (realRate !== null && realRate < 75);
 
                 return (
                   <TableRow key={log.id} className={isToday ? "bg-primary/[0.02]" : ""}>
@@ -425,7 +423,7 @@ export const SmsLogs: React.FC = () => {
                           ) : (
                             <XCircle className="h-3 w-3 mr-1 inline" />
                           )}
-                          {log.status === 'sent' ? 'Delivered' : 'Failed'}
+                          {log.status === 'sent' ? 'Marked Sent (Not Delivery Confirmed)' : log.status === 'pending' ? 'Pending' : 'Failed'}
                         </Badge>
                         {log.channel && (
                           <span className="text-[10px] text-muted-foreground uppercase font-mono">

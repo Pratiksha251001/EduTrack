@@ -104,6 +104,13 @@ export const StudentDetailsModal: React.FC<StudentDetailsModalProps> = ({
             <span className="font-mono font-medium">{student.parent_mobile || "-"}</span>
           </div>
           <div>
+            <span className="block text-[11px] text-muted-foreground">Parent Email</span>
+            <span className="break-all">{student.parent_email || "-"}</span>
+            <span className="block text-xs text-muted-foreground">
+              {student.parent_email ? (student.parent_email_verified_at ? "Verified" : "Not verified") : "No address"}
+            </span>
+          </div>
+          <div>
             <span className="block text-[11px] text-muted-foreground">
               Student Mobile
             </span>

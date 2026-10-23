@@ -195,6 +195,7 @@ export const StudentImportModal: React.FC<StudentImportModalProps> = ({
           semester: item.semester || defaultSemester || 1,
           parent_name: item.parent_name?.trim() || null,
           parent_mobile: item.parent_mobile?.trim() || null,
+          parent_email: item.parent_email?.trim().toLowerCase() || null,
           student_mobile: item.student_mobile?.trim() || null,
           email: item.email?.trim().toLowerCase() || null,
           date_of_birth: item.date_of_birth || null,

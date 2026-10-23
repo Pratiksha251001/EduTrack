@@ -27,13 +27,10 @@ import { useAuth } from "../context/AuthContext";
 import {
   college,
   generateSmsMessage,
-  generateEmailAlertContent,
-  generateWhatsAppMessage,
   SMS_LANGUAGES,
-  getParentWhatsAppUrl,
   ENGINEERING_YEARS,
 } from "../lib/college";
-import { sendEmailAlert } from "../lib/emailService";
+import { apiFetch } from "../lib/api";
 import { SmsLanguage, Student, Subject, AcademicClass, AlertChannel } from "../lib/types";
 import { Button } from "../components/ui/button";
 import { Select } from "../components/ui/select";
@@ -431,7 +428,7 @@ export const Attendance: React.FC = () => {
           sent_at: new Date().toISOString(),
           language: chosenLang,
           gateway: "SMS Gateway",
-          gateway_response: hasMobile ? "Dispatched" : "Invalid parent mobile",
+          gateway_response: hasMobile ? "SMS not dispatched by attendance save" : "Invalid parent mobile",
         });
 
         dispatchedList.push({
@@ -442,80 +439,49 @@ export const Attendance: React.FC = () => {
         });
       }
 
-      // 2. Channel: Email (dispatched if 'email' channel chosen OR automatically if attendance < 75%!)
+      // 2. Parent email: use the authenticated, server-verified dispatch endpoint.
+      // The backend decides recipient eligibility and the actual attendance rate.
       if (channels.includes("email") || isDefaulter) {
-        if (isDefaulter) defaulterEmailCount++;
-        const emailContent = generateEmailAlertContent(
-          st.full_name,
-          selectedDate,
-          selectedSubject.name,
-          status,
-          rate
-        );
-
-        const emailResult = await sendEmailAlert({
-          to_email: studentEmail,
-          subject: emailContent.subject,
-          message: emailContent.body,
-          student_name: st.full_name,
-          parent_name: st.parent_name || undefined,
-          attendance_rate: rate,
-          college_name: "SMIT College of Engineering",
-        });
-
-        const isLive = !emailResult.isSimulated && emailResult.success;
+        const kind = isDefaulter ? "low_attendance" : "daily_attendance";
+        let responseStatus = "not_sent";
+        let responseMessage = "Parent notification was not accepted.";
+        try {
+          const response = await apiFetch("/api/parents/attendance/notify", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ studentId: st.id, kind, date: selectedDate }),
+          });
+          const result = await response.json().catch(() => ({}));
+          if (response.ok && result.success === true && result.status === "provider_accepted") {
+            responseStatus = "provider_accepted";
+            responseMessage = "Email provider accepted the request; delivery is not confirmed.";
+            if (isDefaulter) defaulterEmailCount++;
+          } else {
+            responseMessage = result.message || result.reason || `Notification not accepted (HTTP ${response.status}).`;
+          }
+        } catch {
+          responseMessage = "Notification backend unavailable; delivery not confirmed.";
+        }
         newLogEntries.push({
           student_id: st.id,
           subject_id: selectedSubject.id,
           student_name: st.full_name,
           parent_mobile: st.parent_mobile,
-          recipient_email: studentEmail,
+          recipient_email: st.parent_email_verified_at ? (st.parent_email || "") : "",
           channel: "email" as const,
           is_defaulter_alert: isDefaulter,
           attendance_rate: rate,
-          email_subject: emailContent.subject,
-          message: emailContent.body,
-          status: (emailResult.success ? "sent" : "failed") as const,
+          email_subject: isDefaulter ? "Low attendance warning" : "Attendance update",
+          message: responseMessage,
+          status: (responseStatus === "provider_accepted" ? "sent" : "failed") as const,
           attendance_date: selectedDate,
           sent_at: new Date().toISOString(),
           language: chosenLang,
-          gateway: isLive ? "EmailJS Live Service" : "Email Notification Service",
-          gateway_response: isLive
-            ? `Live email delivered via EmailJS to ${studentEmail}`
-            : isDefaulter
-              ? `Defaulter (<75%) Warning Email sent to ${studentEmail}`
-              : `Attendance Email sent to ${studentEmail}`,
+          gateway: "Parent notification backend",
+          gateway_response: responseMessage,
         });
       }
 
-      // 3. Channel: WhatsApp
-      if (channels.includes("whatsapp")) {
-        const waMsg = generateWhatsAppMessage(
-          st.full_name,
-          selectedDate,
-          selectedSubject.name,
-          status,
-          chosenLang,
-          rate
-        );
-
-        newLogEntries.push({
-          student_id: st.id,
-          subject_id: selectedSubject.id,
-          student_name: st.full_name,
-          parent_mobile: st.parent_mobile,
-          channel: "whatsapp" as const,
-          is_defaulter_alert: isDefaulter,
-          attendance_rate: rate,
-          message: waMsg,
-          status: hasMobile ? ("sent" as const) : ("failed" as const),
-          attendance_date: selectedDate,
-          sent_at: new Date().toISOString(),
-          language: chosenLang,
-          gateway: "WhatsApp Business API",
-          gateway_response: hasMobile ? "WhatsApp Message Delivered" : "Invalid Mobile",
-        });
-      }
     }
 
     if (newLogEntries.length > 0) {
@@ -558,11 +524,11 @@ export const Attendance: React.FC = () => {
     const channelNames = channels.map((c) => c.toUpperCase()).join(", ");
     const defaulterNoticeText =
       defaulterEmailCount > 0
-        ? ` • ⚠️ ${defaulterEmailCount} Defaulter (<75%) Warning Emails dispatched`
+        ? ` • ⚠️ ${defaulterEmailCount} Defaulter (<75%) Email Requests Accepted`
         : "";
 
     setSuccessMsg(
-      `Attendance saved ${targetClassText}! Alerts dispatched via [${channelNames}]${defaulterNoticeText}. View in SMS & Alert History anytime.`
+      `Attendance saved ${targetClassText}! Notification requests processed via [${channelNames}]${defaulterNoticeText}. View in SMS & Alert History anytime.`
     );
     setTimeout(() => setSuccessMsg(""), 12000);
   };
@@ -627,7 +593,7 @@ export const Attendance: React.FC = () => {
             </div>
             <div>
               <p className="text-sm font-bold text-emerald-900 dark:text-emerald-200">
-                Attendance Saved & Parent SMS Alerts Dispatched!
+                Attendance Saved; Notification Status Recorded
               </p>
               <p className="text-xs text-muted-foreground mt-0.5">
                 {successMsg}

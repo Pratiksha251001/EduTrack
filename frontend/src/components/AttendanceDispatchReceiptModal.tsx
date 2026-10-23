@@ -19,7 +19,7 @@ import {
 } from "./ui/dialog";
 import { Button } from "./ui/button";
 import { Badge } from "./ui/badge";
-import { SMS_LANGUAGES, getParentWhatsAppUrl } from "../lib/college";
+import { SMS_LANGUAGES } from "../lib/college";
 import { SmsLanguage, Student, Subject } from "../lib/types";
 import { Link } from "react-router-dom";
 
@@ -69,7 +69,7 @@ export const AttendanceDispatchReceiptModal: React.FC<
             <div>
               <div className="flex items-center gap-2">
                 <DialogTitle className="text-lg font-bold text-foreground">
-                  Attendance Recorded & Parent SMS Dispatched!
+                  Attendance Recorded; SMS Results
                 </DialogTitle>
               </div>
               <p className="text-xs text-muted-foreground mt-0.5">
@@ -103,10 +103,10 @@ export const AttendanceDispatchReceiptModal: React.FC<
             </div>
             <div className="rounded-xl border border-primary/20 bg-card p-2.5">
               <span className="text-[10px] uppercase font-bold text-muted-foreground block">
-                SMS Delivered
+                SMS Marked Sent
               </span>
               <span className="text-lg font-bold text-primary">
-                {sentCount} {failedCount > 0 && <span className="text-xs text-amber-500">({failedCount} no phone)</span>}
+                {sentCount} {failedCount > 0 && <span className="text-xs text-amber-500">({failedCount} not sent)</span>}
               </span>
             </div>
           </div>
@@ -139,10 +139,6 @@ export const AttendanceDispatchReceiptModal: React.FC<
 
               <div className="rounded-xl border border-border divide-y divide-border/60 max-h-64 overflow-y-auto bg-card">
                 {absentRecipients.map(({ student, status, message, attendanceStatus }) => {
-                  const waUrl = student.parent_mobile
-                    ? getParentWhatsAppUrl(student.parent_mobile, message)
-                    : null;
-
                   return (
                     <div
                       key={student.id}
@@ -169,7 +165,7 @@ export const AttendanceDispatchReceiptModal: React.FC<
                             variant={status === "sent" ? "success" : "destructive"}
                             className="text-[9px] uppercase px-1.5 py-0 shrink-0"
                           >
-                            {status === "sent" ? "Alert Dispatched" : "No Phone"}
+                            {status === "sent" ? "Marked Sent (Not Delivery Confirmed)" : "Not Sent"}
                           </Badge>
                         </div>
                         <div className="text-[11px] text-muted-foreground flex items-center gap-2 mt-0.5">
@@ -210,18 +206,6 @@ export const AttendanceDispatchReceiptModal: React.FC<
                           >
                             <span>✉️ Email</span>
                           </span>
-                        )}
-                        {waUrl && (
-                          <a
-                            href={waUrl}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-medium bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border border-emerald-500/30 hover:bg-emerald-500/25 transition-colors"
-                            title="Direct WhatsApp"
-                          >
-                            <span>💬 WA</span>
-                            <ExternalLink className="h-2.5 w-2.5" />
-                          </a>
                         )}
                       </div>
                     </div>

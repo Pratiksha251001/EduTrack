@@ -27,7 +27,6 @@ import { Badge } from "./ui/badge";
 import {
   generateSmsMessage,
   generateEmailAlertContent,
-  generateWhatsAppMessage,
 } from "../lib/college";
 import { localDb } from "../lib/supabase";
 import { AlertChannel, SmsLanguage, Student, Subject } from "../lib/types";
@@ -74,7 +73,7 @@ export const AttendanceVerificationModal: React.FC<
   const [menuOpen, setMenuOpen] = useState(false);
   const [showFormatModal, setShowFormatModal] = useState(false);
   const [formatPreviewTab, setFormatPreviewTab] = useState<
-    "sms" | "email" | "whatsapp"
+    "sms" | "email"
   >("email");
   const [showPresentList, setShowPresentList] = useState(false);
   const [copiedPreview, setCopiedPreview] = useState(false);
@@ -181,17 +180,6 @@ export const AttendanceVerificationModal: React.FC<
         sampleRate && sampleRate < 75 ? sampleRate : 64,
       )
     : { subject: "", body: "" };
-
-  const sampleWhatsApp = sampleStudent
-    ? generateWhatsAppMessage(
-        sampleStudent.full_name,
-        date,
-        subject?.name || "Subject Lecture",
-        sampleStatus,
-        smsLanguage,
-        sampleRate,
-      )
-    : "";
 
   const toggleChannel = (channel: AlertChannel) => {
     setSelectedChannels((prev) => {
@@ -305,19 +293,6 @@ export const AttendanceVerificationModal: React.FC<
                           {selectedChannels.includes("sms") && <Check className="h-3 w-3 ml-0.5" />}
                         </button>
 
-                        <button
-                          type="button"
-                          onClick={() => toggleChannel("whatsapp")}
-                          className={`flex items-center justify-center gap-1 py-1.5 px-2 rounded-lg border text-xs font-semibold transition-all ${
-                            selectedChannels.includes("whatsapp")
-                              ? "bg-emerald-600 text-white border-emerald-600 shadow-xs"
-                              : "bg-muted/50 border-border text-muted-foreground hover:text-foreground"
-                          }`}
-                        >
-                          <MessageSquare className="h-3.5 w-3.5" />
-                          <span>WhatsApp</span>
-                          {selectedChannels.includes("whatsapp") && <Check className="h-3 w-3 ml-0.5" />}
-                        </button>
                       </div>
                     </div>
 
@@ -421,7 +396,7 @@ export const AttendanceVerificationModal: React.FC<
                         >
                           <span className="flex items-center gap-1.5">
                             <FileText className="h-3.5 w-3.5 text-primary" />
-                            <span>Preview SMS, Email &amp; WhatsApp Formats</span>
+                            <span>Preview SMS and Email Formats</span>
                           </span>
                           <span className="text-[11px] text-primary font-bold">
                             Preview &rarr;
@@ -677,7 +652,7 @@ export const AttendanceVerificationModal: React.FC<
             </p>
           </DialogHeader>
 
-          {/* 4 Formats Switcher: Normal Email, <75% Defaulter Email, SMS, WhatsApp */}
+          {/* Email and SMS format previews */}
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-1 bg-muted/60 p-1 rounded-lg border border-border text-xs">
             <button
               type="button"
@@ -718,18 +693,6 @@ export const AttendanceVerificationModal: React.FC<
               <span>SMS Format</span>
             </button>
 
-            <button
-              type="button"
-              onClick={() => setFormatPreviewTab("whatsapp")}
-              className={`py-1.5 px-2 rounded-md font-semibold flex items-center justify-center gap-1.5 transition-all text-[11px] ${
-                formatPreviewTab === "whatsapp"
-                  ? "bg-emerald-600 text-white shadow-xs font-bold"
-                  : "text-muted-foreground hover:text-foreground"
-              }`}
-            >
-              <MessageSquare className="h-3.5 w-3.5" />
-              <span>WhatsApp</span>
-            </button>
           </div>
 
           {/* Preview Box */}
@@ -772,13 +735,9 @@ export const AttendanceVerificationModal: React.FC<
                   {sampleDefaulterEmail.body}
                 </div>
               </div>
-            ) : formatPreviewTab === "sms" ? (
-              <div className="p-3 rounded-md bg-card border border-border whitespace-pre-line leading-relaxed font-sans text-xs text-foreground">
-                {sampleSms || "No SMS preview available."}
-              </div>
             ) : (
               <div className="p-3 rounded-md bg-card border border-border whitespace-pre-line leading-relaxed font-sans text-xs text-foreground">
-                {sampleWhatsApp || "No WhatsApp preview available."}
+                {sampleSms || "No SMS preview available."}
               </div>
             )}
           </div>
@@ -794,9 +753,7 @@ export const AttendanceVerificationModal: React.FC<
                     ? `${sampleNormalEmail.subject}\n\n${sampleNormalEmail.body}`
                     : formatPreviewTab === "defaulter_email"
                       ? `${sampleDefaulterEmail.subject}\n\n${sampleDefaulterEmail.body}`
-                      : formatPreviewTab === "sms"
-                        ? sampleSms
-                        : sampleWhatsApp;
+                      : sampleSms;
                 handleCopyPreview(textToCopy);
               }}
               className="text-xs gap-1.5"
