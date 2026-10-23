@@ -34,10 +34,18 @@ export const StudentDetailsModal: React.FC<StudentDetailsModalProps> = ({
 
   const stats = useMemo(() => {
     const total = studentAttendance.length;
-    const present = studentAttendance.filter((a) => a.status === "present").length;
+    const present = studentAttendance.filter(
+      (a) => a.status === "present",
+    ).length;
     const absent = total - present;
     const rate = total > 0 ? Math.round((present / total) * 100) : 100;
-    return { total, present, absent, rate, isDefaulter: total > 0 && rate < 75 };
+    return {
+      total,
+      present,
+      absent,
+      rate,
+      isDefaulter: total > 0 && rate < 75,
+    };
   }, [studentAttendance]);
 
   return (
@@ -60,7 +68,9 @@ export const StudentDetailsModal: React.FC<StudentDetailsModalProps> = ({
             <span className="block text-[11px] text-muted-foreground">
               Student Name
             </span>
-            <span className="font-semibold text-foreground text-sm">{student.full_name}</span>
+            <span className="font-semibold text-foreground text-sm">
+              {student.full_name}
+            </span>
           </div>
           <div>
             <span className="block text-[11px] text-muted-foreground">
@@ -101,14 +111,15 @@ export const StudentDetailsModal: React.FC<StudentDetailsModalProps> = ({
             <span className="block text-[11px] text-muted-foreground">
               Parent Mobile
             </span>
-            <span className="font-mono font-medium">{student.parent_mobile || "-"}</span>
+            <span className="font-mono font-medium">
+              {student.parent_mobile || "-"}
+            </span>
           </div>
           <div>
-            <span className="block text-[11px] text-muted-foreground">Parent Email</span>
-            <span className="break-all">{student.parent_email || "-"}</span>
-            <span className="block text-xs text-muted-foreground">
-              {student.parent_email ? (student.parent_email_verified_at ? "Verified" : "Not verified") : "No address"}
+            <span className="block text-[11px] text-muted-foreground">
+              Parent Email
             </span>
+            <span className="break-all">{student.parent_email || "-"}</span>
           </div>
           <div>
             <span className="block text-[11px] text-muted-foreground">
@@ -117,7 +128,9 @@ export const StudentDetailsModal: React.FC<StudentDetailsModalProps> = ({
             <span className="font-mono">{student.student_mobile || "-"}</span>
           </div>
           <div>
-            <span className="block text-[11px] text-muted-foreground">Email</span>
+            <span className="block text-[11px] text-muted-foreground">
+              Email
+            </span>
             <span className="break-all">{student.email || "-"}</span>
           </div>
         </div>
@@ -130,9 +143,17 @@ export const StudentDetailsModal: React.FC<StudentDetailsModalProps> = ({
               <span>Attendance History</span>
             </h4>
             <div className="flex items-center gap-2">
-              <span className="text-xs text-muted-foreground">Overall Rate:</span>
+              <span className="text-xs text-muted-foreground">
+                Overall Rate:
+              </span>
               <Badge
-                variant={stats.total === 0 ? "secondary" : stats.isDefaulter ? "destructive" : "success"}
+                variant={
+                  stats.total === 0
+                    ? "secondary"
+                    : stats.isDefaulter
+                      ? "destructive"
+                      : "success"
+                }
                 className="font-bold text-xs"
               >
                 {stats.rate}% ({stats.present} / {stats.total})
@@ -153,7 +174,9 @@ export const StudentDetailsModal: React.FC<StudentDetailsModalProps> = ({
                     <TableRow>
                       <TableHead className="font-bold">Subject</TableHead>
                       <TableHead className="font-bold">Date</TableHead>
-                      <TableHead className="text-right font-bold pr-3">Status</TableHead>
+                      <TableHead className="text-right font-bold pr-3">
+                        Status
+                      </TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody className="divide-y divide-border">

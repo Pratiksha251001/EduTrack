@@ -31,7 +31,13 @@ import {
   ENGINEERING_YEARS,
 } from "../lib/college";
 import { apiFetch } from "../lib/api";
-import { SmsLanguage, Student, Subject, AcademicClass, AlertChannel } from "../lib/types";
+import {
+  SmsLanguage,
+  Student,
+  Subject,
+  AcademicClass,
+  AlertChannel,
+} from "../lib/types";
 import { Button } from "../components/ui/button";
 import { Select } from "../components/ui/select";
 import { Input } from "../components/ui/input";
@@ -278,7 +284,8 @@ export const Attendance: React.FC = () => {
       (st) =>
         st.status === "active" &&
         st.semester === selectedSubject.semester &&
-        (!attendanceDepartmentId || st.department_id === attendanceDepartmentId),
+        (!attendanceDepartmentId ||
+          st.department_id === attendanceDepartmentId),
     );
 
     if (selectedClassName && selectedClassName !== "all") {
@@ -294,7 +301,13 @@ export const Attendance: React.FC = () => {
     }
 
     return list;
-  }, [students, selectedSubject, selectedClassName, academicClasses, attendanceDepartmentId]);
+  }, [
+    students,
+    selectedSubject,
+    selectedClassName,
+    academicClasses,
+    attendanceDepartmentId,
+  ]);
 
   const displayedStudents = useMemo(() => {
     if (!searchQuery.trim()) return cohortStudents;
@@ -370,16 +383,23 @@ export const Attendance: React.FC = () => {
       (st) => (attendanceState[st.id] || "present") === "absent",
     );
     const currentPresents = cohortStudents.filter(
-      (st) => (attendanceState[st.id] || "present") === "present"
+      (st) => (attendanceState[st.id] || "present") === "present",
     );
 
     // Determine target students based on targetMode
-    const targetList: Array<{ student: Student; status: "absent" | "present" }> = [];
+    const targetList: Array<{
+      student: Student;
+      status: "absent" | "present";
+    }> = [];
     if (targetMode === "absent_only" || targetMode === "both") {
-      currentAbsentees.forEach((st) => targetList.push({ student: st, status: "absent" }));
+      currentAbsentees.forEach((st) =>
+        targetList.push({ student: st, status: "absent" }),
+      );
     }
     if (targetMode === "present_only" || targetMode === "both") {
-      currentPresents.forEach((st) => targetList.push({ student: st, status: "present" }));
+      currentPresents.forEach((st) =>
+        targetList.push({ student: st, status: "present" }),
+      );
     }
 
     const dispatchedList: Array<{
@@ -399,12 +419,16 @@ export const Attendance: React.FC = () => {
       const past = allAttendance.filter((a) => a.student_id === st.id);
       const totalLectures = past.length;
       const presentLectures = past.filter((a) => a.status === "present").length;
-      const rate = totalLectures > 0 ? Math.round((presentLectures / totalLectures) * 100) : 100;
+      const rate =
+        totalLectures > 0
+          ? Math.round((presentLectures / totalLectures) * 100)
+          : 100;
       const isDefaulter = rate < 75 && status === "absent";
 
       const cleanPhone = (st.parent_mobile || "").replace(/[^0-9]/g, "");
       const hasMobile = cleanPhone.length >= 10;
-      const studentEmail = st.email || `${st.roll_number.toLowerCase()}@student.edutrack.edu`;
+      const studentEmail =
+        st.email || `${st.roll_number.toLowerCase()}@student.edutrack.edu`;
 
       // 1. Channel: SMS
       if (channels.includes("sms")) {
@@ -413,7 +437,7 @@ export const Attendance: React.FC = () => {
           selectedDate,
           selectedSubject.name,
           chosenLang,
-          status
+          status,
         );
         newLogEntries.push({
           student_id: st.id,
@@ -428,7 +452,9 @@ export const Attendance: React.FC = () => {
           sent_at: new Date().toISOString(),
           language: chosenLang,
           gateway: "SMS Gateway",
-          gateway_response: hasMobile ? "SMS not dispatched by attendance save" : "Invalid parent mobile",
+          gateway_response: hasMobile
+            ? "SMS not dispatched by attendance save"
+            : "Invalid parent mobile",
         });
 
         dispatchedList.push({
@@ -449,31 +475,48 @@ export const Attendance: React.FC = () => {
           const response = await apiFetch("/api/parents/attendance/notify", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ studentId: st.id, kind, date: selectedDate }),
+            body: JSON.stringify({
+              studentId: st.id,
+              kind,
+              date: selectedDate,
+            }),
           });
           const result = await response.json().catch(() => ({}));
-          if (response.ok && result.success === true && result.status === "provider_accepted") {
+          if (
+            response.ok &&
+            result.success === true &&
+            result.status === "provider_accepted"
+          ) {
             responseStatus = "provider_accepted";
-            responseMessage = "Email provider accepted the request; delivery is not confirmed.";
+            responseMessage =
+              "Email provider accepted the request; delivery is not confirmed.";
             if (isDefaulter) defaulterEmailCount++;
           } else {
-            responseMessage = result.message || result.reason || `Notification not accepted (HTTP ${response.status}).`;
+            responseMessage =
+              result.message ||
+              result.reason ||
+              `Notification not accepted (HTTP ${response.status}).`;
           }
         } catch {
-          responseMessage = "Notification backend unavailable; delivery not confirmed.";
+          responseMessage =
+            "Notification backend unavailable; delivery not confirmed.";
         }
         newLogEntries.push({
           student_id: st.id,
           subject_id: selectedSubject.id,
           student_name: st.full_name,
           parent_mobile: st.parent_mobile,
-          recipient_email: st.parent_email_verified_at ? (st.parent_email || "") : "",
+          recipient_email: st.parent_email || "",
           channel: "email" as const,
           is_defaulter_alert: isDefaulter,
           attendance_rate: rate,
-          email_subject: isDefaulter ? "Low attendance warning" : "Attendance update",
+          email_subject: isDefaulter
+            ? "Low attendance warning"
+            : "Attendance update",
           message: responseMessage,
-          status: (responseStatus === "provider_accepted" ? "sent" : "failed") as const,
+          status: (responseStatus === "provider_accepted"
+            ? "sent"
+            : "failed") as const,
           attendance_date: selectedDate,
           sent_at: new Date().toISOString(),
           language: chosenLang,
@@ -481,7 +524,6 @@ export const Attendance: React.FC = () => {
           gateway_response: responseMessage,
         });
       }
-
     }
 
     if (newLogEntries.length > 0) {
@@ -528,7 +570,7 @@ export const Attendance: React.FC = () => {
         : "";
 
     setSuccessMsg(
-      `Attendance saved ${targetClassText}! Notification requests processed via [${channelNames}]${defaulterNoticeText}. View in SMS & Alert History anytime.`
+      `Attendance saved ${targetClassText}! Notification requests processed via [${channelNames}]${defaulterNoticeText}. View in SMS & Alert History anytime.`,
     );
     setTimeout(() => setSuccessMsg(""), 12000);
   };
@@ -758,7 +800,8 @@ export const Attendance: React.FC = () => {
                   (st) =>
                     st.status === "active" &&
                     st.semester === selectedSubject?.semester &&
-                    (!attendanceDepartmentId || st.department_id === attendanceDepartmentId) &&
+                    (!attendanceDepartmentId ||
+                      st.department_id === attendanceDepartmentId) &&
                     (st.class_name === cn ||
                       st.class_id ===
                         academicClasses.find((c) => c.name === cn)?.id ||
@@ -881,13 +924,27 @@ export const Attendance: React.FC = () => {
               <Table className="w-full text-xs">
                 <TableHeader className="bg-muted/70 border-b border-border">
                   <TableRow>
-                    <TableHead className="w-12 text-center font-bold">#</TableHead>
-                    <TableHead className="min-w-[110px] font-bold">Roll No</TableHead>
-                    <TableHead className="min-w-[210px] font-bold">Student Name</TableHead>
-                    <TableHead className="min-w-[100px] font-bold">Class / Div</TableHead>
-                    <TableHead className="min-w-[190px] font-bold">Guardian Contact</TableHead>
-                    <TableHead className="min-w-[100px] text-center font-bold">Status</TableHead>
-                    <TableHead className="min-w-[220px] text-right font-bold pr-4">Attendance Action</TableHead>
+                    <TableHead className="w-12 text-center font-bold">
+                      #
+                    </TableHead>
+                    <TableHead className="min-w-[110px] font-bold">
+                      Roll No
+                    </TableHead>
+                    <TableHead className="min-w-[210px] font-bold">
+                      Student Name
+                    </TableHead>
+                    <TableHead className="min-w-[100px] font-bold">
+                      Class / Div
+                    </TableHead>
+                    <TableHead className="min-w-[190px] font-bold">
+                      Guardian Contact
+                    </TableHead>
+                    <TableHead className="min-w-[100px] text-center font-bold">
+                      Status
+                    </TableHead>
+                    <TableHead className="min-w-[220px] text-right font-bold pr-4">
+                      Attendance Action
+                    </TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody className="divide-y divide-border">
@@ -918,11 +975,16 @@ export const Attendance: React.FC = () => {
                         </TableCell>
                         <TableCell>
                           {st.class_name ? (
-                            <Badge variant="outline" className="font-mono text-[10px] font-bold">
+                            <Badge
+                              variant="outline"
+                              className="font-mono text-[10px] font-bold"
+                            >
                               {st.class_name}
                             </Badge>
                           ) : (
-                            <span className="text-muted-foreground text-[11px]">Sem {st.semester}</span>
+                            <span className="text-muted-foreground text-[11px]">
+                              Sem {st.semester}
+                            </span>
                           )}
                         </TableCell>
                         <TableCell>
@@ -934,7 +996,9 @@ export const Attendance: React.FC = () => {
                               {st.parent_mobile ? (
                                 <span>📱 {st.parent_mobile}</span>
                               ) : (
-                                <span className="text-destructive font-semibold">No Mobile</span>
+                                <span className="text-destructive font-semibold">
+                                  No Mobile
+                                </span>
                               )}
                             </p>
                           </div>

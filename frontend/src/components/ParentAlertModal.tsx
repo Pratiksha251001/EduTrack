@@ -75,11 +75,14 @@ export const ParentAlertModal: React.FC<ParentAlertModalProps> = ({
   // 3 options: eng, marathi, other message (default is eng)
   const [selectedOption, setSelectedOption] = useState<MessageOption>(() => {
     if (initialLanguage === "mr") return "mr";
-    if (initialLanguage === "other" || initialLanguage === "custom") return "other";
+    if (initialLanguage === "other" || initialLanguage === "custom")
+      return "other";
     return "en"; // Default is English
   });
 
-  const [selectedChannel, setSelectedChannel] = useState<"sms" | "email">("sms");
+  const [selectedChannel, setSelectedChannel] = useState<"sms" | "email">(
+    "sms",
+  );
   const [customSubject, setCustomSubject] = useState(subjectName);
   const [messageText, setMessageText] = useState<string>("");
   const [emailSubject, setEmailSubject] = useState("");
@@ -102,13 +105,16 @@ export const ParentAlertModal: React.FC<ParentAlertModalProps> = ({
 
   const studentAttendanceRate = useMemo(() => {
     if (!studentId) return null;
-    const history = localDb.attendance.filter((a) => a.student_id === studentId);
+    const history = localDb.attendance.filter(
+      (a) => a.student_id === studentId,
+    );
     if (history.length === 0) return null;
     const presentCount = history.filter((a) => a.status === "present").length;
     return (presentCount / history.length) * 100;
   }, [studentId]);
 
-  const isDefaulter = studentAttendanceRate !== null && studentAttendanceRate < 75;
+  const isDefaulter =
+    studentAttendanceRate !== null && studentAttendanceRate < 75;
 
   const handleCloseModal = () => {
     setSentSuccess(false);
@@ -149,7 +155,7 @@ export const ParentAlertModal: React.FC<ParentAlertModalProps> = ({
       setAutoCloseSeconds(5);
       setIsPaused(false);
 
-      const email = student?.parent_email_verified_at ? (student.parent_email || "") : "";
+      const email = student?.parent_email || "";
       setStudentEmail(email);
 
       const emailContent = generateEmailAlertContent(
@@ -157,7 +163,7 @@ export const ParentAlertModal: React.FC<ParentAlertModalProps> = ({
         date,
         subjectName,
         "absent",
-        studentAttendanceRate ?? undefined
+        studentAttendanceRate ?? undefined,
       );
       setEmailSubject(emailContent.subject);
       setEmailBody(emailContent.body);
@@ -166,27 +172,42 @@ export const ParentAlertModal: React.FC<ParentAlertModalProps> = ({
         setMessageText(cleanSmsMessage(existingMessage));
       } else {
         const initialOpt: MessageOption =
-          initialLanguage === "mr" ? "mr" : initialLanguage === "other" || initialLanguage === "custom" ? "other" : "en";
+          initialLanguage === "mr"
+            ? "mr"
+            : initialLanguage === "other" || initialLanguage === "custom"
+              ? "other"
+              : "en";
         setSelectedOption(initialOpt);
         setMessageText(
-          cleanSmsMessage(generateSmsMessage(studentName, date, subjectName, initialOpt))
+          cleanSmsMessage(
+            generateSmsMessage(studentName, date, subjectName, initialOpt),
+          ),
         );
       }
     }
-  }, [open, subjectName, studentName, date, existingMessage, initialLanguage, student, studentAttendanceRate]);
+  }, [
+    open,
+    subjectName,
+    studentName,
+    date,
+    existingMessage,
+    initialLanguage,
+    student,
+    studentAttendanceRate,
+  ]);
 
   // Handle user switching between the 3 options: Eng, Marathi, Other
   const handleSelectOption = (option: MessageOption) => {
     setSelectedOption(option);
     const newMsg = cleanSmsMessage(
-      generateSmsMessage(studentName, date, customSubject, option)
+      generateSmsMessage(studentName, date, customSubject, option),
     );
     setMessageText(newMsg);
   };
 
   const handleResetToTemplate = () => {
     const newMsg = cleanSmsMessage(
-      generateSmsMessage(studentName, date, customSubject, selectedOption)
+      generateSmsMessage(studentName, date, customSubject, selectedOption),
     );
     setMessageText(newMsg);
   };
@@ -197,7 +218,9 @@ export const ParentAlertModal: React.FC<ParentAlertModalProps> = ({
 
   const handleCopy = () => {
     navigator.clipboard.writeText(
-      selectedChannel === "email" ? `${emailSubject}\n\n${emailBody}` : messageText
+      selectedChannel === "email"
+        ? `${emailSubject}\n\n${emailBody}`
+        : messageText,
     );
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
@@ -206,17 +229,31 @@ export const ParentAlertModal: React.FC<ParentAlertModalProps> = ({
   const handleSendViaEmail = async () => {
     setDispatching(true);
     let accepted = false;
-    let detail = "Verified parent email or student link missing.";
+    let detail = "Valid parent email or student link missing.";
     if (studentId && studentEmail) {
       try {
         const response = await apiFetch("/api/parents/attendance/notify", {
-          method: "POST", headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ studentId, kind: isDefaulter ? "low_attendance" : "daily_attendance", date }),
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            studentId,
+            kind: isDefaulter ? "low_attendance" : "daily_attendance",
+            date,
+          }),
         });
         const result = await response.json().catch(() => ({}));
-        accepted = response.ok && result.success === true && result.status === "provider_accepted";
-        detail = result.message || result.reason || result.status || "Request not accepted";
-      } catch { detail = "Notification backend unavailable"; }
+        accepted =
+          response.ok &&
+          result.success === true &&
+          result.status === "provider_accepted";
+        detail =
+          result.message ||
+          result.reason ||
+          result.status ||
+          "Request not accepted";
+      } catch {
+        detail = "Notification backend unavailable";
+      }
     }
 
     const logEntry: SmsLog = {
@@ -241,7 +278,7 @@ export const ParentAlertModal: React.FC<ParentAlertModalProps> = ({
 
     await localDb.insert("sms_logs", [logEntry]);
     window.dispatchEvent(
-      new CustomEvent("edutrack_sms_logs_updated", { detail: [logEntry] })
+      new CustomEvent("edutrack_sms_logs_updated", { detail: [logEntry] }),
     );
 
     setDispatching(false);
@@ -251,7 +288,9 @@ export const ParentAlertModal: React.FC<ParentAlertModalProps> = ({
     setAutoCloseSeconds(5);
     setIsPaused(false);
     onSuccess?.(
-      accepted ? "Email provider accepted request; delivery not confirmed." : detail
+      accepted
+        ? "Email provider accepted request; delivery not confirmed."
+        : detail,
     );
   };
 
@@ -275,7 +314,10 @@ export const ParentAlertModal: React.FC<ParentAlertModalProps> = ({
         ]);
         if (gatewayRes.results && gatewayRes.results.length > 0) {
           gatewayDetails = gatewayRes.results[0].details || "";
-          gatewayAccepted = gatewayRes.results[0].status === "sent" || gatewayRes.results[0].status === "accepted" || gatewayRes.results[0].status === "delivered";
+          gatewayAccepted =
+            gatewayRes.results[0].status === "sent" ||
+            gatewayRes.results[0].status === "accepted" ||
+            gatewayRes.results[0].status === "delivered";
         }
       } catch (err: any) {
         console.warn("Gateway direct alert dispatch note:", err);
@@ -301,7 +343,7 @@ export const ParentAlertModal: React.FC<ParentAlertModalProps> = ({
 
     await localDb.insert("sms_logs", [logEntry]);
     window.dispatchEvent(
-      new CustomEvent("edutrack_sms_logs_updated", { detail: [logEntry] })
+      new CustomEvent("edutrack_sms_logs_updated", { detail: [logEntry] }),
     );
 
     setDispatching(false);
@@ -317,7 +359,7 @@ export const ParentAlertModal: React.FC<ParentAlertModalProps> = ({
       onSuccess?.(`SMS recorded as failed: Parent mobile number missing.`);
     } else {
       onSuccess?.(
-        `SMS recorded as failed: Parent mobile "${parentMobile}" is not a valid 10-digit number.`
+        `SMS recorded as failed: Parent mobile "${parentMobile}" is not a valid 10-digit number.`,
       );
     }
   };
@@ -460,35 +502,45 @@ export const ParentAlertModal: React.FC<ParentAlertModalProps> = ({
                 </span>
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-[11px] p-2.5 rounded-lg bg-muted/40">
                   <div>
-                    <span className="text-muted-foreground block">Student:</span>
+                    <span className="text-muted-foreground block">
+                      Student:
+                    </span>
                     <strong className="text-foreground">{studentName}</strong>
                   </div>
                   <div>
-                    <span className="text-muted-foreground block">Guardian:</span>
+                    <span className="text-muted-foreground block">
+                      Guardian:
+                    </span>
                     <strong className="text-foreground">
                       {parentName || "Parent"}
                     </strong>
                   </div>
                   <div>
-                    <span className="text-muted-foreground block">Contact:</span>
+                    <span className="text-muted-foreground block">
+                      Contact:
+                    </span>
                     <strong className="font-mono text-foreground">
                       {parentMobile || "N/A"}
                     </strong>
                   </div>
                   <div>
-                    <span className="text-muted-foreground block">Channel:</span>
+                    <span className="text-muted-foreground block">
+                      Channel:
+                    </span>
                     <strong className="capitalize text-foreground">
                       {sentChannel === "email" ? "Email" : "Automated SMS"}
                     </strong>
                   </div>
                   <div>
-                    <span className="text-muted-foreground block">Language:</span>
+                    <span className="text-muted-foreground block">
+                      Language:
+                    </span>
                     <strong className="text-foreground">
                       {selectedOption === "en"
                         ? "English (Eng)"
                         : selectedOption === "mr"
-                        ? "Marathi (मराठी)"
-                        : "Both (Eng + मराठी)"}
+                          ? "Marathi (मराठी)"
+                          : "Both (Eng + मराठी)"}
                     </strong>
                   </div>
                 </div>
@@ -539,14 +591,18 @@ export const ParentAlertModal: React.FC<ParentAlertModalProps> = ({
 
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 text-xs">
                   <div className="p-2.5 rounded-lg bg-muted/40 space-y-0.5">
-                    <span className="text-[10.5px] text-muted-foreground block">Parent / Guardian:</span>
+                    <span className="text-[10.5px] text-muted-foreground block">
+                      Parent / Guardian:
+                    </span>
                     <span className="font-semibold text-foreground truncate block">
                       {parentName || "Parent"}
                     </span>
                   </div>
 
                   <div className="p-2.5 rounded-lg bg-muted/40 space-y-0.5">
-                    <span className="text-[10.5px] text-muted-foreground block">Parent Mobile:</span>
+                    <span className="text-[10.5px] text-muted-foreground block">
+                      Parent Mobile:
+                    </span>
                     {parentMobile ? (
                       isPhoneValid ? (
                         <span className="font-mono font-bold text-emerald-600 dark:text-emerald-400 block truncate">
@@ -565,7 +621,9 @@ export const ParentAlertModal: React.FC<ParentAlertModalProps> = ({
                   </div>
 
                   <div className="p-2.5 rounded-lg bg-muted/40 space-y-0.5">
-                    <span className="text-[10.5px] text-muted-foreground block">Email Address:</span>
+                    <span className="text-[10.5px] text-muted-foreground block">
+                      Email Address:
+                    </span>
                     <span className="font-mono text-muted-foreground text-[11px] truncate block">
                       ✉️ {studentEmail || "None"}
                     </span>
@@ -620,7 +678,6 @@ export const ParentAlertModal: React.FC<ParentAlertModalProps> = ({
                       </span>
                     )}
                   </button>
-
                 </div>
 
                 {/* Email Defaulter Rule Banner */}
@@ -628,7 +685,10 @@ export const ParentAlertModal: React.FC<ParentAlertModalProps> = ({
                   <div className="flex items-center gap-2 text-xs text-amber-800 dark:text-amber-300 bg-amber-500/10 border border-amber-500/20 rounded-xl p-2.5">
                     <AlertTriangle className="h-4 w-4 text-amber-600 dark:text-amber-400 shrink-0" />
                     <span className="text-[11px] leading-tight">
-                      <strong>Defaulter Policy:</strong> This student has <strong>{studentAttendanceRate}%</strong> attendance (below 75%). An official Warning Email notice will be issued with deficit details.
+                      <strong>Defaulter Policy:</strong> This student has{" "}
+                      <strong>{studentAttendanceRate}%</strong> attendance
+                      (below 75%). An official Warning Email notice will be
+                      issued with deficit details.
                     </span>
                   </div>
                 )}
@@ -650,7 +710,8 @@ export const ParentAlertModal: React.FC<ParentAlertModalProps> = ({
                     >
                       {copied ? (
                         <>
-                          <Check className="h-3 w-3 mr-1 text-emerald-500" /> Copied
+                          <Check className="h-3 w-3 mr-1 text-emerald-500" />{" "}
+                          Copied
                         </>
                       ) : (
                         <>
@@ -661,7 +722,9 @@ export const ParentAlertModal: React.FC<ParentAlertModalProps> = ({
                   </div>
 
                   <div className="space-y-1">
-                    <label className="text-[11px] font-semibold text-muted-foreground">Recipient Email Address:</label>
+                    <label className="text-[11px] font-semibold text-muted-foreground">
+                      Recipient Email Address:
+                    </label>
                     <input
                       type="email"
                       value={studentEmail}
@@ -672,7 +735,9 @@ export const ParentAlertModal: React.FC<ParentAlertModalProps> = ({
                   </div>
 
                   <div className="space-y-1">
-                    <label className="text-[11px] font-semibold text-muted-foreground">Subject Line:</label>
+                    <label className="text-[11px] font-semibold text-muted-foreground">
+                      Subject Line:
+                    </label>
                     <input
                       type="text"
                       value={emailSubject}
@@ -682,7 +747,9 @@ export const ParentAlertModal: React.FC<ParentAlertModalProps> = ({
                   </div>
 
                   <div className="space-y-1">
-                    <label className="text-[11px] font-semibold text-muted-foreground">Email Notice Body:</label>
+                    <label className="text-[11px] font-semibold text-muted-foreground">
+                      Email Notice Body:
+                    </label>
                     <textarea
                       value={emailBody}
                       onChange={(e) => setEmailBody(e.target.value)}
@@ -702,7 +769,10 @@ export const ParentAlertModal: React.FC<ParentAlertModalProps> = ({
                         <span>Message Language:</span>
                       </label>
                       <span className="text-[11px] text-muted-foreground">
-                        Default is <strong className="text-primary font-semibold">English (Eng)</strong>
+                        Default is{" "}
+                        <strong className="text-primary font-semibold">
+                          English (Eng)
+                        </strong>
                       </span>
                     </div>
 
@@ -717,7 +787,9 @@ export const ParentAlertModal: React.FC<ParentAlertModalProps> = ({
                         }`}
                       >
                         <span className="font-bold">English (Eng)</span>
-                        <span className="text-[10px] mt-0.5 opacity-80 font-normal">Standard</span>
+                        <span className="text-[10px] mt-0.5 opacity-80 font-normal">
+                          Standard
+                        </span>
                       </button>
 
                       <button
@@ -730,7 +802,9 @@ export const ParentAlertModal: React.FC<ParentAlertModalProps> = ({
                         }`}
                       >
                         <span className="font-bold">Marathi (मराठी)</span>
-                        <span className="text-[10px] mt-0.5 opacity-80 font-normal">स्थानिक संदेश</span>
+                        <span className="text-[10px] mt-0.5 opacity-80 font-normal">
+                          स्थानिक संदेश
+                        </span>
                       </button>
 
                       <button
@@ -743,7 +817,9 @@ export const ParentAlertModal: React.FC<ParentAlertModalProps> = ({
                         }`}
                       >
                         <span className="font-bold">Both (Bilingual)</span>
-                        <span className="text-[10px] mt-0.5 opacity-80 font-normal">Eng + मराठी</span>
+                        <span className="text-[10px] mt-0.5 opacity-80 font-normal">
+                          Eng + मराठी
+                        </span>
                       </button>
                     </div>
                   </div>
@@ -755,8 +831,13 @@ export const ParentAlertModal: React.FC<ParentAlertModalProps> = ({
                         <span className="text-xs font-bold text-foreground">
                           {"SMS Message Content:"}
                         </span>
-                        <Badge variant="outline" className="text-[10px] font-mono">
-                          {messageText.length} chars · {Math.max(1, Math.ceil(messageText.length / 160))} SMS credit
+                        <Badge
+                          variant="outline"
+                          className="text-[10px] font-mono"
+                        >
+                          {messageText.length} chars ·{" "}
+                          {Math.max(1, Math.ceil(messageText.length / 160))} SMS
+                          credit
                         </Badge>
                       </div>
                       <div className="flex items-center gap-1">
@@ -777,7 +858,8 @@ export const ParentAlertModal: React.FC<ParentAlertModalProps> = ({
                         >
                           {copied ? (
                             <>
-                              <Check className="h-3 w-3 mr-1 text-emerald-500" /> Copied
+                              <Check className="h-3 w-3 mr-1 text-emerald-500" />{" "}
+                              Copied
                             </>
                           ) : (
                             <>
@@ -805,8 +887,16 @@ export const ParentAlertModal: React.FC<ParentAlertModalProps> = ({
         {/* Modal Footer */}
         {sentSuccess ? (
           <DialogFooter className="p-4 border-t border-border bg-card flex flex-col sm:flex-row items-center justify-between gap-2.5">
-            <Link to="/sms-logs" onClick={handleCloseModal} className="w-full sm:w-auto">
-              <Button variant="outline" size="sm" className="w-full text-xs h-9">
+            <Link
+              to="/sms-logs"
+              onClick={handleCloseModal}
+              className="w-full sm:w-auto"
+            >
+              <Button
+                variant="outline"
+                size="sm"
+                className="w-full text-xs h-9"
+              >
                 <FileText className="mr-1.5 h-3.5 w-3.5 text-primary" />
                 View in Alert History Logs
               </Button>
@@ -878,12 +968,12 @@ export const ParentAlertModal: React.FC<ParentAlertModalProps> = ({
                   ) : (
                     <>
                       <Mail className="h-3.5 w-3.5 mr-1.5" />
-                      Send Email Notice {isDefaulter ? "(<75% Defaulter Warning)" : ""}
+                      Send Email Notice{" "}
+                      {isDefaulter ? "(<75% Defaulter Warning)" : ""}
                     </>
                   )}
                 </Button>
               )}
-
             </div>
           </DialogFooter>
         )}

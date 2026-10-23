@@ -104,7 +104,7 @@ export const DefaulterDirectAlertModal: React.FC<
           attendedLectures: present,
           parentName: st.parent_name || "Parent",
           parentMobile: st.parent_mobile || "",
-          parentEmail: st.parent_email_verified_at ? (st.parent_email || "") : "",
+          parentEmail: st.parent_email || "",
         });
       }
     });
@@ -210,20 +210,41 @@ export const DefaulterDirectAlertModal: React.FC<
             body += `\n\nAdministrative Note: ${customNote.trim()}`;
           }
 
-          let emailResult = { success: false, isSimulated: false, message: "Verified parent email unavailable." };
+          let emailResult = {
+            success: false,
+            isSimulated: false,
+            message: "Valid parent email unavailable.",
+          };
           if (t.parentEmail) {
             try {
-              const response = await apiFetch("/api/parents/attendance/notify", {
-                method: "POST", headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ studentId: t.student.id, kind: "low_attendance", date: todayStr }),
-              });
+              const response = await apiFetch(
+                "/api/parents/attendance/notify",
+                {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({
+                    studentId: t.student.id,
+                    kind: "low_attendance",
+                    date: todayStr,
+                  }),
+                },
+              );
               const result = await response.json().catch(() => ({}));
               emailResult = {
-                success: response.ok && result.success === true && result.status === "provider_accepted",
+                success:
+                  response.ok &&
+                  result.success === true &&
+                  result.status === "provider_accepted",
                 isSimulated: false,
-                message: result.message || result.reason || result.status || "Not accepted",
+                message:
+                  result.message ||
+                  result.reason ||
+                  result.status ||
+                  "Not accepted",
               };
-            } catch { emailResult.message = "Notification backend unavailable."; }
+            } catch {
+              emailResult.message = "Notification backend unavailable.";
+            }
           }
           const isLive = !emailResult.isSimulated && emailResult.success;
           newLogs.push({
@@ -291,7 +312,6 @@ export const DefaulterDirectAlertModal: React.FC<
             });
           }
         }
-
       }
 
       let logsRecorded = false;
@@ -449,7 +469,6 @@ export const DefaulterDirectAlertModal: React.FC<
                     <Check className="h-3.5 w-3.5 ml-0.5" />
                   )}
                 </button>
-
               </div>
 
               <p className="text-[10.5px] text-muted-foreground leading-relaxed pt-0.5">

@@ -7,8 +7,6 @@ import express from "express";
 import parentNotificationDispatch from "./backend/parent-notification-dispatch.cjs";
 const { registerParentNotificationDispatch } = parentNotificationDispatch;
 
-import parentEmailRoutes from "./backend/parent-email-routes.cjs";
-const { registerParentEmailRoutes } = parentEmailRoutes;
 import cors from "cors";
 
 import { WebSocket } from "ws";
@@ -785,11 +783,6 @@ async function startServer() {
   );
   app.use(express.json());
   registerParentNotificationDispatch(app, {
-    admin: supabaseAdmin,
-    requireManager: requireAccountManager,
-  });
-
-  registerParentEmailRoutes(app, {
     admin: supabaseAdmin,
     requireManager: requireAccountManager,
   });
@@ -2086,12 +2079,10 @@ async function startServer() {
     async (req, res) => {
       const actor = (req as AuthorizedRequest).actor;
       if (actor?.role !== "admin") {
-        return res
-          .status(403)
-          .json({
-            success: false,
-            message: "Generic email dispatch is restricted to administrators.",
-          });
+        return res.status(403).json({
+          success: false,
+          message: "Generic email dispatch is restricted to administrators.",
+        });
       }
       const {
         to_email,

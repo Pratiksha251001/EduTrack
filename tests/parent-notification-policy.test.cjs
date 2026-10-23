@@ -1,12 +1,102 @@
-'use strict';
-const test=require('node:test');const assert=require('node:assert/strict');
-const {prepareParentNotice,classifyProviderResult}=require('../backend/parent-notification-policy.cjs');
-const student={id:'00000000-0000-4000-8000-000000000001',parent_email:' Parent@Example.com ',parent_email_verified_at:'2026-10-22T00:00:00Z',email:'student@example.com'};
-const base={student,kind:'daily_attendance',date:'2026-10-22'};
-test('uses only verified parent recipient, never student email',()=>{const x=prepareParentNotice(base);assert.equal(x.ok,true);assert.equal(x.recipient,'parent@example.com')});
-test('unverified parent skipped',()=>assert.equal(prepareParentNotice({...base,student:{...student,parent_email_verified_at:null}}).reason,'unverified_parent'));
-test('missing parent skipped without student fallback',()=>assert.equal(prepareParentNotice({...base,student:{...student,parent_email:null}}).reason,'unverified_parent'));
-test('invalid dates and unknown notice types rejected',()=>{assert.equal(prepareParentNotice({...base,date:'2026-02-30'}).ok,false);assert.equal(prepareParentNotice({...base,kind:'other'}).ok,false)});
-test('low attendance requires recorded sessions and below 75 percent',()=>{assert.equal(prepareParentNotice({...base,kind:'low_attendance',attendanceRate:50,totalSessions:0}).ok,false);assert.equal(prepareParentNotice({...base,kind:'low_attendance',attendanceRate:75,totalSessions:10}).ok,false);assert.equal(prepareParentNotice({...base,kind:'low_attendance',attendanceRate:74,totalSessions:10}).ok,true)});
-test('stable idempotency key per student kind date',()=>{const a=prepareParentNotice(base);const b=prepareParentNotice(base);assert.equal(a.key,b.key);assert.notEqual(a.key,prepareParentNotice({...base,date:'2026-10-23'}).key)});
-test('provider acceptance is not delivery',()=>{assert.equal(classifyProviderResult({httpOk:true,providerAccepted:true}),'provider_accepted');assert.equal(classifyProviderResult({httpOk:true,simulated:true,providerAccepted:true}),'simulated');assert.equal(classifyProviderResult({httpOk:false}),'failed')});
+"use strict";
+const test = require("node:test");
+const assert = require("node:assert/strict");
+const {
+  prepareParentNotice,
+  classifyProviderResult,
+} = require("../backend/parent-notification-policy.cjs");
+const student = {
+  id: "00000000-0000-4000-8000-000000000001",
+  parent_email: " Parent@Example.com ",
+  parent_email_approved_at: "2026-10-22T00:00:00Z",
+  parent_email_approved_by: "11111111-1111-4111-8111-111111111111",
+  email: "student@example.com",
+};
+const base = { student, kind: "daily_attendance", date: "2026-10-22" };
+test("uses valid stored parent recipient, never student email", () => {
+  const x = prepareParentNotice(base);
+  assert.equal(x.ok, true);
+  assert.equal(x.recipient, "parent@example.com");
+});
+test("staff-approved parent email requires no parent inbox verification", () =>
+  assert.equal(
+    prepareParentNotice({ ...base, student: { ...student } }).recipient,
+    "parent@example.com",
+  ));
+
+test("unapproved parent email is ineligible", () => {
+  const result = prepareParentNotice({
+    ...base,
+    student: {
+      ...student,
+      parent_email_approved_at: null,
+      parent_email_approved_by: null,
+    },
+  });
+  assert.equal(result.reason, "parent_email_not_staff_approved");
+});
+test("missing parent skipped without student fallback", () =>
+  assert.equal(
+    prepareParentNotice({
+      ...base,
+      student: { ...student, parent_email: null },
+    }).reason,
+    "invalid_parent_email",
+  ));
+test("invalid dates and unknown notice types rejected", () => {
+  assert.equal(prepareParentNotice({ ...base, date: "2026-02-30" }).ok, false);
+  assert.equal(prepareParentNotice({ ...base, kind: "other" }).ok, false);
+});
+test("low attendance requires recorded sessions and below 75 percent", () => {
+  assert.equal(
+    prepareParentNotice({
+      ...base,
+      kind: "low_attendance",
+      attendanceRate: 50,
+      totalSessions: 0,
+    }).ok,
+    false,
+  );
+  assert.equal(
+    prepareParentNotice({
+      ...base,
+      kind: "low_attendance",
+      attendanceRate: 75,
+      totalSessions: 10,
+    }).ok,
+    false,
+  );
+  assert.equal(
+    prepareParentNotice({
+      ...base,
+      kind: "low_attendance",
+      attendanceRate: 74,
+      totalSessions: 10,
+    }).ok,
+    true,
+  );
+});
+test("stable idempotency key per student kind date", () => {
+  const a = prepareParentNotice(base);
+  const b = prepareParentNotice(base);
+  assert.equal(a.key, b.key);
+  assert.notEqual(
+    a.key,
+    prepareParentNotice({ ...base, date: "2026-10-23" }).key,
+  );
+});
+test("provider acceptance is not delivery", () => {
+  assert.equal(
+    classifyProviderResult({ httpOk: true, providerAccepted: true }),
+    "provider_accepted",
+  );
+  assert.equal(
+    classifyProviderResult({
+      httpOk: true,
+      simulated: true,
+      providerAccepted: true,
+    }),
+    "simulated",
+  );
+  assert.equal(classifyProviderResult({ httpOk: false }), "failed");
+});
