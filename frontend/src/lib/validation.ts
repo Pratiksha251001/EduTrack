@@ -115,6 +115,7 @@ export interface StudentValidationCandidate {
   full_name?: string | null;
   parent_name?: string | null;
   parent_mobile?: string | null;
+  parent_email?: string | null;
   student_mobile?: string | null;
   email?: string | null;
 }
@@ -142,6 +143,8 @@ export function getStudentValidationErrors(
     true,
   );
   if (emailError) errors.push(emailError);
+  const parentEmailError = getEmailValidationError(value("parent_email"), "Parent Email", false);
+  if (parentEmailError) errors.push(parentEmailError);
 
   const parentMobile = cleanMobile(value("parent_mobile"));
   const studentMobile = cleanMobile(value("student_mobile"));

@@ -1,4 +1,4 @@
--- Align communication logs with the active email, SMS, and WhatsApp dispatch model.
+-- Align communication logs with the supported email and SMS dispatch model.
 alter table public.sms_logs
   add column if not exists recipient_email text,
   add column if not exists channel text,

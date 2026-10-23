@@ -33,14 +33,13 @@ import { Badge } from "./ui/badge";
 import {
   generateSmsMessage,
   cleanSmsMessage,
-  getParentWhatsAppUrl,
-  formatParentPhoneForWhatsApp,
   generateEmailAlertContent,
 } from "../lib/college";
 import { localDb } from "../lib/supabase";
 import { isValid10DigitMobile } from "../lib/validation";
 import { SmsLanguage, SmsLog } from "../lib/types";
 import { dispatchSmsViaGateway } from "../lib/smsService";
+import { apiFetch } from "../lib/api";
 
 interface ParentAlertModalProps {
   open: boolean;
@@ -80,7 +79,7 @@ export const ParentAlertModal: React.FC<ParentAlertModalProps> = ({
     return "en"; // Default is English
   });
 
-  const [selectedChannel, setSelectedChannel] = useState<"sms" | "email" | "whatsapp">("sms");
+  const [selectedChannel, setSelectedChannel] = useState<"sms" | "email">("sms");
   const [customSubject, setCustomSubject] = useState(subjectName);
   const [messageText, setMessageText] = useState<string>("");
   const [emailSubject, setEmailSubject] = useState("");
@@ -91,7 +90,7 @@ export const ParentAlertModal: React.FC<ParentAlertModalProps> = ({
 
   // Sent success state & auto-close timer
   const [sentSuccess, setSentSuccess] = useState(false);
-  const [sentChannel, setSentChannel] = useState<"whatsapp" | "sms" | "email">("sms");
+  const [sentChannel, setSentChannel] = useState<"sms" | "email">("sms");
   const [sentStatus, setSentStatus] = useState<"sent" | "failed">("sent");
   const [autoCloseSeconds, setAutoCloseSeconds] = useState(5);
   const [isPaused, setIsPaused] = useState(false);
@@ -102,14 +101,14 @@ export const ParentAlertModal: React.FC<ParentAlertModalProps> = ({
   }, [studentId]);
 
   const studentAttendanceRate = useMemo(() => {
-    if (!studentId) return 68;
+    if (!studentId) return null;
     const history = localDb.attendance.filter((a) => a.student_id === studentId);
-    if (history.length === 0) return 68;
+    if (history.length === 0) return null;
     const presentCount = history.filter((a) => a.status === "present").length;
-    return Math.round((presentCount / history.length) * 100);
+    return (presentCount / history.length) * 100;
   }, [studentId]);
 
-  const isDefaulter = studentAttendanceRate < 75;
+  const isDefaulter = studentAttendanceRate !== null && studentAttendanceRate < 75;
 
   const handleCloseModal = () => {
     setSentSuccess(false);
@@ -150,9 +149,7 @@ export const ParentAlertModal: React.FC<ParentAlertModalProps> = ({
       setAutoCloseSeconds(5);
       setIsPaused(false);
 
-      const email =
-        student?.email ||
-        `${studentName.toLowerCase().replace(/\s+/g, ".")}@engg.college.edu`;
+      const email = student?.parent_email_verified_at ? (student.parent_email || "") : "";
       setStudentEmail(email);
 
       const emailContent = generateEmailAlertContent(
@@ -160,7 +157,7 @@ export const ParentAlertModal: React.FC<ParentAlertModalProps> = ({
         date,
         subjectName,
         "absent",
-        studentAttendanceRate
+        studentAttendanceRate ?? undefined
       );
       setEmailSubject(emailContent.subject);
       setEmailBody(emailContent.body);
@@ -206,45 +203,21 @@ export const ParentAlertModal: React.FC<ParentAlertModalProps> = ({
     setTimeout(() => setCopied(false), 2000);
   };
 
-  const handleSendViaWhatsApp = () => {
-    if (!parentMobile) {
-      alert("Parent mobile number is not registered for this student.");
-      return;
-    }
-    const url = getParentWhatsAppUrl(parentMobile, messageText);
-    window.open(url, "_blank");
-
-    // Also record in SMS log
-    const logEntry: SmsLog = {
-      id: `sms-wa-${Date.now()}`,
-      student_id: studentId || null,
-      subject_id: subjectId || null,
-      student_name: studentName,
-      parent_mobile: parentMobile,
-      channel: "whatsapp",
-      message: messageText,
-      status: "sent",
-      attendance_date: date,
-      sent_at: new Date().toISOString(),
-      language: selectedOption,
-      gateway: "WhatsApp Business API",
-    };
-    localDb.insert("sms_logs", [logEntry]);
-    window.dispatchEvent(
-      new CustomEvent("edutrack_sms_logs_updated", { detail: [logEntry] })
-    );
-
-    setSentChannel("whatsapp");
-    setSentStatus("sent");
-    setSentSuccess(true);
-    setAutoCloseSeconds(5);
-    setIsPaused(false);
-    onSuccess?.(`WhatsApp message opened and logged for ${studentName}'s parent.`);
-  };
-
   const handleSendViaEmail = async () => {
     setDispatching(true);
-    await new Promise((r) => setTimeout(r, 450));
+    let accepted = false;
+    let detail = "Verified parent email or student link missing.";
+    if (studentId && studentEmail) {
+      try {
+        const response = await apiFetch("/api/parents/attendance/notify", {
+          method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ studentId, kind: isDefaulter ? "low_attendance" : "daily_attendance", date }),
+        });
+        const result = await response.json().catch(() => ({}));
+        accepted = response.ok && result.success === true && result.status === "provider_accepted";
+        detail = result.message || result.reason || result.status || "Request not accepted";
+      } catch { detail = "Notification backend unavailable"; }
+    }
 
     const logEntry: SmsLog = {
       id: `sms-email-${Date.now()}`,
@@ -258,14 +231,12 @@ export const ParentAlertModal: React.FC<ParentAlertModalProps> = ({
       attendance_rate: studentAttendanceRate,
       email_subject: emailSubject,
       message: emailBody,
-      status: "sent",
+      status: accepted ? "sent" : "failed",
       attendance_date: date,
       sent_at: new Date().toISOString(),
       language: selectedOption,
       gateway: "Email Notification Service",
-      gateway_response: isDefaulter
-        ? `Defaulter (<75%) Warning Email sent to ${studentEmail}`
-        : `Absence Email sent to ${studentEmail}`,
+      gateway_response: detail,
     };
 
     await localDb.insert("sms_logs", [logEntry]);
@@ -275,12 +246,12 @@ export const ParentAlertModal: React.FC<ParentAlertModalProps> = ({
 
     setDispatching(false);
     setSentChannel("email");
-    setSentStatus("sent");
+    setSentStatus(accepted ? "sent" : "failed");
     setSentSuccess(true);
     setAutoCloseSeconds(5);
     setIsPaused(false);
     onSuccess?.(
-      `Official ${isDefaulter ? "Defaulter (<75%) " : ""}Email dispatched to ${studentEmail}!`
+      accepted ? "Email provider accepted request; delivery not confirmed." : detail
     );
   };
 
@@ -289,6 +260,7 @@ export const ParentAlertModal: React.FC<ParentAlertModalProps> = ({
 
     const isMobileValid = isValid10DigitMobile(parentMobile);
     let gatewayDetails = "";
+    let gatewayAccepted = false;
 
     if (isMobileValid && parentMobile) {
       try {
@@ -303,13 +275,14 @@ export const ParentAlertModal: React.FC<ParentAlertModalProps> = ({
         ]);
         if (gatewayRes.results && gatewayRes.results.length > 0) {
           gatewayDetails = gatewayRes.results[0].details || "";
+          gatewayAccepted = gatewayRes.results[0].status === "sent" || gatewayRes.results[0].status === "accepted" || gatewayRes.results[0].status === "delivered";
         }
       } catch (err: any) {
         console.warn("Gateway direct alert dispatch note:", err);
       }
     }
 
-    const status = parentMobile && isMobileValid ? "sent" : "failed";
+    const status = gatewayAccepted ? "sent" : "failed";
     const logEntry: SmsLog = {
       id: `sms-direct-${Date.now()}`,
       student_id: studentId || null,
@@ -424,15 +397,11 @@ export const ParentAlertModal: React.FC<ParentAlertModalProps> = ({
                 <div className="space-y-1 text-xs">
                   <span className="font-bold text-sm block">
                     {sentStatus === "sent"
-                      ? sentChannel === "whatsapp"
-                        ? "WhatsApp Message Dispatched & Logged!"
-                        : "Absence Alert Dispatched Successfully!"
+                      ? "Provider request recorded; delivery not confirmed"
                       : "Alert Logged with Delivery Flag"}
                   </span>
                   <p className="text-muted-foreground leading-relaxed">
-                    {sentChannel === "whatsapp"
-                      ? `WhatsApp communication launched for ${studentName}'s parent (${parentMobile || "N/A"}). Audit record preserved in logs.`
-                      : `Official absence warning transmitted to ${studentName}'s parent (${parentMobile || "N/A"}). Log entry confirmed.`}
+                    {`Notification outcome recorded for ${studentName}; delivery not confirmed.`}
                   </p>
                 </div>
               </div>
@@ -509,9 +478,7 @@ export const ParentAlertModal: React.FC<ParentAlertModalProps> = ({
                   <div>
                     <span className="text-muted-foreground block">Channel:</span>
                     <strong className="capitalize text-foreground">
-                      {sentChannel === "whatsapp"
-                        ? "WhatsApp Direct"
-                        : "Automated SMS"}
+                      {sentChannel === "email" ? "Email" : "Automated SMS"}
                     </strong>
                   </div>
                   <div>
@@ -606,7 +573,7 @@ export const ParentAlertModal: React.FC<ParentAlertModalProps> = ({
                 </div>
               </div>
 
-              {/* 3 Alert Channel Options: SMS, Email, WhatsApp */}
+              {/* Alert channels: SMS and Email */}
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
                   <label className="text-xs font-bold text-foreground flex items-center gap-1.5">
@@ -620,7 +587,7 @@ export const ParentAlertModal: React.FC<ParentAlertModalProps> = ({
                   )}
                 </div>
 
-                <div className="grid grid-cols-3 gap-2">
+                <div className="grid grid-cols-2 gap-2">
                   {/* Channel 1: SMS */}
                   <button
                     type="button"
@@ -654,19 +621,6 @@ export const ParentAlertModal: React.FC<ParentAlertModalProps> = ({
                     )}
                   </button>
 
-                  {/* Channel 3: WhatsApp */}
-                  <button
-                    type="button"
-                    onClick={() => setSelectedChannel("whatsapp")}
-                    className={`flex items-center justify-center gap-1.5 p-2.5 rounded-xl border text-xs font-semibold transition-all ${
-                      selectedChannel === "whatsapp"
-                        ? "border-emerald-600 bg-emerald-600 text-white shadow-xs"
-                        : "border-border bg-card text-muted-foreground hover:text-foreground hover:bg-muted/40"
-                    }`}
-                  >
-                    <MessageSquare className="h-4 w-4" />
-                    <span>WhatsApp</span>
-                  </button>
                 </div>
 
                 {/* Email Defaulter Rule Banner */}
@@ -738,7 +692,7 @@ export const ParentAlertModal: React.FC<ParentAlertModalProps> = ({
                   </div>
                 </div>
               ) : (
-                /* SMS or WhatsApp Content Options */
+                /* SMS Content Options */
                 <div className="space-y-3">
                   {/* Message Language / Type: Eng, Marathi, Both */}
                   <div className="space-y-2">
@@ -799,7 +753,7 @@ export const ParentAlertModal: React.FC<ParentAlertModalProps> = ({
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-2">
                         <span className="text-xs font-bold text-foreground">
-                          {selectedChannel === "whatsapp" ? "WhatsApp Text:" : "SMS Message Content:"}
+                          {"SMS Message Content:"}
                         </span>
                         <Badge variant="outline" className="text-[10px] font-mono">
                           {messageText.length} chars · {Math.max(1, Math.ceil(messageText.length / 160))} SMS credit
@@ -930,18 +884,6 @@ export const ParentAlertModal: React.FC<ParentAlertModalProps> = ({
                 </Button>
               )}
 
-              {selectedChannel === "whatsapp" && (
-                <Button
-                  type="button"
-                  size="sm"
-                  onClick={handleSendViaWhatsApp}
-                  disabled={dispatching || !parentMobile}
-                  className="w-full sm:w-auto text-xs font-semibold h-9 shadow-xs bg-emerald-600 hover:bg-emerald-700 text-white"
-                >
-                  <MessageSquare className="h-3.5 w-3.5 mr-1.5" />
-                  Open in WhatsApp Web / App
-                </Button>
-              )}
             </div>
           </DialogFooter>
         )}

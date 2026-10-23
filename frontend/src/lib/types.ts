@@ -89,6 +89,8 @@ export interface Student {
   section?: string | null;
   parent_name?: string | null;
   parent_mobile?: string | null;
+  parent_email?: string | null;
+  parent_email_verified_at?: string | null;
   student_mobile?: string | null;
   email?: string | null;
   photo_url?: string | null;
@@ -122,7 +124,7 @@ export type SmsLanguage =
   | "bilingual_mr"
   | "bilingual_hi";
 
-export type AlertChannel = "sms" | "email" | "whatsapp";
+export type AlertChannel = "sms" | "email";
 
 export interface SmsLog {
   id: string;

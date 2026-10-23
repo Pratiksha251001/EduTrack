@@ -29,7 +29,6 @@ import {
   ENGINEERING_YEARS,
   getEngineeringYearFromSemester,
   getEngineeringYearCode,
-  getParentWhatsAppUrl,
 } from "../lib/college";
 import {
   exportAttendancePdf,
@@ -1092,19 +1091,7 @@ export const Reports: React.FC = () => {
                             <span className="font-mono text-foreground text-[11px]">
                               {r.parentMobile}
                             </span>
-                            <a
-                              href={getParentWhatsAppUrl(
-                                r.parentMobile,
-                                `Dear Parent, Your ward ${r.name} (Roll: ${r.roll}) has secured ${r.percentage}% attendance. Required minimum is ${college.minAttendance}%. Please ensure regular attendance. - ${college.name}`
-                              )}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="p-1 rounded text-emerald-600 hover:bg-emerald-500/15 inline-flex items-center"
-                              title="Send WhatsApp Direct Message"
-                            >
-                              <ExternalLink className="h-3 w-3" />
-                            </a>
-                            {isDefaulter && (
+{isDefaulter && (
                               <Button
                                 size="sm"
                                 variant="outline"
@@ -1160,7 +1147,7 @@ export const Reports: React.FC = () => {
         roleScopeLabel={roleScopeLabel}
         onAlertsSent={(count) => {
           setAlertToast(
-            `Successfully dispatched monthly low attendance SMS alerts to ${count} parent(s)!`
+            `Monthly alert requests recorded for ${count} parent(s)!`
           );
           setTimeout(() => setAlertToast(null), 5000);
         }}

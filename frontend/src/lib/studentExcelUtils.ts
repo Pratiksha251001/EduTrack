@@ -15,6 +15,7 @@ export interface ParsedStudentRow {
   semester: number;
   parent_name: string;
   parent_mobile: string;
+  parent_email: string;
   student_mobile: string;
   email: string;
   date_of_birth: string;
@@ -218,6 +219,7 @@ export async function parseStudentSpreadsheet(
 
     // 8. Email
     const email = getVal("email", "student_email", "mail");
+    const parentEmail = getVal("parent_email", "parent_email_id", "guardian_email").toLowerCase();
 
     // 9. Date of Birth
     const rawDob =
@@ -254,6 +256,7 @@ export async function parseStudentSpreadsheet(
           full_name: fullName,
           parent_name: parentName,
           parent_mobile: cleanedParentMobile || parentMobile,
+          parent_email: parentEmail,
           student_mobile: cleanedStudentMobile || studentMobile,
           email,
         },
@@ -278,6 +281,7 @@ export async function parseStudentSpreadsheet(
       semester,
       parent_name: parentName,
       parent_mobile: cleanedParentMobile || parentMobile,
+      parent_email: parentEmail,
       student_mobile: cleanedStudentMobile || studentMobile,
       email,
       date_of_birth: dob,
@@ -313,6 +317,7 @@ export function downloadStudentExcelTemplate(semester: number = 1) {
     "Parent Mobile (10 Digits)*",
     "Student Mobile (10 Digits)",
     "Student Email*",
+    "Parent Email (Optional, Verification Required)",
     "Gender (male/female)",
     "Residential Address",
   ];
@@ -326,6 +331,7 @@ export function downloadStudentExcelTemplate(semester: number = 1) {
       "9876543210",
       "9876543211",
       "aarav.s@student.edu",
+      "",
       "male",
       "Plot 42, North Campus Enclave",
     ],
@@ -337,6 +343,7 @@ export function downloadStudentExcelTemplate(semester: number = 1) {
       "9876543212",
       "9876543213",
       "diya.p@student.edu",
+      "",
       "female",
       "14 Royal Palms Residency",
     ],
@@ -348,6 +355,7 @@ export function downloadStudentExcelTemplate(semester: number = 1) {
       "9876543214",
       "9876543215",
       "rohan.v@student.edu",
+      "",
       "male",
       "A-88 Green Park Extension",
     ],
@@ -385,6 +393,7 @@ export function downloadStudentCsvTemplate(semester: number = 1) {
     "parent_mobile",
     "student_mobile",
     "email",
+    "parent_email",
     "gender",
     "address",
   ];
@@ -398,6 +407,7 @@ export function downloadStudentCsvTemplate(semester: number = 1) {
       "+91 98765 43210",
       "+91 98765 43211",
       "aarav.s@student.edu",
+      "",
       "male",
       "Plot 42 North Campus Enclave",
     ],
@@ -409,6 +419,7 @@ export function downloadStudentCsvTemplate(semester: number = 1) {
       "+91 98765 43212",
       "+91 98765 43213",
       "diya.p@student.edu",
+      "",
       "female",
       "14 Royal Palms Residency",
     ],

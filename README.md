@@ -210,7 +210,7 @@ To comply with university norms requiring minimum 75% attendance for examination
    - Pre-configured warning about examination detention risk under university regulations.
 5. **Bulk & Individual Dispatch**:
    - Send SMS alerts to all defaulters in one click.
-   - Send one-on-one direct WhatsApp notifications to parents with custom messages.
+   - Send parent notifications through supported SMS and email channels.
    - All dispatches are automatically logged in `sms_logs` with timestamps, parent mobile numbers, and delivery status.
 
 ---

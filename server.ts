@@ -3,8 +3,14 @@ dotenv.config();
 import fs from "fs";
 import path from "path";
 import express from "express";
+
+import parentNotificationDispatch from "./backend/parent-notification-dispatch.cjs";
+const { registerParentNotificationDispatch } = parentNotificationDispatch;
+
+import parentEmailRoutes from "./backend/parent-email-routes.cjs";
+const { registerParentEmailRoutes } = parentEmailRoutes;
 import cors from "cors";
-// @ts-expect-error TS7016: `ws` has no declaration file in this project.
+
 import ws from "ws";
 import { createClient } from "@supabase/supabase-js";
 import { randomUUID, timingSafeEqual } from "node:crypto";
@@ -472,7 +478,9 @@ async function executeSingleSmsDispatch(
     const msgDetails = Array.isArray(fData.message)
       ? fData.message.join(", ")
       : fData.message ||
-        (ok ? "Dispatched via Fast2SMS" : `Fast2SMS HTTP ${fRes.status}`);
+        (ok
+          ? "Accepted by Fast2SMS; delivery not confirmed"
+          : `Fast2SMS HTTP ${fRes.status}`);
 
     return {
       success: ok,
@@ -596,7 +604,7 @@ async function executeSingleSmsDispatch(
       provider: "Twilio",
       messageId: twData.sid,
       details: ok
-        ? `Delivered via Twilio (${twData.status})`
+        ? `Twilio response (${twData.status}); delivery not confirmed`
         : twData.message ||
           twData.error_message ||
           `Twilio HTTP ${twRes.status}`,
@@ -745,7 +753,7 @@ async function executeSingleSmsDispatch(
       details:
         parsedBody?.message ||
         (ok
-          ? "Delivered successfully via Custom API"
+          ? "Accepted by Custom API; delivery not confirmed"
           : `Custom Gateway HTTP ${cRes.status}: ${respText.slice(0, 150)}`),
       raw: parsedBody || respText,
     };
@@ -773,6 +781,15 @@ async function startServer() {
     }),
   );
   app.use(express.json());
+  registerParentNotificationDispatch(app, {
+    admin: supabaseAdmin,
+    requireManager: requireAccountManager,
+  });
+
+  registerParentEmailRoutes(app, {
+    admin: supabaseAdmin,
+    requireManager: requireAccountManager,
+  });
 
   printAsciiTerminalBanner(PORT);
   addLog("info", `Starting EduTrack full-stack application on port ${PORT}...`);
@@ -887,6 +904,11 @@ async function startServer() {
         return res
           .status(401)
           .json({ success: false, message: "Authentication required." });
+      if (role === "hod" && actor.role !== "admin")
+        return res.status(403).json({
+          success: false,
+          message: "Only administrators may provision HOD accounts.",
+        });
       if (actor.role === "class_coordinator" && role !== "student")
         return res.status(403).json({
           success: false,
@@ -1067,6 +1089,11 @@ async function startServer() {
           message: "You may update accounts only in your department.",
         });
       const targetDepartmentId = departmentId || entity.department_id || null;
+      if (actor.role !== "admin" && targetDepartmentId !== actor.departmentId)
+        return res.status(403).json({
+          success: false,
+          message: "You may not move accounts outside your department.",
+        });
       const normalizedEmail = String(email).trim().toLowerCase();
       const normalizedName = String(fullName).trim();
       const { data: authBefore, error: authReadError } =
@@ -2054,6 +2081,15 @@ async function startServer() {
         next,
       ),
     async (req, res) => {
+      const actor = (req as AuthorizedRequest).actor;
+      if (actor?.role !== "admin") {
+        return res
+          .status(403)
+          .json({
+            success: false,
+            message: "Generic email dispatch is restricted to administrators.",
+          });
+      }
       const {
         to_email,
         subject,

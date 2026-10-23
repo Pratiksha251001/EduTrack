@@ -1,0 +1,11 @@
+'use strict';
+const test = require('node:test');
+const assert = require('node:assert/strict');
+const { normalizeParentEmail, issueVerificationToken, hashToken, verifyToken, eligibleParentRecipient, TOKEN_TTL_MS } = require('../backend/parent-email-verification.cjs');
+test('normalizes valid parent email',()=>assert.equal(normalizeParentEmail(' Parent@Example.COM '),'parent@example.com'));
+test('rejects malformed parent email',()=>{for(const input of ['', 'a@', '@x.test','a b@x.test',null,1])assert.equal(normalizeParentEmail(input),null)});
+test('token is cryptographically random and never stored raw',()=>{const a=issueVerificationToken(1000),b=issueVerificationToken(1000);assert.notEqual(a.token,b.token);assert.notEqual(a.token,a.tokenHash);assert.equal(hashToken(a.token),a.tokenHash);assert.equal(a.token.length,64)});
+test('accepts matching token before expiry',()=>{const t=issueVerificationToken(1000);assert.equal(verifyToken(t.token,t.tokenHash,t.expiresAt,1000),true)});
+test('rejects mismatched, invalid and expired tokens',()=>{const t=issueVerificationToken(1000);assert.equal(verifyToken('f'.repeat(64),t.tokenHash,t.expiresAt,1000),false);assert.equal(verifyToken('oops',t.tokenHash,t.expiresAt,1000),false);assert.equal(verifyToken(t.token,t.tokenHash,t.expiresAt,1000+TOKEN_TTL_MS),false)});
+test('only verified parent address is eligible',()=>{assert.equal(eligibleParentRecipient({parent_email:'p@example.com'}),null);assert.equal(eligibleParentRecipient({parent_email:'P@Example.com',parent_email_verified_at:'2026-10-22T00:00:00Z'}),'p@example.com')});
+test('invalid recipient never becomes eligible',()=>assert.equal(eligibleParentRecipient({parent_email:'not-an-email',parent_email_verified_at:'2026-10-22T00:00:00Z'}),null));

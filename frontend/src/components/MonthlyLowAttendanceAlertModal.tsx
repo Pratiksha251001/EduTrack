@@ -36,7 +36,6 @@ import {
   college,
   getMonthlyLowAttendanceMessage,
   cleanSmsMessage,
-  getParentWhatsAppUrl,
   generateEmailAlertContent,
 } from "../lib/college";
 import { localDb } from "../lib/supabase";
@@ -139,7 +138,6 @@ export const MonthlyLowAttendanceAlertModal: React.FC<
       attended: number;
       total: number;
       className: string;
-      waUrl: string;
     }>;
   } | null>(null);
   const [autoCloseSeconds, setAutoCloseSeconds] = useState<number>(6);
@@ -232,7 +230,7 @@ export const MonthlyLowAttendanceAlertModal: React.FC<
           (a) => a.status === "present"
         ).length;
         const absentSessions = totalSessions - attendedSessions;
-        const percentage = Math.round((attendedSessions / totalSessions) * 100);
+        const percentage = (attendedSessions / totalSessions) * 100;
 
         if (percentage < minAttendance) {
           const shortfall = Math.max(
@@ -561,7 +559,6 @@ export const MonthlyLowAttendanceAlertModal: React.FC<
           attended: t.attendedSessions,
           total: t.totalSessions,
           className: t.className,
-          waUrl: getParentWhatsAppUrl(t.parentMobile, cleanSmsMessage(msg)),
         };
       });
 
@@ -864,10 +861,6 @@ export const MonthlyLowAttendanceAlertModal: React.FC<
                 {visibleDefaulters.map((d) => {
                   const isSelected = selectedStudentIds.has(d.student.id);
                   const isPreviewed = previewStudentId === d.student.id;
-                  const waUrl = getParentWhatsAppUrl(
-                    d.parentMobile,
-                    previewMessage
-                  );
 
                   return (
                     <div
@@ -940,18 +933,6 @@ export const MonthlyLowAttendanceAlertModal: React.FC<
                           >
                             Pending
                           </Badge>
-                        )}
-
-                        {d.hasValidMobile && (
-                          <a
-                            href={waUrl}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="p-1 rounded-md border border-border hover:bg-emerald-500/10 text-emerald-600"
-                            title="WhatsApp"
-                          >
-                            <ExternalLink className="h-3 w-3" />
-                          </a>
                         )}
                       </div>
                     </div>

@@ -29,11 +29,10 @@ import { AlertChannel, Student, SmsLog } from "../lib/types";
 import {
   generateEmailAlertContent,
   generateSmsMessage,
-  getParentWhatsAppUrl,
   cleanSmsMessage,
 } from "../lib/college";
 import { dispatchSmsViaGateway } from "../lib/smsService";
-import { sendEmailAlert } from "../lib/emailService";
+import { apiFetch } from "../lib/api";
 
 export interface DefaulterStudentItem {
   student: Student;
@@ -88,9 +87,9 @@ export const DefaulterDirectAlertModal: React.FC<
       const total = records.length;
       const present = records.filter((a) => a.status === "present").length;
       // If student has records, calculate real %; otherwise default to 65% for test student
-      const percentage = total > 0 ? Math.round((present / total) * 100) : 65;
+      const percentage = total > 0 ? (present / total) * 100 : null;
 
-      if (percentage < 75) {
+      if (percentage !== null && percentage < 75) {
         const className =
           st.class_name ||
           (st.class_id ? classesMap.get(st.class_id) : undefined) ||
@@ -101,13 +100,11 @@ export const DefaulterDirectAlertModal: React.FC<
           name: st.full_name,
           className,
           percentage,
-          totalLectures: total || 20,
-          attendedLectures: present || Math.round(20 * (percentage / 100)),
+          totalLectures: total,
+          attendedLectures: present,
           parentName: st.parent_name || "Parent",
           parentMobile: st.parent_mobile || "",
-          parentEmail:
-            st.email ||
-            `${st.full_name.toLowerCase().replace(/\s+/g, ".")}@engg.college.edu`,
+          parentEmail: st.parent_email_verified_at ? (st.parent_email || "") : "",
         });
       }
     });
@@ -213,16 +210,21 @@ export const DefaulterDirectAlertModal: React.FC<
             body += `\n\nAdministrative Note: ${customNote.trim()}`;
           }
 
-          const emailResult = await sendEmailAlert({
-            to_email: t.parentEmail,
-            subject: emailContent.subject,
-            message: body,
-            student_name: t.name,
-            parent_name: t.student.parent_name || undefined,
-            attendance_rate: t.percentage,
-            college_name: "SMIT College of Engineering",
-          });
-
+          let emailResult = { success: false, isSimulated: false, message: "Verified parent email unavailable." };
+          if (t.parentEmail) {
+            try {
+              const response = await apiFetch("/api/parents/attendance/notify", {
+                method: "POST", headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ studentId: t.student.id, kind: "low_attendance", date: todayStr }),
+              });
+              const result = await response.json().catch(() => ({}));
+              emailResult = {
+                success: response.ok && result.success === true && result.status === "provider_accepted",
+                isSimulated: false,
+                message: result.message || result.reason || result.status || "Not accepted",
+              };
+            } catch { emailResult.message = "Notification backend unavailable."; }
+          }
           const isLive = !emailResult.isSimulated && emailResult.success;
           newLogs.push({
             id: `email-defaulter-${Date.now()}-${t.student.id}-${Math.random().toString(36).substring(2, 6)}`,
@@ -290,31 +292,6 @@ export const DefaulterDirectAlertModal: React.FC<
           }
         }
 
-        // 3. Channel: WhatsApp
-        if (selectedChannels.includes("whatsapp")) {
-          let waMsg = `*⚠️ CRITICAL LOW ATTENDANCE NOTICE (<75%)*\n\nStudent: *${t.name}* (Roll: ${t.roll})\nClass: *${t.className}*\nAttendance: *${t.percentage}%* (Below mandatory 75%)\n\nDear Parent, your ward's attendance is critically deficient. Please contact the department coordinator immediately.\n\n- EduTrack Engineering Academic Cell`;
-          if (customNote.trim()) {
-            waMsg += `\n\n*Note:* ${customNote.trim()}`;
-          }
-
-          newLogs.push({
-            id: `wa-defaulter-${Date.now()}-${t.student.id}-${Math.random().toString(36).substring(2, 6)}`,
-            student_id: t.student.id,
-            student_name: t.name,
-            parent_mobile: t.parentMobile,
-            channel: "whatsapp",
-            is_defaulter_alert: true,
-            attendance_rate: t.percentage,
-            message: waMsg,
-            status: "pending",
-            attendance_date: todayStr,
-            sent_at: timestamp,
-            language: "en",
-            gateway: "WhatsApp",
-            gateway_response: "WhatsApp provider integration is not configured",
-            created_at: timestamp,
-          });
-        }
       }
 
       let logsRecorded = false;
@@ -435,7 +412,7 @@ export const DefaulterDirectAlertModal: React.FC<
                 </span>
               </div>
 
-              <div className="grid grid-cols-3 gap-2">
+              <div className="grid grid-cols-2 gap-2">
                 {/* 1. Email */}
                 <button
                   type="button"
@@ -473,22 +450,6 @@ export const DefaulterDirectAlertModal: React.FC<
                   )}
                 </button>
 
-                {/* 3. WhatsApp */}
-                <button
-                  type="button"
-                  onClick={() => toggleChannel("whatsapp")}
-                  className={`flex items-center justify-center gap-1.5 py-2 px-3 rounded-lg border text-xs font-semibold transition-all ${
-                    selectedChannels.includes("whatsapp")
-                      ? "bg-emerald-600 text-white border-emerald-600 shadow-xs"
-                      : "bg-muted/40 border-border text-muted-foreground hover:text-foreground"
-                  }`}
-                >
-                  <MessageSquare className="h-4 w-4" />
-                  <span>WhatsApp</span>
-                  {selectedChannels.includes("whatsapp") && (
-                    <Check className="h-3.5 w-3.5 ml-0.5" />
-                  )}
-                </button>
               </div>
 
               <p className="text-[10.5px] text-muted-foreground leading-relaxed pt-0.5">

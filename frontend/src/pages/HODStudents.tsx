@@ -116,6 +116,7 @@ export const HODStudents: React.FC = () => {
     semester: "1",
     parent_name: "",
     parent_mobile: "",
+    parent_email: "",
     email: "",
     password: "",
   });
@@ -129,6 +130,7 @@ export const HODStudents: React.FC = () => {
       semester: "1",
       parent_name: "",
       parent_mobile: "",
+      parent_email: "",
       email: "",
       password: "",
     });
@@ -144,6 +146,7 @@ export const HODStudents: React.FC = () => {
       semester: String(st.semester || 1),
       parent_name: st.parent_name || "",
       parent_mobile: st.parent_mobile || "",
+      parent_email: st.parent_email || "",
       email: st.email || "",
       password: "",
     });
@@ -263,6 +266,10 @@ export const HODStudents: React.FC = () => {
     );
     if (mobileErr) errs.push(mobileErr);
 
+    if (form.parent_email && !isValidEmail(form.parent_email)) {
+      errs.push("Please provide a valid parent email address.");
+    }
+
     if (form.email && !isValidEmail(form.email)) {
       errs.push("Please provide a valid email address.");
     }
@@ -285,6 +292,7 @@ export const HODStudents: React.FC = () => {
         semester: Number(form.semester),
         parent_name: form.parent_name.trim() || null,
         parent_mobile: cleanMobile(form.parent_mobile),
+        parent_email: form.parent_email.trim().toLowerCase() || null,
         email: form.email.trim() || null,
       });
 
@@ -318,6 +326,7 @@ export const HODStudents: React.FC = () => {
           semester: Number(form.semester),
           parent_name: form.parent_name.trim() || null,
           parent_mobile: cleanMobile(form.parent_mobile),
+          parent_email: form.parent_email.trim().toLowerCase() || null,
           email: form.email.trim() || null,
           department_id: departmentId,
           status: "active",
@@ -376,6 +385,8 @@ export const HODStudents: React.FC = () => {
       "Semester",
       "Parent Name",
       "Parent Mobile",
+      "Parent Email",
+      "Parent Email Verification",
       "Student Email",
       "Total Sessions",
       "Present Sessions",
@@ -399,6 +410,8 @@ export const HODStudents: React.FC = () => {
         s.semester,
         `"${s.parent_name || ""}"`,
         `"${s.parent_mobile || ""}"`,
+        `"${s.parent_email || ""}"`,
+        `"${s.parent_email ? (s.parent_email_verified_at ? "Verified" : "Not verified") : "No address"}"`,
         `"${s.email || ""}"`,
         stat.total,
         stat.present,
@@ -646,6 +659,20 @@ export const HODStudents: React.FC = () => {
                   !isValid10DigitMobile(form.parent_mobile)
                     ? "border-destructive"
                     : ""
+                }
+              />
+            </div>
+
+            <div>
+              <label className="text-xs font-semibold text-muted-foreground mb-1 block">
+                Parent Email (verification required)
+              </label>
+              <Input
+                type="email"
+                placeholder="parent@example.com"
+                value={form.parent_email}
+                onChange={(event) =>
+                  setForm({ ...form, parent_email: event.target.value })
                 }
               />
             </div>

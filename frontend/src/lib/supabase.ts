@@ -1163,8 +1163,6 @@ class LocalDatabase {
         });
       }
     }
-    this.persist("attendance");
-
     if (isSupabaseConfigured) {
       try {
         const payload = records.map((r) =>
@@ -1172,12 +1170,14 @@ class LocalDatabase {
         );
         const { error } = await supabase.from("attendance").upsert(payload);
         if (error) {
-          console.error("Supabase upsert attendance error:", error);
+          throw new Error(`Attendance persistence failed: ${error.message}`);
         }
       } catch (err) {
         console.error("Supabase upsert attendance exception:", err);
+        throw err;
       }
     }
+    this.persist("attendance");
   }
 }
 

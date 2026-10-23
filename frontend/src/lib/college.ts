@@ -297,23 +297,6 @@ export function generateSmsMessage(
   return getEnglishAbsenceMessage(studentName, date, subjectName);
 }
 
-/**
- * Format clean phone number and generate WhatsApp direct send URL
- */
-export function formatParentPhoneForWhatsApp(phone: string): string {
-  let cleaned = phone.replace(/[^0-9]/g, "");
-  // If standard Indian 10 digits without country code, prepend 91
-  if (cleaned.length === 10) {
-    cleaned = `91${cleaned}`;
-  }
-  return cleaned;
-}
-
-export function getParentWhatsAppUrl(phone: string, message: string): string {
-  const cleanPhone = formatParentPhoneForWhatsApp(phone);
-  return `https://wa.me/${cleanPhone}?text=${encodeURIComponent(message)}`;
-}
-
 export interface MonthlyLowAttendanceMsgParams {
   studentName: string;
   rollNumber: string;
@@ -403,30 +386,4 @@ ${typeof currentRate === "number" ? `Current Cumulative Attendance: ${currentRat
 Regards,
 EduTrack Portal`;
   return { subject, body };
-}
-
-/**
- * Generate formatted WhatsApp message for attendance alerts
- */
-export function generateWhatsAppMessage(
-  studentName: string,
-  date: string,
-  subjectName: string,
-  status: "absent" | "present" = "absent",
-  _lang: SmsLanguage = "en",
-  currentRate?: number,
-): string {
-  const shortSub = getSubjectShortName(subjectName);
-  const isDefaulter = typeof currentRate === "number" && currentRate < 75;
-
-  if (status === "absent") {
-    let msg = `*EduTrack Attendance Alert*\nDear Parent, your ward *${studentName}* is marked *ABSENT* for *${shortSub}* today (${date}).`;
-    if (isDefaulter) {
-      msg += `\n\n⚠️ *CRITICAL DEFICIT WARNING:*\nOverall attendance has fallen to *${currentRate}%* (below mandatory 75% minimum). Please contact the Class Coordinator immediately.`;
-    }
-    msg += `\n\n— EduTrack College Portal`;
-    return msg;
-  }
-
-  return `*EduTrack Attendance Update*\nDear Parent, your ward *${studentName}* is marked *PRESENT* for *${shortSub}* today (${date}).\n\n— EduTrack College Portal`;
 }
