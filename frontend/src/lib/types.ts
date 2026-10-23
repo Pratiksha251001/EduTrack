@@ -1,9 +1,5 @@
 export type UserRoleType =
-  | "admin"
-  | "hod"
-  | "teacher"
-  | "class_coordinator"
-  | "student";
+  "admin" | "hod" | "teacher" | "class_coordinator" | "student";
 
 export interface Department {
   id: string;
@@ -90,7 +86,8 @@ export interface Student {
   parent_name?: string | null;
   parent_mobile?: string | null;
   parent_email?: string | null;
-  parent_email_verified_at?: string | null;
+  parent_email_approved_at?: string | null;
+  parent_email_approved_by?: string | null;
   student_mobile?: string | null;
   email?: string | null;
   photo_url?: string | null;
@@ -185,9 +182,7 @@ export interface Notice {
 }
 
 export type NotificationType =
-  | "security_login_failed"
-  | "attendance_submitted"
-  | "general";
+  "security_login_failed" | "attendance_submitted" | "general";
 
 export interface AppNotification {
   id: string;

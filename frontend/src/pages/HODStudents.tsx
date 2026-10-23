@@ -386,7 +386,6 @@ export const HODStudents: React.FC = () => {
       "Parent Name",
       "Parent Mobile",
       "Parent Email",
-      "Parent Email Verification",
       "Student Email",
       "Total Sessions",
       "Present Sessions",
@@ -411,7 +410,6 @@ export const HODStudents: React.FC = () => {
         `"${s.parent_name || ""}"`,
         `"${s.parent_mobile || ""}"`,
         `"${s.parent_email || ""}"`,
-        `"${s.parent_email ? (s.parent_email_verified_at ? "Verified" : "Not verified") : "No address"}"`,
         `"${s.email || ""}"`,
         stat.total,
         stat.present,
@@ -665,7 +663,7 @@ export const HODStudents: React.FC = () => {
 
             <div>
               <label className="text-xs font-semibold text-muted-foreground mb-1 block">
-                Parent Email (verification required)
+                Parent Email
               </label>
               <Input
                 type="email"
