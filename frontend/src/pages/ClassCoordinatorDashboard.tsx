@@ -76,7 +76,13 @@ import {
   TableRow,
 } from "../components/ui/table";
 
-export const ClassCoordinatorDashboard: React.FC = () => {
+interface ClassCoordinatorDashboardProps {
+  studentsOnly?: boolean;
+}
+
+export const ClassCoordinatorDashboard: React.FC<
+  ClassCoordinatorDashboardProps
+> = ({ studentsOnly = false }) => {
   const { user } = useAuth();
   const [activeMainTab, setActiveMainTab] = useState<"students" | "subjects">(
     "students",
@@ -293,6 +299,7 @@ export const ClassCoordinatorDashboard: React.FC = () => {
     setEditingStudent(null);
     setStudentForm({
       roll_number: "",
+      prn_number: "",
       reg_number: "",
       full_name: "",
       semester: String(myAssignedSemester || 1),
@@ -882,20 +889,25 @@ export const ClassCoordinatorDashboard: React.FC = () => {
                 {myStudents.length}
               </Badge>
             </button>
-            <button
-              onClick={() => setActiveMainTab("subjects")}
-              className={`inline-flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all ${
-                activeMainTab === "subjects"
-                  ? "bg-primary/10 text-primary shadow-xs border border-primary/25"
-                  : "text-muted-foreground hover:text-foreground"
-              }`}
-            >
-              <BookOpen className="h-3.5 w-3.5" />
-              <span>Subjects & Faculty</span>
-              <Badge variant="secondary" className="text-[10px] px-1 py-0 h-4">
-                {coordinatorSubjects.length}
-              </Badge>
-            </button>
+            {!studentsOnly && (
+              <button
+                onClick={() => setActiveMainTab("subjects")}
+                className={`inline-flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+                  activeMainTab === "subjects"
+                    ? "bg-primary/10 text-primary shadow-xs border border-primary/25"
+                    : "text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                <BookOpen className="h-3.5 w-3.5" />
+                <span>Subjects & Faculty</span>
+                <Badge
+                  variant="secondary"
+                  className="text-[10px] px-1 py-0 h-4"
+                >
+                  {coordinatorSubjects.length}
+                </Badge>
+              </button>
+            )}
           </div>
 
           <Link to="/reports">
@@ -1426,7 +1438,7 @@ export const ClassCoordinatorDashboard: React.FC = () => {
       )}
 
       {/* SUBJECTS & TEACHER ASSIGNMENT TAB */}
-      {activeMainTab === "subjects" && (
+      {!studentsOnly && activeMainTab === "subjects" && (
         <Card className="p-5">
           {/* Informational Guidance Banner */}
           <div className="p-4 mb-5 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-foreground flex flex-col sm:flex-row sm:items-center justify-between gap-3">

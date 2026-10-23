@@ -1,5 +1,11 @@
 import React from "react";
-import { BrowserRouter, Routes, Route, Navigate, useLocation } from "react-router-dom";
+import {
+  BrowserRouter,
+  Routes,
+  Route,
+  Navigate,
+  useLocation,
+} from "react-router-dom";
 import { AuthProvider, useAuth } from "./context/AuthContext";
 import { ThemeProvider } from "./context/ThemeContext";
 import { AppShell } from "./components/AppShell";
@@ -28,6 +34,7 @@ import { ClassTeacherLogin } from "./pages/ClassTeacherLogin";
 import { RoleLogin } from "./pages/RoleLogin";
 import { ClassTeacherDashboard } from "./pages/ClassTeacherDashboard";
 import { Notifications } from "./pages/Notifications";
+import { ParentEmailVerification } from "./pages/ParentEmailVerification";
 import { ForcePasswordChangeModal } from "./components/ForcePasswordChangeModal";
 import { LogoutConfirmDialog } from "./components/LogoutConfirmDialog";
 
@@ -171,6 +178,10 @@ export const App: React.FC = () => {
             <Route path="/" element={<RootRouteHandler />} />
             <Route path="/teacher/login" element={<ClassTeacherLogin />} />
             <Route path="/login/:role" element={<RoleLogin />} />
+            <Route
+              path="/verify-parent-email"
+              element={<ParentEmailVerification />}
+            />
 
             <Route
               element={
