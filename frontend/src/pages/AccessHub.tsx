@@ -494,7 +494,7 @@ export const AccessHub: React.FC = () => {
                 Automated Parent Alerts
               </h3>
               <p className="mt-2 text-xs text-muted-foreground line-clamp-1">
-                Instant SMS, WhatsApp, and Email notices dispatched immediately to parents upon absence.
+                Instant SMS and Email notices dispatched immediately to parents upon absence.
               </p>
             </div>
 
@@ -591,7 +591,9 @@ export const AccessHub: React.FC = () => {
               </h5>
               <div className="pt-0.5">
                 <a
-                  href="mailto:edutrack.work@gmail.com"
+                  href="https://mail.google.com/mail/?view=cm&fs=1&to=edutrack.work@gmail.com"
+                  target="_blank"
+                  rel="noreferrer"
                   className="inline-flex items-center gap-2 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 px-3.5 py-2 text-xs font-semibold text-foreground hover:border-emerald-500/50 hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors shadow-xs"
                 >
                   <Mail className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />

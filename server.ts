@@ -11,7 +11,7 @@ import parentEmailRoutes from "./backend/parent-email-routes.cjs";
 const { registerParentEmailRoutes } = parentEmailRoutes;
 import cors from "cors";
 
-import ws from "ws";
+import { WebSocket } from "ws";
 import { createClient } from "@supabase/supabase-js";
 import { randomUUID, timingSafeEqual } from "node:crypto";
 
@@ -62,13 +62,16 @@ const supabaseUrl = rawSupabaseUrl
 
 const supabase = createClient(supabaseUrl, supabaseKey, {
   realtime: {
-    transport: ws,
+    transport: WebSocket,
   },
 });
 const serviceRoleKey = (process.env.SUPABASE_SERVICE_ROLE_KEY || "").trim();
 const supabaseAdmin = serviceRoleKey
   ? createClient(supabaseUrl, serviceRoleKey, {
       auth: { persistSession: false, autoRefreshToken: false },
+      realtime: {
+        transport: WebSocket,
+      },
     })
   : null;
 
