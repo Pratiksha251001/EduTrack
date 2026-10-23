@@ -48,6 +48,7 @@ create table if not exists public.profiles (
   email text,
   avatar_url text,
   mobile text,
+  must_change_password boolean not null default false,
   created_at timestamp with time zone default timezone('utc'::text, now()) not null
 );
 
@@ -244,7 +245,7 @@ do $$ declare cols text; begin
    where attrelid='public.profiles'::regclass and attnum>0 and not attisdropped;
   execute format('revoke update (%s) on public.profiles from public,anon,authenticated',cols);
 end $$;
-grant update(full_name,avatar_url,mobile) on public.profiles to authenticated;
+grant update(full_name,avatar_url,mobile,must_change_password) on public.profiles to authenticated;
 create policy profiles_read_own on public.profiles for select to authenticated using(id=auth.uid());
 create policy profiles_admin_read on public.profiles for select to authenticated
   using(public.current_user_has_role(array['admin']));
@@ -332,6 +333,10 @@ create policy notices_admin_manage on public.notices for all to authenticated
  using(public.current_user_has_role(array['admin'])) with check(public.current_user_has_role(array['admin']));
 
 -- Ensure columns exist if tables were created previously
+alter table public.profiles add column if not exists must_change_password boolean not null default false;
+alter table public.academic_classes add column if not exists year integer check (year between 1 and 4);
+alter table public.teacher_subjects add column if not exists class_id uuid references public.academic_classes(id) on delete set null;
+alter table public.students add column if not exists year integer check (year between 1 and 4);
 alter table public.teachers add column if not exists designation text;
 alter table public.teachers add column if not exists qualification text;
 alter table public.teachers add column if not exists date_of_birth date;

@@ -35,7 +35,7 @@ test('role-aware RLS hardening removes public policies and protects client write
  assert.match(sql,/revoke all privileges on table[\s\S]*from anon/i);
  assert.match(sql,/revoke insert,update,delete on public\.user_roles from authenticated/i);
  assert.match(sql,/create policy user_roles_read_own/i);
- assert.match(sql,/grant update\(full_name,avatar_url,mobile\) on public\.profiles to authenticated/i);
+ assert.match(sql,/grant update\(full_name,avatar_url,mobile,must_change_password\) on public\.profiles to authenticated/i);
  assert.match(sql,/create policy profiles_update_own/i);
 });
 test('attendance policies are assignment-aware and student reads are own-record only',()=>{
@@ -53,4 +53,18 @@ test('teaching assignments are role and department scoped',()=>{
   assert.match(sql,new RegExp(`create policy teacher_subjects_${action}_by_role`,'i'));
  assert.match(sql,/t\.department_id\s*=\s*public\.current_user_department_id\(\)/i);
  assert.match(sql,/s\.department_id\s*=\s*public\.current_user_department_id\(\)/i);
+});
+
+test('profile compatibility migration supplies auth and attendance dependencies',()=>{
+ const sql=read('20261022230000_profile_schema_compatibility.sql');
+ assert.match(sql,/profiles[\s\S]*must_change_password boolean not null default false/i);
+ assert.match(sql,/academic_classes[\s\S]*add column if not exists year integer/i);
+ assert.match(sql,/teacher_subjects[\s\S]*add column if not exists class_id uuid/i);
+ assert.match(sql,/references public\.academic_classes\(id\) on delete set null/i);
+ assert.match(sql,/students[\s\S]*add column if not exists year integer/i);
+});
+test('profile password-status updates remain available through own-profile RLS',()=>{
+ const sql=read('20261023000000_restrict_anonymous_access.sql');
+ assert.match(sql,/grant update\(full_name,avatar_url,mobile,must_change_password\) on public\.profiles to authenticated/i);
+ assert.match(sql,/create policy profiles_update_own/i);
 });
