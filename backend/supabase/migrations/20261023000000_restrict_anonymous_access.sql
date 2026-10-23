@@ -68,7 +68,7 @@ do $$ declare cols text; begin
    where attrelid='public.profiles'::regclass and attnum>0 and not attisdropped;
   execute format('revoke update (%s) on public.profiles from public,anon,authenticated',cols);
 end $$;
-grant update(full_name,avatar_url,mobile) on public.profiles to authenticated;
+grant update(full_name,avatar_url,mobile,must_change_password) on public.profiles to authenticated;
 create policy profiles_read_own on public.profiles for select to authenticated using(id=auth.uid());
 create policy profiles_admin_read on public.profiles for select to authenticated
   using(public.current_user_has_role(array['admin']));
