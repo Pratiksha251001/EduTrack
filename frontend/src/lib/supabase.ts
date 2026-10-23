@@ -260,22 +260,32 @@ export function sanitizePayloadForSupabase(table: string, rawItem: any): any {
 
 class LocalDatabase {
   private readonly storageKey = "edutrack_local_db";
+
+  private liveFallback<T>(fallback: T[]): T[] {
+    return isSupabaseConfigured ? [] : fallback;
+  }
   private syncReady: Promise<void> = Promise.resolve();
   private realtimeChannel: ReturnType<typeof supabase.channel> | null = null;
-  departments = this.load("departments", mockDepartments);
-  teachers = this.load("teachers", mockTeachers);
-  subjects = this.load("subjects", mockSubjects);
-  students = this.load("students", mockStudents);
-  attendance = this.load("attendance", mockAttendance);
-  sms_logs = this.load("sms_logs", mockSmsLogs);
+  departments = this.load("departments", this.liveFallback(mockDepartments));
+  teachers = this.load("teachers", this.liveFallback(mockTeachers));
+  subjects = this.load("subjects", this.liveFallback(mockSubjects));
+  students = this.load("students", this.liveFallback(mockStudents));
+  attendance = this.load("attendance", this.liveFallback(mockAttendance));
+  sms_logs = this.load("sms_logs", this.liveFallback(mockSmsLogs));
   class_coordinator_assignments = this.load(
     "class_coordinator_assignments",
-    mockClassCoordinatorAssignments,
+    this.liveFallback(mockClassCoordinatorAssignments),
   );
-  teacher_subjects = this.load("teacher_subjects", mockTeacherSubjects);
-  users = this.load("users", mockUsers);
-  notices = this.load("notices", mockNotices);
-  academic_classes = this.load("academic_classes", mockClasses);
+  teacher_subjects = this.load(
+    "teacher_subjects",
+    this.liveFallback(mockTeacherSubjects),
+  );
+  users = this.load("users", this.liveFallback(mockUsers));
+  notices = this.load("notices", this.liveFallback(mockNotices));
+  academic_classes = this.load(
+    "academic_classes",
+    this.liveFallback(mockClasses),
+  );
 
   constructor() {
     if (typeof window !== "undefined") {
@@ -301,34 +311,32 @@ class LocalDatabase {
       });
     }
 
-    if (
-      this.teachers.length === 0 &&
-      localStorage.getItem(`${this.storageKey}_demo_cleared`) !== "true"
-    ) {
-      this.restoreDemoData();
+    if (!isSupabaseConfigured) {
+      if (
+        this.teachers.length === 0 &&
+        localStorage.getItem(`${this.storageKey}_demo_cleared`) !== "true"
+      ) {
+        this.restoreDemoData();
+      } else {
+        if (
+          this.teacher_subjects.length === 0 &&
+          localStorage.getItem(`${this.storageKey}_demo_cleared`) !== "true"
+        ) {
+          this.teacher_subjects = [...mockTeacherSubjects];
+          this.persist("teacher_subjects");
+        }
+        if (
+          this.academic_classes.length === 0 &&
+          localStorage.getItem(`${this.storageKey}_demo_cleared`) !== "true"
+        ) {
+          this.academic_classes = [...mockClasses];
+          this.persist("academic_classes");
+        }
+      }
+      this.ensureStandardEngineeringDivisions();
+      this.migrateLegacyYearCodes();
+      this.syncAllUserAccounts();
     } else {
-      if (
-        this.teacher_subjects.length === 0 &&
-        localStorage.getItem(`${this.storageKey}_demo_cleared`) !== "true"
-      ) {
-        this.teacher_subjects = [...mockTeacherSubjects];
-        this.persist("teacher_subjects");
-      }
-      if (
-        this.academic_classes.length === 0 &&
-        localStorage.getItem(`${this.storageKey}_demo_cleared`) !== "true"
-      ) {
-        this.academic_classes = [...mockClasses];
-        this.persist("academic_classes");
-      }
-    }
-
-    // Ensure 2nd, 3rd, and 4th years have two divisions (A and B), excluding 1st year
-    this.ensureStandardEngineeringDivisions();
-    this.migrateLegacyYearCodes();
-    this.syncAllUserAccounts();
-
-    if (isSupabaseConfigured) {
       this.syncReady = this.syncFromSupabase();
     }
   }
@@ -590,6 +598,9 @@ class LocalDatabase {
       "subjects",
       "students",
       "academic_classes",
+      "class_coordinator_assignments",
+      "teacher_subjects",
+      "attendance",
       "notices",
       "sms_logs",
     ];

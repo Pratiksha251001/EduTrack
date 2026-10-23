@@ -47,7 +47,7 @@ export const Dashboard: React.FC = () => {
   const todayPercentage =
     todayRecords.length > 0
       ? Math.round((todayPresent / todayRecords.length) * 100)
-      : 88;
+      : 0;
 
   const studentStats = useMemo(() => {
     return students.map((st) => {
@@ -114,8 +114,13 @@ export const Dashboard: React.FC = () => {
           </CardHeader>
           <CardContent>
             <div className="text-3xl font-display font-extrabold text-emerald-600">
-              {todayPercentage}%
+              {todayRecords.length > 0 ? `${todayPercentage}%` : "No data"}
             </div>
+            {todayRecords.length === 0 && (
+              <p className="mt-1 text-xs text-muted-foreground">
+                No attendance recorded today
+              </p>
+            )}
           </CardContent>
         </Card>
 
@@ -202,23 +207,29 @@ export const Dashboard: React.FC = () => {
             </CardTitle>
           </CardHeader>
           <CardContent className="h-72">
-            <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={trendData}>
-                <CartesianGrid strokeDasharray="3 3" opacity={0.3} />
-                <XAxis dataKey="date" fontSize={12} />
-                <YAxis domain={[50, 100]} fontSize={12} unit="%" />
-                <Tooltip
-                  formatter={(value: any) => [`${value}%`, "Attendance"]}
-                />
-                <Line
-                  type="monotone"
-                  dataKey="rate"
-                  stroke="oklch(42% 0.09 158)"
-                  strokeWidth={3}
-                  dot={{ r: 4 }}
-                />
-              </LineChart>
-            </ResponsiveContainer>
+            {trendData.length === 0 ? (
+              <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
+                No attendance data available
+              </div>
+            ) : (
+              <ResponsiveContainer width="100%" height="100%">
+                <LineChart data={trendData}>
+                  <CartesianGrid strokeDasharray="3 3" opacity={0.3} />
+                  <XAxis dataKey="date" fontSize={12} />
+                  <YAxis domain={[50, 100]} fontSize={12} unit="%" />
+                  <Tooltip
+                    formatter={(value: any) => [`${value}%`, "Attendance"]}
+                  />
+                  <Line
+                    type="monotone"
+                    dataKey="rate"
+                    stroke="oklch(42% 0.09 158)"
+                    strokeWidth={3}
+                    dot={{ r: 4 }}
+                  />
+                </LineChart>
+              </ResponsiveContainer>
+            )}
           </CardContent>
         </Card>
 
@@ -230,7 +241,11 @@ export const Dashboard: React.FC = () => {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            {defaulters.length === 0 ? (
+            {students.length === 0 ? (
+              <p className="text-sm text-muted-foreground py-8 text-center">
+                No students available.
+              </p>
+            ) : defaulters.length === 0 ? (
               <p className="text-sm text-muted-foreground py-8 text-center">
                 All students meet attendance criteria.
               </p>
