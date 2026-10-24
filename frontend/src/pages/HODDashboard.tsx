@@ -196,15 +196,19 @@ export const HODDashboard: React.FC = () => {
 
   const statCards = [
     {
-      label: "Department",
-      value: myDepartment?.code || "Unassigned",
-      icon: Building2,
+      label: "Classes & Divisions",
+      value: String(deptClasses.length),
+      subtext: "Active classes",
+      href: "/hod/classes",
+      icon: Layers,
       color:
-        "from-cyan-500/20 to-cyan-500/5 text-cyan-600 dark:text-cyan-400 border-cyan-500/20",
+        "from-blue-500/20 to-blue-500/5 text-blue-600 dark:text-blue-400 border-blue-500/20",
     },
     {
       label: "Faculty Members",
       value: String(deptTeachers.length),
+      subtext: "Department teachers",
+      href: "/hod/teachers",
       icon: Users,
       color:
         "from-violet-500/20 to-violet-500/5 text-violet-600 dark:text-violet-400 border-violet-500/20",
@@ -212,20 +216,17 @@ export const HODDashboard: React.FC = () => {
     {
       label: "Class Coordinators",
       value: String(deptAssignments.length),
+      subtext: "Assigned CCs",
+      href: "/hod/coordinators",
       icon: UserCog,
       color:
         "from-emerald-500/20 to-emerald-500/5 text-emerald-600 dark:text-emerald-400 border-emerald-500/20",
     },
     {
-      label: "Total Classes",
-      value: String(deptClasses.length),
-      icon: Layers,
-      color:
-        "from-blue-500/20 to-blue-500/5 text-blue-600 dark:text-blue-400 border-blue-500/20",
-    },
-    {
       label: "Curriculum Subjects",
       value: String(allDeptSubjects.length),
+      subtext: "Subjects (CC & Dept)",
+      href: "/subjects",
       icon: BookOpen,
       color:
         "from-teal-500/20 to-teal-500/5 text-teal-600 dark:text-teal-400 border-teal-500/20",
@@ -233,6 +234,8 @@ export const HODDashboard: React.FC = () => {
     {
       label: "Enrolled Students",
       value: String(deptStudents.length),
+      subtext: "Enrolled students",
+      href: "/hod/students",
       icon: GraduationCap,
       color:
         "from-amber-500/20 to-amber-500/5 text-amber-600 dark:text-amber-400 border-amber-500/20",
@@ -272,21 +275,22 @@ export const HODDashboard: React.FC = () => {
         </div>
       </div>
 
-      {/* Primary Stat Cards */}
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
+      {/* Primary Department Metric Cards */}
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
         {statCards.map((s, i) => {
           const Icon = s.icon;
           return (
-            <Card
+            <Link
               key={i}
-              className="border border-border p-4 relative overflow-hidden shadow-xs hover:border-primary/40 transition-colors"
+              to={s.href}
+              className="group block rounded-xl border border-border bg-card p-4 shadow-xs hover:border-primary/50 hover:shadow-md transition-all relative overflow-hidden"
             >
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+              <div className="flex items-center justify-between mb-3">
+                <span className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground group-hover:text-primary transition-colors">
                   {s.label}
                 </span>
                 <div
-                  className={`p-1.5 rounded-lg border bg-gradient-to-br ${s.color}`}
+                  className={`p-1.5 rounded-lg border bg-gradient-to-br ${s.color} group-hover:scale-105 transition-transform`}
                 >
                   <Icon className="h-3.5 w-3.5" />
                 </div>
@@ -294,102 +298,13 @@ export const HODDashboard: React.FC = () => {
               <div className="text-2xl font-black text-foreground">
                 {s.value}
               </div>
-            </Card>
+              <div className="mt-2 flex items-center justify-between text-[11px] text-muted-foreground">
+                <span>{s.subtext}</span>
+                <ArrowRight className="h-3 w-3 text-muted-foreground/60 group-hover:text-primary group-hover:translate-x-0.5 transition-all" />
+              </div>
+            </Link>
           );
         })}
-      </div>
-
-      {/* Quick Navigation Hub */}
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
-        <Link
-          to="/hod/classes"
-          className="group block rounded-xl border border-border bg-card p-3.5 shadow-xs hover:border-primary/50 hover:bg-muted/40 transition-all"
-        >
-          <div className="flex items-center justify-between">
-            <span className="p-2 rounded-lg bg-blue-500/10 text-blue-600 dark:text-blue-400">
-              <Layers className="h-4 w-4" />
-            </span>
-            <ArrowRight className="h-3.5 w-3.5 text-muted-foreground group-hover:text-primary group-hover:translate-x-0.5 transition-all" />
-          </div>
-          <h3 className="font-display font-bold text-sm text-foreground mt-3">
-            Classes &amp; Divisions
-          </h3>
-          <p className="text-[11px] text-muted-foreground mt-0.5">
-            {deptClasses.length} active classes
-          </p>
-        </Link>
-
-        <Link
-          to="/hod/teachers"
-          className="group block rounded-xl border border-border bg-card p-3.5 shadow-xs hover:border-primary/50 hover:bg-muted/40 transition-all"
-        >
-          <div className="flex items-center justify-between">
-            <span className="p-2 rounded-lg bg-violet-500/10 text-violet-600 dark:text-violet-400">
-              <Users className="h-4 w-4" />
-            </span>
-            <ArrowRight className="h-3.5 w-3.5 text-muted-foreground group-hover:text-primary group-hover:translate-x-0.5 transition-all" />
-          </div>
-          <h3 className="font-display font-bold text-sm text-foreground mt-3">
-            Department Faculty
-          </h3>
-          <p className="text-[11px] text-muted-foreground mt-0.5">
-            {deptTeachers.length} active teachers
-          </p>
-        </Link>
-
-        <Link
-          to="/hod/coordinators"
-          className="group block rounded-xl border border-border bg-card p-3.5 shadow-xs hover:border-primary/50 hover:bg-muted/40 transition-all"
-        >
-          <div className="flex items-center justify-between">
-            <span className="p-2 rounded-lg bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
-              <UserCog className="h-4 w-4" />
-            </span>
-            <ArrowRight className="h-3.5 w-3.5 text-muted-foreground group-hover:text-primary group-hover:translate-x-0.5 transition-all" />
-          </div>
-          <h3 className="font-display font-bold text-sm text-foreground mt-3">
-            Class Coordinators
-          </h3>
-          <p className="text-[11px] text-muted-foreground mt-0.5">
-            {deptAssignments.length} assigned CCs
-          </p>
-        </Link>
-
-        <Link
-          to="/subjects"
-          className="group block rounded-xl border border-border bg-card p-3.5 shadow-xs hover:border-primary/50 hover:bg-muted/40 transition-all"
-        >
-          <div className="flex items-center justify-between">
-            <span className="p-2 rounded-lg bg-teal-500/10 text-teal-600 dark:text-teal-400">
-              <BookOpen className="h-4 w-4" />
-            </span>
-            <ArrowRight className="h-3.5 w-3.5 text-muted-foreground group-hover:text-primary group-hover:translate-x-0.5 transition-all" />
-          </div>
-          <h3 className="font-display font-bold text-sm text-foreground mt-3">
-            Department Subjects
-          </h3>
-          <p className="text-[11px] text-muted-foreground mt-0.5">
-            {allDeptSubjects.length} subjects (CC &amp; Dept)
-          </p>
-        </Link>
-
-        <Link
-          to="/hod/students"
-          className="group block rounded-xl border border-border bg-card p-3.5 shadow-xs hover:border-primary/50 hover:bg-muted/40 transition-all"
-        >
-          <div className="flex items-center justify-between">
-            <span className="p-2 rounded-lg bg-amber-500/10 text-amber-600 dark:text-amber-400">
-              <GraduationCap className="h-4 w-4" />
-            </span>
-            <ArrowRight className="h-3.5 w-3.5 text-muted-foreground group-hover:text-primary group-hover:translate-x-0.5 transition-all" />
-          </div>
-          <h3 className="font-display font-bold text-sm text-foreground mt-3">
-            Department Students
-          </h3>
-          <p className="text-[11px] text-muted-foreground mt-0.5">
-            {deptStudents.length} enrolled students
-          </p>
-        </Link>
       </div>
 
       {/* 4-Year Engineering Academic Year Overview (Simple & Clean - No track/sem filters) */}
