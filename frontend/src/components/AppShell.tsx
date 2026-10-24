@@ -17,6 +17,7 @@ import {
   UserCog,
   Bell,
   Zap,
+  Shield,
 } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import { useTheme } from "../context/ThemeContext";
@@ -47,6 +48,17 @@ export const AppShell: React.FC = () => {
   const [smsGatewayModalOpen, setSmsGatewayModalOpen] = useState(false);
   const [smsGatewayStatus, setSmsGatewayStatus] =
     useState<SmsGatewayStatus | null>(null);
+
+  const RoleIcon =
+    role === "admin"
+      ? Shield
+      : role === "hod"
+      ? Building2
+      : role === "class_coordinator"
+      ? UserCog
+      : role === "student"
+      ? GraduationCap
+      : Users;
 
   React.useEffect(() => {
     if (role && role !== "student") {
@@ -336,16 +348,13 @@ export const AppShell: React.FC = () => {
             >
               {role?.replace("_", " ")}
             </Badge>
-            <Button
-              id="mobile-header-logout-btn"
-              variant="outline"
-              size="sm"
-              onClick={openLogoutConfirm}
-              className="text-destructive border-destructive/30 hover:bg-destructive/10 hover:border-destructive/50 p-2 h-8 w-8 rounded-lg transition-colors"
-              title="Log out"
+            <Link
+              to="/profile"
+              className="flex h-8 w-8 items-center justify-center rounded-lg border border-border/70 bg-card text-primary hover:bg-muted/80 transition-colors"
+              title="View Profile"
             >
-              <LogOut className="h-4 w-4" />
-            </Button>
+              <RoleIcon className="h-4 w-4" />
+            </Link>
           </div>
         </header>
 
@@ -412,26 +421,16 @@ export const AppShell: React.FC = () => {
             </button>
             <Link
               to="/profile"
-              className="flex items-center gap-2 rounded-xl border border-border/70 bg-card px-3 py-1.5 hover:bg-muted/60 transition-colors"
+              className="flex items-center gap-2.5 rounded-xl border border-border/70 bg-card px-3 py-1.5 hover:bg-muted/60 hover:border-primary/40 transition-colors shadow-2xs"
+              title="View Profile"
             >
-              <div className="flex h-6 w-6 items-center justify-center rounded-lg bg-primary/15 text-primary text-xs font-bold">
-                {user?.full_name ? user.full_name[0].toUpperCase() : "U"}
+              <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary/15 text-primary">
+                <RoleIcon className="h-4 w-4" />
               </div>
-              <span className="text-xs font-medium text-foreground max-w-32 truncate">
+              <span className="text-xs font-medium text-foreground max-w-36 truncate">
                 {user?.full_name || "Profile"}
               </span>
             </Link>
-            <Button
-              id="desktop-header-logout-btn"
-              variant="outline"
-              size="sm"
-              onClick={openLogoutConfirm}
-              className="h-9 px-3 rounded-xl border-destructive/30 text-destructive hover:bg-destructive/10 hover:border-destructive/50 text-xs font-semibold gap-1.5 shadow-2xs transition-colors"
-              title="Sign out of EduTrack"
-            >
-              <LogOut className="h-3.5 w-3.5" />
-              <span>Log out</span>
-            </Button>
           </div>
         </header>
 
